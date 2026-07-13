@@ -1,0 +1,191 @@
+# =============================================================================
+# Codewolf / Codebuff monorepo
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Operating-system files
+# -----------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# Editors and IDEs
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+.fleet/
+.history/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# Environment variables, credentials and local secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Package-manager authentication files may contain registry tokens.
+.npmrc
+.yarnrc
+.pnpmrc
+
+# Local-only Bun configuration.
+bunfig.local.toml
+
+# User-specific authentication and provider configuration copied into the repo.
+**/provider-auth.json
+**/credentials.json
+/providers.json
+/providers.local.json
+/secrets.json
+/secrets.*.json
+
+# Private keys and local signing stores.
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Codebuff/Manicode local state. Keep the project instruction file tracked.
+.codebuff/
+.codebuff-*/
+.codebuff.local.*
+!.codebuffignore
+.manicode/
+.manicode-*/
+
+# Other local assistant/tool configuration.
+.aider*
+.codex/
+.gstack/
+.infisical.json
+
+# -----------------------------------------------------------------------------
+# Dependencies and package-manager caches
+# -----------------------------------------------------------------------------
+**/node_modules/
+.bun/
+.bun-cache/
+
+# This repository uses bun.lock. Ignore lockfiles created accidentally by other
+# package managers or by older Bun versions.
+/bun.lockb
+/package-lock.json
+/npm-shrinkwrap.json
+/pnpm-lock.yaml
+/yarn.lock
+
+# -----------------------------------------------------------------------------
+# Build output and generated artifacts
+# -----------------------------------------------------------------------------
+**/dist/
+**/dist-env/
+**/build/
+**/out/
+**/.cache/
+**/.parcel-cache/
+**/.turbo/
+**/.next/
+.vercel/
+
+# Compiled standalone CLI. Do not commit codebuff.exe or tree-sitter.wasm.
+/cli/bin/
+
+# Generated agent bundle recreated by prebuild:agents.
+/cli/src/agents/bundled-agents.generated.ts
+
+# TypeScript incremental-build metadata.
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Local release archives and generic build artifacts.
+/artifacts/
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz
+
+# -----------------------------------------------------------------------------
+# Tests, coverage and benchmark output
+# -----------------------------------------------------------------------------
+**/coverage/
+**/.nyc_output/
+**/test-results/
+**/playwright-report/
+**/blob-report/
+*.lcov
+__mock-projects__/
+npm-app/src/__tests__/data/
+
+# Nx caches
+.nx/cache/
+.nx/workspace-data/
+
+# Buffbench failure dumps
+/evals/buffbench/*-error-*.json
+
+# Freebuff local runtime state: SQLite databases, worktrees and generated skills.
+.freebuff/
+
+# -----------------------------------------------------------------------------
+# Logs, diagnostics and temporary files
+# -----------------------------------------------------------------------------
+**/debug/
+**/logs/
+*.log
+*.log.*
+**/log.jsonl
+**/cli.jsonl
+**/trace.jsonl
+
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.pid
+*.pid.lock
+*.cpuprofile
+*.heapsnapshot
+*.prof
+
+# Local databases and runtime state.
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+.tmp/
+tmp/
+temp/
+
+# -----------------------------------------------------------------------------
+# Project-specific local/generated paths
+# -----------------------------------------------------------------------------
+/dev/
+.context/
+.manicode
+
+# ctags
+/tags
+
+# Generated local documentation/debug report retained from the upstream rules.
+/docs/bot-detection.md
