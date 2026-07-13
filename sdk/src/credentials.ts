@@ -1,12 +1,12 @@
 import fs from 'fs'
 import path from 'node:path'
-import os from 'os'
 
 import {
   CHATGPT_OAUTH_CLIENT_ID,
   CHATGPT_OAUTH_TOKEN_URL,
 } from '@codebuff/common/constants/chatgpt-oauth'
 import { env } from '@codebuff/common/env'
+import { getCodewolfHomeDir } from '@codebuff/common/util/codewolf-home'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 
@@ -47,20 +47,16 @@ export const userFromJson = (json: string): User | null => {
 }
 
 /**
- * Get the config directory path based on the environment.
- * Uses the clientEnv to determine the environment suffix.
+ * Get Codewolf's single user data directory.
+ *
+ * The clientEnv argument is retained for API compatibility, but development,
+ * test and production builds intentionally share ~/.codewolf.
  */
-export const getConfigDir = (clientEnv: ClientEnv = env): string => {
-  const envSuffix =
-    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT &&
-    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
-      ? `-${clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT}`
-      : ''
-  return path.join(os.homedir(), '.config', `manicode${envSuffix}`)
-}
+export const getConfigDir = (_clientEnv: ClientEnv = env): string =>
+  getCodewolfHomeDir()
 
 /**
- * Get the credentials file path based on the environment.
+ * Get the credentials file path inside the shared Codewolf home.
  */
 export const getCredentialsPath = (clientEnv: ClientEnv = env): string => {
   return path.join(getConfigDir(clientEnv), 'credentials.json')

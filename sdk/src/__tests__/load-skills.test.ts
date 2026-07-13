@@ -64,37 +64,27 @@ describe('loadSkills', () => {
     rmSync(tempRoot, { recursive: true, force: true })
   })
 
-  test('discovers valid skills from all default search roots', async () => {
+  test('discovers global and project Codewolf skills', async () => {
     writeSkill({
-      skillsRoot: path.join(homeDir, '.claude', 'skills'),
-      skillDirName: 'global-claude-skill',
+      skillsRoot: path.join(homeDir, '.codewolf', 'skills'),
+      skillDirName: 'global-skill',
     })
     writeSkill({
-      skillsRoot: path.join(homeDir, '.agents', 'skills'),
-      skillDirName: 'global-agents-skill',
-    })
-    writeSkill({
-      skillsRoot: path.join(projectDir, '.claude', 'skills'),
-      skillDirName: 'project-claude-skill',
-    })
-    writeSkill({
-      skillsRoot: path.join(projectDir, '.agents', 'skills'),
-      skillDirName: 'project-agents-skill',
+      skillsRoot: path.join(projectDir, '.codewolf', 'skills'),
+      skillDirName: 'project-skill',
     })
 
     const skills = await loadSkills({ cwd: projectDir })
 
     expect(Object.keys(skills).sort()).toEqual([
-      'global-agents-skill',
-      'global-claude-skill',
-      'project-agents-skill',
-      'project-claude-skill',
+      'global-skill',
+      'project-skill',
     ])
-    expect(skills['global-claude-skill']?.filePath).toBe(
-      path.join(homeDir, '.claude', 'skills', 'global-claude-skill', 'SKILL.md'),
+    expect(skills['global-skill']?.filePath).toBe(
+      path.join(homeDir, '.codewolf', 'skills', 'global-skill', 'SKILL.md'),
     )
-    expect(skills['project-agents-skill']?.description).toBe(
-      'Description for project-agents-skill',
+    expect(skills['project-skill']?.description).toBe(
+      'Description for project-skill',
     )
   })
 
@@ -107,7 +97,7 @@ describe('loadSkills', () => {
       description: 'Loaded from explicit skillsPath',
     })
     writeSkill({
-      skillsRoot: path.join(projectDir, '.agents', 'skills'),
+      skillsRoot: path.join(projectDir, '.codewolf', 'skills'),
       skillDirName: 'project-skill',
       description: 'Should be ignored when skillsPath is set',
     })
@@ -123,55 +113,28 @@ describe('loadSkills', () => {
     )
   })
 
-  test('applies override precedence as project over global and .agents over .claude', async () => {
+  test('project Codewolf skills override global skills with the same name', async () => {
     writeSkill({
-      skillsRoot: path.join(homeDir, '.claude', 'skills'),
+      skillsRoot: path.join(homeDir, '.codewolf', 'skills'),
       skillDirName: 'shared-skill',
-      description: 'global claude',
+      description: 'global skill',
     })
     writeSkill({
-      skillsRoot: path.join(homeDir, '.agents', 'skills'),
+      skillsRoot: path.join(projectDir, '.codewolf', 'skills'),
       skillDirName: 'shared-skill',
-      description: 'global agents',
-    })
-    writeSkill({
-      skillsRoot: path.join(projectDir, '.claude', 'skills'),
-      skillDirName: 'shared-skill',
-      description: 'project claude',
-    })
-    writeSkill({
-      skillsRoot: path.join(projectDir, '.agents', 'skills'),
-      skillDirName: 'shared-skill',
-      description: 'project agents',
+      description: 'project skill',
     })
 
     const skills = await loadSkills({ cwd: projectDir })
 
-    expect(skills['shared-skill']?.description).toBe('project agents')
+    expect(skills['shared-skill']?.description).toBe('project skill')
     expect(skills['shared-skill']?.filePath).toBe(
-      path.join(projectDir, '.agents', 'skills', 'shared-skill', 'SKILL.md'),
+      path.join(projectDir, '.codewolf', 'skills', 'shared-skill', 'SKILL.md'),
     )
   })
 
-  test('prefers project .claude skills over global .agents skills', async () => {
-    writeSkill({
-      skillsRoot: path.join(homeDir, '.agents', 'skills'),
-      skillDirName: 'priority-skill',
-      description: 'global agents',
-    })
-    writeSkill({
-      skillsRoot: path.join(projectDir, '.claude', 'skills'),
-      skillDirName: 'priority-skill',
-      description: 'project claude',
-    })
-
-    const skills = await loadSkills({ cwd: projectDir })
-
-    expect(skills['priority-skill']?.description).toBe('project claude')
-  })
-
   test('skips invalid skill directories and malformed skill definitions', async () => {
-    const skillsRoot = path.join(projectDir, '.agents', 'skills')
+    const skillsRoot = path.join(projectDir, '.codewolf', 'skills')
     const consoleError = spyOn(console, 'error').mockImplementation(() => { })
     const consoleWarn = spyOn(console, 'warn').mockImplementation(() => { })
 
@@ -245,7 +208,7 @@ describe('loadSkills', () => {
 
     // Put a skill in a default root that should NOT be found
     writeSkill({
-      skillsRoot: path.join(projectDir, '.agents', 'skills'),
+      skillsRoot: path.join(projectDir, '.codewolf', 'skills'),
       skillDirName: 'default-skill',
       description: 'Should not be found',
     })

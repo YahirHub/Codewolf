@@ -26,16 +26,15 @@ import type { User } from '../../utils/auth'
  * Integration tests for credential storage and retrieval
  *
  * These tests verify the complete flow of saving, loading, and managing
- * user credentials on the file system. Credentials are stored in:
- * - Dev: ~/.config/manicode-dev/credentials.json
- * - Prod: ~/.config/manicode/credentials.json
+ * user credentials on the file system. Credentials are always stored in:
+ * - ~/.codewolf/credentials.json
  *
  * Tests ensure:
  * - Directories are created if missing
  * - JSON format is correct and parseable
  * - Credentials persist across CLI restarts
  * - File operations are atomic (no partial writes)
- * - Environment variable detection works (dev vs prod)
+ * - Development and compiled builds use the same location
  */
 
 const TEST_USER: User = {
@@ -52,7 +51,7 @@ describe('Credentials Storage Integration', () => {
 
   beforeEach(() => {
     // Create temporary config directory for tests
-    tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manicode-test-'))
+    tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codewolf-test-'))
 
     // Set project root to avoid "Project root not set" error in logger
     setProjectRoot(tempConfigDir)
@@ -158,48 +157,17 @@ describe('Credentials Storage Integration', () => {
       expect(keys[0]).toBe('default')
     })
 
-    test('should use manicode-test directory in test environment', async () => {
-      // Restore getConfigDir to use real implementation for this test
+    test('should use the same .codewolf directory in every environment', async () => {
       mock.restore()
 
-      await mockModule('@codebuff/common/env', () => ({
-        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' },
-      }))
-
-      // Call real getConfigDir to verify it includes '-dev'
-      const configDir = authModule.getConfigDir()
-      expect(configDir).toEqual(
-        path.join(os.homedir(), '.config', 'manicode-test'),
-      )
-    })
-
-    test('should use manicode-dev directory in development environment', async () => {
-      // Restore getConfigDir to use real implementation for this test
-      mock.restore()
-
-      await mockModule('@codebuff/common/env', () => ({
-        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' },
-      }))
-
-      // Call real getConfigDir to verify it includes '-dev'
-      const configDir = authModule.getConfigDir()
-      expect(configDir).toEqual(
-        path.join(os.homedir(), '.config', 'manicode-dev'),
-      )
-    })
-
-    test('should use manicode directory in production environment', async () => {
-      // Restore getConfigDir to use real implementation
-      mock.restore()
-
-      // Set environment to prod (or unset it)
-      await mockModule('@codebuff/common/env', () => ({
-        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' },
-      }))
-
-      // Call real getConfigDir to verify it doesn't include '-dev'
-      const configDir = authModule.getConfigDir()
-      expect(configDir).toEqual(path.join(os.homedir(), '.config', 'manicode'))
+      for (const environment of ['test', 'dev', 'prod'] as const) {
+        await mockModule('@codebuff/common/env', () => ({
+          env: { NEXT_PUBLIC_CB_ENVIRONMENT: environment },
+        }))
+        expect(authModule.getConfigDir()).toEqual(
+          path.join(os.homedir(), '.codewolf'),
+        )
+      }
     })
 
     test('should allow credentials to persist across simulated CLI restarts', () => {

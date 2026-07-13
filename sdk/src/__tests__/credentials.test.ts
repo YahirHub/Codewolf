@@ -26,32 +26,21 @@ describe('credentials', () => {
   } as const
 
   describe('getConfigDir', () => {
-    test('returns path with environment suffix for non-prod environments', () => {
-      const dir = getConfigDir(testEnv as any)
-      expect(dir).toContain('manicode-test')
-      expect(dir).toContain('.config')
+    test('returns the same ~/.codewolf path for test, development and production', () => {
+      const testDir = getConfigDir(testEnv as any)
+      const devDir = getConfigDir({ NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' } as any)
+      const prodDir = getConfigDir({ NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' } as any)
+
+      const expected = path.join(os.homedir(), '.codewolf')
+      expect(testDir).toBe(expected)
+      expect(devDir).toBe(expected)
+      expect(prodDir).toBe(expected)
     })
 
-    test('returns path without suffix for prod environment', () => {
-      const prodEnv = { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' }
-      const dir = getConfigDir(prodEnv as any)
-      expect(dir).toContain('manicode')
-      expect(dir).not.toContain('manicode-prod')
-    })
-
-    test('returns path without suffix when environment is undefined', () => {
-      const emptyEnv = {}
-      const dir = getConfigDir(emptyEnv as any)
-      expect(dir).toContain('manicode')
-      expect(dir).not.toContain('manicode-')
-    })
-  })
-
-  describe('getCredentialsPath', () => {
-    test('returns path within config directory', () => {
-      const credPath = getCredentialsPath(testEnv as any)
-      expect(credPath).toContain('credentials.json')
-      expect(credPath).toContain('manicode-test')
+    test('credentials path is stored directly inside ~/.codewolf', () => {
+      expect(getCredentialsPath(testEnv as any)).toBe(
+        path.join(os.homedir(), '.codewolf', 'credentials.json'),
+      )
     })
   })
 
@@ -75,9 +64,17 @@ describe('credentials', () => {
 
   describe('getUserCredentials', () => {
     test('returns null when credentials file does not exist', () => {
-      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'nonexistent' } as any
-      const user = getUserCredentials(env)
-      expect(user).toBeNull()
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codewolf-no-user-'))
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      try {
+        const user = getUserCredentials(testEnv as any)
+        expect(user).toBeNull()
+      } finally {
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
     })
   })
 

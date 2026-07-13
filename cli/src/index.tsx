@@ -223,7 +223,7 @@ async function main(): Promise<void> {
     await initializeAgentRegistry()
   }
 
-  // Initialize skill registry (loads skills from .agents/skills)
+  // Initialize skill registry (loads skills from ~/.codewolf/skills and project overrides)
   await initializeSkillRegistry()
 
   // Handle publish command before rendering the app

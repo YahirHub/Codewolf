@@ -1,5 +1,4 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 import {
@@ -7,6 +6,7 @@ import {
   SKILL_FILE_NAME,
   isValidSkillName,
 } from '@codebuff/common/constants/skills'
+import { getCodewolfSkillsDir } from '@codebuff/common/util/codewolf-home'
 import {
   SkillFrontmatterSchema,
   type SkillDefinition,
@@ -164,24 +164,16 @@ function discoverSkillsFromDirectory(
 }
 
 /**
- * Gets the default skills directories to search.
- * Searches both .claude/skills and .agents/skills for Claude Code compatibility.
- * 
+ * Gets the default Codewolf skills directories.
+ *
  * Order (later overrides earlier):
- * - ~/.claude/skills/ (global Claude-compatible)
- * - ~/.agents/skills/ (global Codebuff)
- * - {cwd}/.claude/skills/ (project Claude-compatible)
- * - {cwd}/.agents/skills/ (project Codebuff)
+ * - ~/.codewolf/skills/ (global)
+ * - {cwd}/.codewolf/skills/ (project-specific)
  */
 function getDefaultSkillsDirs(cwd: string): string[] {
-  const home = os.homedir()
   return [
-    // Global directories (Claude-compatible first, then Codebuff)
-    path.join(home, '.claude', SKILLS_DIR_NAME),
-    path.join(home, '.agents', SKILLS_DIR_NAME),
-    // Project directories (Claude-compatible first, then Codebuff)
-    path.join(cwd, '.claude', SKILLS_DIR_NAME),
-    path.join(cwd, '.agents', SKILLS_DIR_NAME),
+    getCodewolfSkillsDir(),
+    path.join(cwd, '.codewolf', SKILLS_DIR_NAME),
   ]
 }
 
@@ -195,17 +187,15 @@ export type LoadSkillsOptions = {
 }
 
 /**
- * Load skills from .agents/skills and .claude/skills directories.
+ * Load skills from Codewolf skills directories.
  *
  * By default, searches for skills in (later overrides earlier):
- * - `~/.claude/skills/` (global, Claude Code compatible)
- * - `~/.agents/skills/` (global)
- * - `{cwd}/.claude/skills/` (project, Claude Code compatible)
- * - `{cwd}/.agents/skills/` (project, highest priority)
+ * - `~/.codewolf/skills/` (global)
+ * - `{cwd}/.codewolf/skills/` (project, highest priority)
  *
  * Each skill must be in its own directory with a SKILL.md file:
- * - `.agents/skills/my-skill/SKILL.md`
- * - `.claude/skills/my-skill/SKILL.md`
+ * - `~/.codewolf/skills/my-skill/SKILL.md`
+ * - `.codewolf/skills/my-skill/SKILL.md`
  *
  * @param options.cwd - Working directory for project skills
  * @param options.skillsPath - Optional path to a specific skills directory

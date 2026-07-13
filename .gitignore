@@ -1,5 +1,5 @@
 # =============================================================================
-# Codewolf / Codebuff monorepo
+# Codewolf monorepo
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -60,13 +60,11 @@ id_rsa.*
 id_ed25519
 id_ed25519.*
 
-# Codebuff/Manicode local state. Keep the project instruction file tracked.
+# Legacy local state. Keep the project instruction file tracked.
 .codebuff/
 .codebuff-*/
 .codebuff.local.*
 !.codebuffignore
-.manicode/
-.manicode-*/
 
 # Other local assistant/tool configuration.
 .aider*
@@ -182,7 +180,6 @@ temp/
 # -----------------------------------------------------------------------------
 /dev/
 .context/
-.manicode
 
 # ctags
 /tags

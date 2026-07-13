@@ -6,7 +6,7 @@ Skills are reusable instruction sets that agents can load on-demand via the `ski
 
 1. Create a directory with your skill name (lowercase alphanumeric with hyphens):
    ```
-   .agents/skills/my-skill/
+   ~/.codewolf/skills/my-skill/
    ```
 
 2. Create a `SKILL.md` file with YAML frontmatter:
@@ -48,8 +48,8 @@ Invalid examples: `Git-Release`, `my--skill`, `-skill`, `skill-`
 ## Discovery Locations
 
 Skills are discovered from these locations (in order of precedence):
-1. `~/.agents/skills/` (global, lowest priority)
-2. `.agents/skills/` (project, highest priority)
+1. `~/.codewolf/skills/` (global, lowest priority)
+2. `.codewolf/skills/` (project, highest priority)
 
 Project skills override global skills with the same name.
 

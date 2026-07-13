@@ -1,4 +1,5 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { ensureCodewolfHomeLayout } from '@codebuff/common/util/codewolf-home'
 import {
   getChatGptOAuthCredentials,
   getValidChatGptOAuthCredentials,
@@ -14,6 +15,10 @@ import { getFingerprintId } from '../utils/fingerprint'
 import { initializeDirenv } from './init-direnv'
 
 export async function initializeApp(params: { cwd?: string }): Promise<void> {
+  // Create ~/.codewolf, ~/.codewolf/skills and ~/.codewolf/projects before
+  // any subsystem tries to read or write persistent user data.
+  ensureCodewolfHomeLayout()
+
   if (params.cwd) {
     process.chdir(params.cwd)
   }

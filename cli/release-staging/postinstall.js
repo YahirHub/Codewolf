@@ -7,8 +7,7 @@ const path = require('path');
 // Clean up old binary
 const binaryPath = path.join(
   os.homedir(),
-  '.config',
-  'manicode',
+  '.codewolf',
   process.platform === 'win32' ? 'codecane.exe' : 'codecane'
 );
 

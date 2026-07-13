@@ -6,7 +6,7 @@
  */
 
 /**
- * The directory name where skills are stored (within .agents/).
+ * The directory name where skills are stored (within .codewolf/).
  */
 export const SKILLS_DIR_NAME = 'skills'
 

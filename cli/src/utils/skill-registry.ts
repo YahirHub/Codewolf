@@ -16,14 +16,14 @@ let skillsCache: SkillsMap = {}
  * This must be called at CLI startup.
  * 
  * Skills are loaded from:
- * - ~/.agents/skills/ (global)
- * - {projectRoot}/.agents/skills/ (project, overrides global)
+ * - ~/.codewolf/skills/ (global)
+ * - {projectRoot}/.codewolf/skills/ (project, overrides global)
  */
 export async function initializeSkillRegistry(): Promise<void> {
   const cwd = getProjectRoot() || process.cwd()
 
   try {
-    // Load skills from both global (~/.agents/skills) and project directories
+    // Load skills from global and project .codewolf/skills directories
     // The SDK handles merging, with project skills overriding global ones
     skillsCache = await sdkLoadSkills({
       cwd,

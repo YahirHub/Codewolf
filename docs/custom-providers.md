@@ -82,10 +82,17 @@ This normalization is applied at the tool boundary, tool-schema snapshot, Codebu
 
 ## Storage and security
 
-The configuration remains in the user's global Codebuff configuration directory:
+All persistent configuration is stored in Codewolf's single cross-platform home directory, `~/.codewolf/`. Development and compiled binaries use the same location:
 
-- `providers.json` stores provider names, URLs, model lists, and the active selection.
-- `provider-auth.json` stores directly entered API keys separately and is written with user-only permissions where POSIX modes are supported.
+- Windows: `C:\\Users\\<user>\\.codewolf\\`
+- Linux: `/home/<user>/.codewolf/`
+- macOS: `/Users/<user>/.codewolf/`
+
+
+- `~/.codewolf/providers.json` stores provider names, URLs, model lists, and the active selection.
+- `~/.codewolf/provider-auth.json` stores directly entered API keys separately and is written with user-only permissions where POSIX modes are supported.
+- `~/.codewolf/skills/` stores global skills.
+- `~/.codewolf/projects/` stores project chat history and run state.
 
 Neither file belongs in the current project repository. The API key is never stored in `providers.json`.
 
