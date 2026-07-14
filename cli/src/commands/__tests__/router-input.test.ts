@@ -34,25 +34,25 @@ describe('router-utils', () => {
     test('extracts command from slashed input', () => {
       expect(parseCommand('/help')).toBe('help')
       expect(parseCommand('/logout')).toBe('logout')
-      expect(parseCommand('/usage')).toBe('usage')
+      expect(parseCommand('/help')).toBe('help')
     })
 
     test('returns empty string for unslashed input (not a slash command)', () => {
       expect(parseCommand('help')).toBe('')
       expect(parseCommand('logout')).toBe('')
-      expect(parseCommand('usage')).toBe('')
+      expect(parseCommand('help')).toBe('')
       expect(parseCommand('login to my database')).toBe('')
     })
 
     test('extracts first word as command when there are arguments', () => {
       expect(parseCommand('/help me')).toBe('help')
-      expect(parseCommand('/usage stats')).toBe('usage')
+      expect(parseCommand('/help stats')).toBe('help')
     })
 
     test('converts command to lowercase', () => {
       expect(parseCommand('/HELP')).toBe('help')
       expect(parseCommand('/LOGOUT')).toBe('logout')
-      expect(parseCommand('/UsAgE')).toBe('usage')
+      expect(parseCommand('/HeLp')).toBe('help')
     })
 
     test('handles empty string', () => {
@@ -105,7 +105,7 @@ describe('router-utils', () => {
     })
 
     test('returns null for commands not configured for slashless invocation', () => {
-      expect(parseCommandInput('usage')).toBe(null)
+      expect(parseCommandInput('help')).toBe(null)
       expect(parseCommandInput('bash')).toBe(null)
       expect(parseCommandInput('feedback')).toBe(null)
     })
@@ -154,8 +154,6 @@ describe('router-utils', () => {
     const slashCommands = [
       'login',
       'logout',
-      'usage',
-      'credits',
       'exit',
       'clear',
       'new',
@@ -200,15 +198,13 @@ describe('command-registry', () => {
       expect(login).toBeDefined()
       expect(login?.name).toBe('login')
 
-      const usage = findCommand('usage')
-      expect(usage).toBeDefined()
-      expect(usage?.name).toBe('usage')
+      expect(findCommand('usage')).toBeUndefined()
+      expect(findCommand('subscribe')).toBeUndefined()
     })
 
     test('finds command by alias', () => {
-      const credits = findCommand('credits')
-      expect(credits).toBeDefined()
-      expect(credits?.name).toBe('usage')
+      expect(findCommand('credits')).toBeUndefined()
+      expect(findCommand('buy-credits')).toBeUndefined()
 
       const modelDefault = findCommand('model:default')
       expect(modelDefault).toBeDefined()
@@ -226,12 +222,16 @@ describe('command-registry', () => {
     test('returns undefined for unknown command', () => {
       expect(findCommand('unknown')).toBeUndefined()
       expect(findCommand('notacommand')).toBeUndefined()
+      expect(findCommand('ads:enable')).toBeUndefined()
+      expect(findCommand('ads:disable')).toBeUndefined()
+      expect(findCommand('strong')).toBeUndefined()
+      expect(findCommand('sub')).toBeUndefined()
     })
 
     test('is case insensitive', () => {
       expect(findCommand('LOGIN')?.name).toBe('login')
-      expect(findCommand('UsAgE')?.name).toBe('usage')
-      expect(findCommand('CREDITS')?.name).toBe('usage')
+      expect(findCommand('UsAgE')).toBeUndefined()
+      expect(findCommand('CREDITS')).toBeUndefined()
     })
   })
 
@@ -253,6 +253,26 @@ describe('command-registry', () => {
       const allAliases = COMMAND_REGISTRY.flatMap((c) => c.aliases)
       for (const alias of allAliases) {
         expect(names.has(alias)).toBe(false)
+      }
+    })
+
+    test('commercial commands are absent from slash command metadata', () => {
+      const commercialCommands = new Set([
+        'subscribe',
+        'usage',
+        'ads:enable',
+        'ads:disable',
+        'strong',
+        'sub',
+        'buy-credits',
+        'credits',
+      ])
+
+      for (const command of SLASH_COMMANDS) {
+        expect(commercialCommands.has(command.id)).toBe(false)
+        for (const alias of command.aliases ?? []) {
+          expect(commercialCommands.has(alias)).toBe(false)
+        }
       }
     })
 

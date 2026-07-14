@@ -54,9 +54,7 @@ import type { SendMessageTimerEvent } from '../utils/send-message-timer'
 import { STATE_SNAPSHOT_INTERRUPTION_MESSAGE } from '@codebuff/sdk'
 
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
-import { isCoveredBySubscription } from '../utils/subscription'
 
-import type { SubscriptionResponse } from './use-subscription-query'
 
 interface UseSendMessageOptions {
   inputRef: React.MutableRefObject<any>
@@ -85,7 +83,6 @@ interface UseSendMessageOptions {
   }) => void
   continueChat: boolean
   continueChatId?: string
-  subscriptionData?: SubscriptionResponse | null
 }
 
 // Choose the agent definition by explicit selection or mode-based fallback.
@@ -137,7 +134,6 @@ export const useSendMessage = ({
   requeueMessageAtFront,
   continueChat,
   continueChatId,
-  subscriptionData,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -153,7 +149,6 @@ export const useSendMessage = ({
     setIsChainInProgress,
     setHasReceivedPlanResponse,
     setLastMessageMode,
-    addSessionCredits,
     setRunState,
     setIsRetrying,
   } = useChatStore.getState()
@@ -535,11 +530,6 @@ export const useSendMessage = ({
           setIsRetrying,
           onTotalCost: (cost: number) => {
             actualCredits = cost
-            // Only add to session credits if not covered by subscription
-            // (subscription credits are shown separately in the UI)
-            if (!isCoveredBySubscription(subscriptionData)) {
-              addSessionCredits(cost)
-            }
           },
         })
 
@@ -708,8 +698,7 @@ export const useSendMessage = ({
     },
     [
       addActiveSubagent,
-      addSessionCredits,
-      agentId,
+        agentId,
       inputRef,
       isChainInProgressRef,
       isProcessingQueueRef,

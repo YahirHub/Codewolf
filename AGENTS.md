@@ -34,6 +34,18 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `docs/agents-and-tools.md`
 - `docs/testing.md`
 
+## Persistent Project Context
+
+- `contexto/000-contexto-maestro.md` is the mandatory entry point when resuming from a ZIP or a fresh session. Read it, then `README.md`, `AGENTS.md`, and the remaining numbered context files in order before substantial changes.
+- Every architecture change, feature, important bug, security decision, build change, or deployment decision must create the next numbered file in `contexto/` with date, objective, decisions, architecture, libraries, files, problems, solutions, pending work, and next steps.
+- When code and an older context file disagree, verify the code and update the newest context document instead of silently trusting stale notes.
+
+## Custom Edition Without Monetization
+
+- Codewolf does not expose ads, credits, subscriptions, purchase links, or commercial rate-limit dialogs. Do not register `/subscribe`, `/usage`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`.
+- The chat must not query subscription/usage endpoints, request ads, display credit counters, or replace the editor with a purchase banner. Provider errors stay ordinary actionable errors.
+- Upstream compatibility modules may remain temporarily if shared packages still reference them, but they must be unreachable from the Codewolf CLI. Remove them only in a dedicated tested cleanup.
+
 ## Custom Provider Architecture
 
 - The CLI owns persistent provider metadata and secrets in `cli/src/utils/custom-providers.ts`; the SDK must receive only the resolved active configuration.

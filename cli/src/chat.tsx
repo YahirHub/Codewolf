@@ -1,6 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
-import { safeOpen } from './utils/open-url'
 import {
   useCallback,
   useEffect,
@@ -11,9 +10,7 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { SingleAdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
@@ -23,7 +20,6 @@ import { ProviderLoginScreen } from './components/provider-login-screen'
 import { ModelSelectorScreen } from './components/model-selector-screen'
 import { SearchSetupScreen } from './components/search-setup-screen'
 import { MessageWithAgents } from './components/message-with-agents'
-import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
 import { StatusBar } from './components/status-bar'
@@ -45,16 +41,12 @@ import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
-import { useSubscriptionQuery } from './hooks/use-subscription-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
-import { useGravityAd } from './hooks/use-gravity-ad'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useUsageMonitor } from './hooks/use-usage-monitor'
-import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
@@ -62,7 +54,6 @@ import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
-import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -158,9 +149,6 @@ export const Chat = ({
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
 
-  // Monitor usage data and auto-show banner when thresholds are crossed
-  useUsageMonitor()
-
   // Get chat state from extracted hook
   const {
     inputValue,
@@ -192,36 +180,6 @@ export const Chat = ({
   } = useChatState()
 
   const { statusMessage } = useClipboard()
-
-  // Fetch subscription data early - needed for session credits tracking and ad gating
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: 60 * 1000,
-  })
-  const hasSubscription = subscriptionData?.hasSubscription ?? false
-
-  const {
-    ads,
-    responseAds,
-    requestResponseAds,
-    recordClick,
-    recordImpression,
-  } = useGravityAd({
-    enabled: IS_FREEBUFF || !hasSubscription,
-    provider: 'gravity',
-    inline: true,
-    surface: 'cli_chat',
-    // Lazily fill a four-ad pool, then repeat it for later transcript slots.
-    inlinePlacementId: 'CLI-Chat-Inline',
-    // Keep the rotating above-input slot separate for reporting continuity.
-    slotPlacementId: 'Single-Ad-Unit-1',
-  })
-  const showInlineAds = IS_FREEBUFF || getAdsEnabled()
-
-  // Stable identities so the message-block callbacks (set once) always call
-  // the latest recorder from the hook.
-  const handleAdClick = useEvent(recordClick)
-  const handleAdImpression = useEvent(recordImpression)
-  const handleResponseAdsNeeded = useEvent(requestResponseAds)
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -298,18 +256,11 @@ export const Chat = ({
   // Get loaded skills for slash commands
   const loadedSkills = useMemo(() => getLoadedSkills(), [])
 
-  // Filter slash commands based on current ads state - only show the option that changes state
-  // Hide both ads commands entirely for subscribers
-  // Also merge in skill commands
-  const filteredSlashCommands = useMemo(() => {
-    const adsEnabled = getAdsEnabled()
-    const allCommands = getSlashCommandsWithSkills(loadedSkills)
-    return allCommands.filter((cmd) => {
-      if (cmd.id === 'ads:enable') return !hasSubscription && !adsEnabled
-      if (cmd.id === 'ads:disable') return !hasSubscription && adsEnabled
-      return true
-    })
-  }, [inputValue, loadedSkills, hasSubscription]) // Re-evaluate when input changes (user may have just toggled)
+  // Merge built-in commands with project and global skills.
+  const filteredSlashCommands = useMemo(
+    () => getSlashCommandsWithSkills(loadedSkills),
+    [loadedSkills],
+  )
 
   const {
     slashContext,
@@ -522,7 +473,6 @@ export const Chat = ({
     requeueMessageAtFront: addToQueueFront,
     continueChat,
     continueChatId,
-    subscriptionData,
   })
 
   sendMessageRef.current = sendMessage
@@ -893,17 +843,6 @@ export const Chat = ({
   useEffect(() => {
     inputValueRef.current = inputValue
   }, [inputValue])
-
-  // Report activity on input changes for ad rotation (debounced via separate effect)
-  const lastReportedActivityRef = useRef<number>(0)
-  useEffect(() => {
-    const now = Date.now()
-    // Throttle to max once per second to avoid excessive calls
-    if (now - lastReportedActivityRef.current > 1000) {
-      lastReportedActivityRef.current = now
-      reportActivity()
-    }
-  }, [inputValue])
   useEffect(() => {
     cursorPositionRef.current = cursorPosition
   }, [cursorPosition])
@@ -1074,8 +1013,6 @@ export const Chat = ({
   ])
 
   const handleSubmit = useCallback(async () => {
-    // Report activity for ad rotation
-    reportActivity()
     // Update terminal title with truncated user input
     if (inputValue.trim()) {
       setTerminalTitle(inputValue)
@@ -1359,15 +1296,6 @@ export const Chat = ({
       onScrollUp: scrollUp,
       onScrollDown: scrollDown,
       onToggleAll: handleToggleAll,
-      onOpenBuyCredits: () => {
-        // If credits have been restored, just return to default mode
-        if (areCreditsRestored()) {
-          setInputMode('default')
-          return
-        }
-        // Otherwise open the buy credits page
-        safeOpen(WEBSITE_URL + '/usage')
-      },
     }),
     [
       setInputMode,
@@ -1436,7 +1364,7 @@ export const Chat = ({
       isWaitingForResponse,
       timerStartTime,
       availableWidth: messageAvailableWidth,
-      responseAds: showInlineAds ? responseAds : {},
+      responseAds: {},
     })
   }, [
     theme,
@@ -1445,8 +1373,6 @@ export const Chat = ({
     isWaitingForResponse,
     timerStartTime,
     messageAvailableWidth,
-    responseAds,
-    showInlineAds,
     setMessageBlockContext,
   ])
 
@@ -1459,9 +1385,9 @@ export const Chat = ({
       onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
-      onAdClick: handleAdClick,
-      onAdImpression: handleAdImpression,
-      onResponseAdsNeeded: handleResponseAdsNeeded,
+      onAdClick: () => {},
+      onAdImpression: () => {},
+      onResponseAdsNeeded: () => {},
     })
   }, [
     handleCollapseToggle,
@@ -1470,9 +1396,6 @@ export const Chat = ({
     handleBuildLite,
     handleMessageFeedback,
     handleCloseFeedback,
-    handleAdClick,
-    handleAdImpression,
-    handleResponseAdsNeeded,
     setMessageBlockCallbacks,
   ])
 
@@ -1553,28 +1476,6 @@ export const Chat = ({
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
-  // Auto-show subscription limit banner when rate limit becomes active
-  const subscriptionLimitShownRef = useRef(false)
-  const subscriptionRateLimit = subscriptionData?.hasSubscription
-    ? subscriptionData.rateLimit
-    : undefined
-  const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
-  useEffect(() => {
-    const isLimited = subscriptionRateLimit?.limited === true
-    if (isLimited && !subscriptionLimitShownRef.current) {
-      subscriptionLimitShownRef.current = true
-      // Skip showing the banner if user prefers to always fall back to a-la-carte
-      if (!fallbackToALaCarte) {
-        useChatStore.getState().setInputMode('subscriptionLimit')
-      }
-    } else if (!isLimited) {
-      subscriptionLimitShownRef.current = false
-      if (useChatStore.getState().inputMode === 'subscriptionLimit') {
-        useChatStore.getState().setInputMode('default')
-      }
-    }
-  }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
-
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []
 
@@ -1604,20 +1505,8 @@ export const Chat = ({
       !isAtBottom ||
       hasActiveFreebuffSession)
 
-  // Track mouse movement for ad activity (throttled)
-  const lastMouseActivityRef = useRef<number>(0)
-  const handleMouseActivity = useCallback(() => {
-    const now = Date.now()
-    // Throttle to max once per second
-    if (now - lastMouseActivityRef.current > 1000) {
-      lastMouseActivityRef.current = now
-      reportActivity()
-    }
-  }, [])
-
   return (
     <box
-      onMouseMove={handleMouseActivity}
       style={{
         flexDirection: 'column',
         gap: 0,
@@ -1728,14 +1617,6 @@ export const Chat = ({
               returnToFreebuffLanding({ resetChat: true }).catch(() => {})
             }}
             freebuffSession={freebuffSession}
-          />
-        )}
-
-        {ads?.[0] && showInlineAds && (
-          <SingleAdBanner
-            ad={ads[0]}
-            onClick={recordClick}
-            onImpression={recordImpression}
           />
         )}
 

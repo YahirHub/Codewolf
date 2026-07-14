@@ -99,3 +99,29 @@ para crear la etiqueta y la release. La definición ya declara
 `permissions: contents: write`. Si una política del repositorio u organización
 lo impide, habilita **Read and write permissions** en
 **Settings → Actions → General → Workflow permissions**.
+
+## Ejecución manual y botón de GitHub
+
+El workflow usa exclusivamente `workflow_dispatch`. GitHub muestra **Run workflow** únicamente cuando:
+
+- `.github/workflows/build-binaries.yml` está confirmado en la rama
+  predeterminada;
+- GitHub Actions está habilitado en **Settings → Actions → General**;
+- la cuenta tiene permisos de escritura;
+- el workflow no está deshabilitado.
+
+Comando alternativo:
+
+```bash
+gh workflow run build-binaries.yml --ref main
+```
+
+Para revisar si GitHub reconoce el archivo:
+
+```bash
+gh workflow list
+gh workflow view build-binaries.yml
+```
+
+La ejecución manual calcula la versión automáticamente; no acepta una versión
+escrita por el usuario.

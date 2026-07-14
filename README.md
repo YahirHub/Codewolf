@@ -12,6 +12,28 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
+## Retomar el proyecto desde un ZIP
+
+La memoria técnica vive en `contexto/`. Al iniciar en otro entorno o
+conversación, el orden obligatorio es:
+
+1. `contexto/000-contexto-maestro.md`
+2. `README.md`
+3. `AGENTS.md`
+4. El resto de `contexto/` en orden numérico
+5. El código relacionado con la tarea
+
+Cada cambio importante debe crear el siguiente documento numerado. Así el ZIP
+del proyecto contiene suficiente información para continuar sin depender del
+historial de una sesión anterior.
+
+## Edición personalizada
+
+Codewolf usa proveedores y motores configurados por el usuario. Esta edición no
+expone anuncios, créditos, suscripciones ni enlaces de compra. Los comandos
+`/subscribe`, `/usage`, `/ads:enable`, `/ads:disable` y sus alias no forman
+parte del CLI.
+
 ## Requisitos de desarrollo
 
 - Bun `1.3.14`.
@@ -119,9 +141,19 @@ El workflow está en:
 Se ejecuta **únicamente de forma manual**. Después de confirmar y subir el
 workflow a la rama predeterminada del repositorio:
 
-1. Abre la pestaña **Actions** en GitHub.
-2. Selecciona **Compilar binarios y publicar release**.
-3. Pulsa **Run workflow** y confirma la ejecución.
+1. Confirma y sube el workflow a la rama predeterminada del repositorio.
+2. Verifica en **Settings → Actions → General** que Actions esté habilitado.
+3. Abre **Actions** y selecciona **Compilar binarios y publicar release**.
+4. Pulsa **Run workflow**, confirma la ejecución.
+
+Si la interfaz todavía no muestra el botón, ejecútalo con GitHub CLI desde una
+cuenta con permisos de escritura:
+
+```bash
+gh workflow run build-binaries.yml --ref main
+```
+
+Sustituye `main` si la rama predeterminada tiene otro nombre.
 
 La primera ejecución crea la versión y etiqueta `1.0.0`. Cada ejecución
 posterior localiza la etiqueta numérica más reciente e incrementa el último

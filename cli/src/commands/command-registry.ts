@@ -1,7 +1,5 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { safeOpen } from '../utils/open-url'
 
-import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleCopyConversationCommand } from './copy-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
@@ -18,10 +16,8 @@ import {
   buildReviewPromptFromArgs,
 } from './prompt-builders'
 import { runBashCommand } from './router'
-import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
-import { WEBSITE_URL } from '../login/constants'
 import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { abortActiveRun } from '../utils/active-run'
@@ -187,10 +183,6 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'login',
   'models',
   'setup-search',
-  'ads:enable',
-  'ads:disable',
-  'usage',
-  'subscribe',
   'image',
   'publish',
   'gpt-5-agent',
@@ -208,24 +200,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'setup-search',
     aliases: ['search-setup', 'search'],
     handler: handleSearchSetupCommand,
-  }),
-  defineCommand({
-    name: 'ads:enable',
-    handler: (params) => {
-      const { postUserMessage } = handleAdsEnable()
-      params.setMessages((prev) => postUserMessage(prev))
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'ads:disable',
-    handler: (params) => {
-      const { postUserMessage } = handleAdsDisable()
-      params.setMessages((prev) => postUserMessage(prev))
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
   }),
   defineCommand({
     name: 'help',
@@ -397,24 +371,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
       setTimeout(() => {
         params.scrollToLatest()
       }, 0)
-    },
-  }),
-  defineCommand({
-    name: 'usage',
-    aliases: ['credits'],
-    handler: async (params) => {
-      const { postUserMessage } = await handleUsageCommand()
-      params.setMessages((prev) => postUserMessage(prev))
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'subscribe',
-    aliases: ['strong', 'sub', 'buy-credits'],
-    handler: (params) => {
-      safeOpen(WEBSITE_URL + '/subscribe')
-      clearInput(params)
     },
   }),
   defineCommandWithArgs({

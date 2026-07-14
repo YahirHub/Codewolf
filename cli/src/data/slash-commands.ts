@@ -34,10 +34,6 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'login',
   'models',
   'setup-search',
-  'ads:enable',
-  'ads:disable',
-  'usage',
-  'subscribe',
   'agent:gpt-5',
   'image',
   'publish',
@@ -93,16 +89,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     : []),
 
   {
-    id: 'ads:enable',
-    label: 'ads:enable',
-    description: 'Activar anuncios contextuales',
-  },
-  {
-    id: 'ads:disable',
-    label: 'ads:disable',
-    description: 'Desactivar anuncios contextuales',
-  },
-  {
     id: 'init',
     label: 'init',
     description: 'Crear un archivo knowledge.md inicial',
@@ -118,18 +104,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   //   label: 'redo',
   //   description: 'Redo the most recent undone change',
   // },
-  {
-    id: 'usage',
-    label: 'usage',
-    description: 'Ver créditos y cuota de suscripción',
-    aliases: ['credits'],
-  },
-  {
-    id: 'subscribe',
-    label: 'subscribe',
-    description: 'Suscribirse para obtener más uso',
-    aliases: ['strong', 'sub', 'buy-credits'],
-  },
   {
     id: 'interview',
     label: 'interview',

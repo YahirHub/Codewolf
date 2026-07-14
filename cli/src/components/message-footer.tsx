@@ -1,16 +1,9 @@
-import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
-import { IS_FREEBUFF } from '../utils/constants'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
 
 import { CopyButton } from './copy-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
-import { useSubscriptionQuery } from '../hooks/use-subscription-query'
-import {
-  getBlockPercentRemaining,
-  isCoveredBySubscription,
-} from '../utils/subscription'
 import { useTheme } from '../hooks/use-theme'
 import {
   useFeedbackStore,
@@ -41,7 +34,6 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   isLoading,
   isComplete,
   completionTime,
-  credits,
   timerStartTime,
   onFeedback,
   onCloseFeedback,
@@ -160,12 +152,6 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
       ),
     })
   }
-  if (typeof credits === 'number' && credits > 0 && !IS_FREEBUFF) {
-    footerItems.push({
-      key: 'credits',
-      node: <CreditsOrSubscriptionIndicator credits={credits} />,
-    })
-  }
   if (shouldRenderFeedbackButton) {
     footerItems.push({
       key: 'feedback',
@@ -217,54 +203,3 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   )
 }
 
-const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({
-  credits,
-}) => {
-  const theme = useTheme()
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: false,
-    refetchOnActivity: false,
-    pauseWhenIdle: false,
-  })
-
-  const blockPercentRemaining = useMemo(
-    () => getBlockPercentRemaining(subscriptionData),
-    [subscriptionData],
-  )
-
-  const showSubscriptionIndicator = isCoveredBySubscription(subscriptionData)
-
-  if (showSubscriptionIndicator) {
-    const label =
-      (blockPercentRemaining ?? 0) < 20
-        ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% restante)`
-        : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`
-    return (
-      <text
-        attributes={TextAttributes.DIM}
-        style={{
-          wrapMode: 'none',
-          fg: theme.success,
-          marginTop: 0,
-          marginBottom: 0,
-        }}
-      >
-        {label}
-      </text>
-    )
-  }
-
-  return (
-    <text
-      attributes={TextAttributes.DIM}
-      style={{
-        wrapMode: 'none',
-        fg: theme.secondary,
-        marginTop: 0,
-        marginBottom: 0,
-      }}
-    >
-      {credits} {credits === 1 ? 'crédito' : 'créditos'}
-    </text>
-  )
-}

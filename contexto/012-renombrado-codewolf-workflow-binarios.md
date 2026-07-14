@@ -12,9 +12,19 @@ Eliminar la marca visible Codebuff del editor y distribuir binarios llamados Cod
 - La configuración interna heredada `CODEBUFF_*` se conserva únicamente como compatibilidad para evitar romper el runtime; los nuevos metadatos `CODEWOLF_*` se incluyen en el binario.
 - `bun run build:binary` genera `cli/bin/codewolf` o `cli/bin/codewolf.exe` junto con `tree-sitter.wasm`.
 
-## GitHub Actions
+## Estado histórico y vigencia
 
-El workflow `.github/workflows/build-binaries.yml` se ejecuta solo manualmente o al publicar una etiqueta `v*`.
+Este documento describe la primera versión del workflow y se conserva como
+historial técnico. La política de ejecución y versionado de esta sección fue
+reemplazada por `013-releases-automaticas-dialogos-espanol.md` y
+`014-contexto-persistente-workflow-edicion-comunitaria.md`.
+
+## GitHub Actions (implementación histórica)
+
+La primera implementación permitía ejecución manual o mediante una etiqueta
+`v*`. Este comportamiento ya no está vigente: el workflow actual se ejecuta
+exclusivamente mediante `workflow_dispatch` y crea etiquetas numéricas sin
+prefijo.
 
 Para reducir minutos:
 
