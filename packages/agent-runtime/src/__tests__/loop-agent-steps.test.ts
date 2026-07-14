@@ -347,6 +347,76 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(result.agentState).toBeDefined()
   })
 
+  it('should return a successful output after manual compaction while persisting only the summary', async () => {
+    const summary =
+      'The user requested a provider migration and the implementation is complete.'
+    const compactTemplate = {
+      ...mockTemplate,
+      outputMode: 'last_message' as const,
+      handleSteps: undefined,
+    }
+
+    loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+      yield { type: 'text' as const, text: `${summary}\n\n` }
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('compact-message-id')
+    }
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      prompt: '/compact',
+      agentType: 'test-agent',
+      agentTemplate: compactTemplate,
+      localAgentTemplates: { 'test-agent': compactTemplate },
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(JSON.stringify(result.output)).toContain(summary)
+    expect(result.agentState.messageHistory).toHaveLength(1)
+    expect(result.agentState.messageHistory[0]?.role).toBe('user')
+    expect(JSON.stringify(result.agentState.messageHistory[0])).toContain(
+      summary,
+    )
+    expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
+      '/compact',
+    )
+  })
+
+  it('should preserve the original history when manual compaction returns no summary', async () => {
+    const compactTemplate = {
+      ...mockTemplate,
+      outputMode: 'last_message' as const,
+      handleSteps: undefined,
+    }
+    const originalHistory = structuredClone(mockAgentState.messageHistory)
+    const responseChunks: string[] = []
+
+    loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('empty-compact-message-id')
+    }
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      prompt: '/compact',
+      agentType: 'test-agent',
+      agentTemplate: compactTemplate,
+      localAgentTemplates: { 'test-agent': compactTemplate },
+      onResponseChunk: (chunk) => {
+        if (typeof chunk === 'string') responseChunks.push(chunk)
+      },
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(JSON.stringify(result.output)).toContain(
+      'El historial original se conservó sin cambios.',
+    )
+    expect(result.agentState.messageHistory).toEqual(originalHistory)
+    expect(responseChunks.join('\n')).toContain(
+      'El historial original se conservó sin cambios.',
+    )
+  })
+
   it('should pass the full message history to the traceWriter when provided', async () => {
     const recordedSteps: Array<{ agentId: string; messages: unknown[] }> = []
     const traceWriter = {

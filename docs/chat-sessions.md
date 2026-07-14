@@ -2,7 +2,9 @@
 
 ## Compactar el contexto
 
-`/compact` solicita un resumen detallado del chat y, solo si el resumen no está vacío, reemplaza el historial largo por esa memoria. También puede escribirse `compact` sin la diagonal.
+`/compact` solicita un resumen detallado del chat y, solo si el resumen no está vacío, reemplaza el historial largo por esa memoria. También puede escribirse `compact` sin la diagonal. La sustitución se realiza al terminar por completo el turno del agente y el resultado del comando se construye directamente desde el resumen generado; por ello, aunque el historial persistido quede deliberadamente con una sola memoria de rol `user`, la ejecución finaliza correctamente y no muestra el falso error `No response from agent`.
+
+Si el modelo termina sin producir un resumen, Codewolf conserva exactamente el historial anterior, elimina el intento fallido de `/compact` y muestra una advertencia sin bloquear la sesión.
 
 El agente base ejecuta un compactador determinista antes de cada paso. La compactación automática comienza al 90 % del contexto máximo del modelo activo. El límite se obtiene de la configuración o descubrimiento del proveedor; por ejemplo, un contexto de 1 000 000 compacta cerca de 900 000 tokens. Además del contador devuelto por la petición anterior, se estima el historial actual para detectar un prompt nuevo muy grande antes de enviarlo.
 

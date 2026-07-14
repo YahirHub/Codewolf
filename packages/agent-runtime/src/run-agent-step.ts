@@ -20,7 +20,11 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+import {
+  assistantMessage,
+  systemMessage,
+  userMessage,
+} from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep } from 'lodash'
 
@@ -501,26 +505,6 @@ export const runAgentStep = async (
     'agentStep',
   )
 
-  // Handle /compact command: replace message history with the summary
-  const wasCompacted =
-    prompt &&
-    (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
-  if (wasCompacted && fullResponse.trim()) {
-    agentState.messageHistory = [
-      userMessage(
-        withSystemTags(
-          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
-        ),
-      ),
-    ]
-    logger.debug({ summary: fullResponse }, 'Compacted messages')
-  } else if (wasCompacted) {
-    logger.warn(
-      {},
-      'Manual compaction returned an empty summary; preserving message history',
-    )
-  }
-
   const hasNoToolResults =
     toolCalls.filter(
       (call) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(call.toolName),
@@ -829,6 +813,7 @@ export async function loopAgentSteps(
     (content && content.length > 0),
   )
 
+  const messageHistoryBeforePrompt = cloneDeep(initialAgentState.messageHistory)
   const initialMessages = buildArray<Message>(
     ...initialAgentState.messageHistory,
 
@@ -908,6 +893,8 @@ export async function loopAgentSteps(
   let currentParams = spawnParams
   let totalSteps = 0
   let nResponses: string[] | undefined = undefined
+  const isManualCompaction = isManualCompactPrompt(prompt)
+  let manualCompactionSummary = ''
 
   try {
     while (true) {
@@ -1065,6 +1052,7 @@ export async function loopAgentSteps(
       const childrenBefore = currentAgentState.childRunIds.length
       const {
         agentState: newAgentState,
+        fullResponse,
         shouldEndTurn: llmShouldEndTurn,
         messageId,
         nResponses: generatedResponses,
@@ -1102,6 +1090,10 @@ export async function loopAgentSteps(
       shouldEndTurn = llmShouldEndTurn
       nResponses = generatedResponses
 
+      if (isManualCompaction && fullResponse.trim()) {
+        manualCompactionSummary = fullResponse.trim()
+      }
+
       currentPrompt = undefined
       currentParams = undefined
 
@@ -1125,11 +1117,42 @@ export async function loopAgentSteps(
       }
     }
 
-    if (clearUserPromptMessagesAfterResponse) {
-      currentAgentState.messageHistory = expireMessages(
-        currentAgentState.messageHistory,
-        'userPrompt',
-      )
+    let output: AgentOutput
+
+    if (isManualCompaction) {
+      if (manualCompactionSummary) {
+        currentAgentState.messageHistory = [
+          userMessage(
+            withSystemTags(
+              `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${manualCompactionSummary}`,
+            ),
+          ),
+        ]
+        output = {
+          type: 'lastMessage',
+          value: [assistantMessage(manualCompactionSummary)],
+        }
+        logger.debug({ summary: manualCompactionSummary }, 'Compacted messages')
+      } else {
+        logger.warn(
+          {},
+          'Manual compaction returned an empty summary; preserving message history',
+        )
+        currentAgentState.messageHistory = messageHistoryBeforePrompt
+        params.onResponseChunk(MANUAL_COMPACTION_EMPTY_MESSAGE)
+        output = {
+          type: 'lastMessage',
+          value: [assistantMessage(MANUAL_COMPACTION_EMPTY_MESSAGE)],
+        }
+      }
+    } else {
+      if (clearUserPromptMessagesAfterResponse) {
+        currentAgentState.messageHistory = expireMessages(
+          currentAgentState.messageHistory,
+          'userPrompt',
+        )
+      }
+      output = getAgentOutput(currentAgentState, agentTemplate)
     }
 
     await finishAgentRun({
@@ -1143,7 +1166,7 @@ export async function loopAgentSteps(
 
     return {
       agentState: currentAgentState,
-      output: getAgentOutput(currentAgentState, agentTemplate),
+      output,
     }
   } catch (error) {
     // Handle user-initiated aborts separately - don't log as errors
@@ -1280,3 +1303,11 @@ const STEP_WARNING_MESSAGE = [
   "Let me pause here to make sure we're still on the right track.",
   "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
 ].join(' ')
+
+const MANUAL_COMPACTION_EMPTY_MESSAGE =
+  'No se pudo generar un resumen para compactar la sesión. El historial original se conservó sin cambios.'
+
+function isManualCompactPrompt(prompt: string | undefined): boolean {
+  const normalizedPrompt = prompt?.trim().toLowerCase()
+  return normalizedPrompt === '/compact' || normalizedPrompt === 'compact'
+}

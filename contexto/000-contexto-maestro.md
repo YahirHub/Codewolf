@@ -184,6 +184,10 @@ lista exacta y versiones bloqueadas.
   registrado como comando real.
 - Metadatos OpenAI-compatible podían sobrescribir `role` o `content` con `null`
   y envenenar todos los turnos posteriores de una sesión.
+- La compactación manual reemplazaba el historial dentro de `runAgentStep` antes
+  de construir la salida final. Como la memoria compactada queda correctamente
+  como un único mensaje `user`, el extractor genérico `last_message` no hallaba
+  un mensaje `assistant` y mostraba el falso error `No response from agent`.
 
 # Soluciones implementadas
 
@@ -204,6 +208,10 @@ lista exacta y versiones bloqueadas.
   para detectar prompts nuevos grandes antes de la siguiente llamada.
 - Los campos reservados del protocolo quedan protegidos frente a metadatos del
   proveedor y los historiales dañados se reparan antes de reproducirse.
+- La compactación manual se confirma al terminar todo el turno y devuelve el
+  resumen generado como salida exitosa, independientemente de que el historial
+  persistido ya no contenga un mensaje `assistant`. Si el resumen está vacío,
+  restaura el historial exacto anterior y avisa sin bloquear el chat.
 
 # Pendientes
 
@@ -239,3 +247,4 @@ al terminar.
 - `015`: estadísticas locales de tokens.
 - `016`: administración de proveedores y sesiones portables.
 - `017`: compactación al 90 % y recuperación de sesiones con mensajes nulos.
+- `018`: corrección del falso `No response from agent` después de `/compact`.

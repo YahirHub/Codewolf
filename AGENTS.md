@@ -74,6 +74,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 ## Context Compaction and Message Replay Safety
 
 - `/compact` must remain a real registered CLI command and an implicit exact command. It sends the exact compact prompt, preserves history if the generated summary is empty, and must not run as an unknown slash command.
+- Apply manual compaction only after the complete agent turn. The persisted state intentionally contains the summary as a user memory message and may contain no assistant message, so the command result must be built from the generated summary instead of calling generic last-message extraction. A successful compaction must never end as `No response from agent`.
 - Base2 runs `context-pruner` before every step. Treat `maxContextLength` as the auto-compaction threshold, not the provider's absolute limit; calculate it as 90% of the selected model's `maxContextTokens`. Explicit/discovered model metadata overrides compatibility defaults.
 - Manual provider model entries support `model-id=context-tokens`. Keep that value when editing providers and read common context-window fields from `/models` responses.
 - Provider metadata is untrusted extension data. Never let it overwrite protocol fields such as `role`, `content`, `tool_calls`, `reasoning_content`, `tool_call_id`, content-part `type`, or tool-call `function`.
