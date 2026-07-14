@@ -1,5 +1,13 @@
 # Sesiones, nombres y transferencias de chats
 
+## Compactar el contexto
+
+`/compact` solicita un resumen detallado del chat y, solo si el resumen no está vacío, reemplaza el historial largo por esa memoria. También puede escribirse `compact` sin la diagonal.
+
+El agente base ejecuta un compactador determinista antes de cada paso. La compactación automática comienza al 90 % del contexto máximo del modelo activo. El límite se obtiene de la configuración o descubrimiento del proveedor; por ejemplo, un contexto de 1 000 000 compacta cerca de 900 000 tokens. Además del contador devuelto por la petición anterior, se estima el historial actual para detectar un prompt nuevo muy grande antes de enviarlo.
+
+Al continuar una sesión, `run-state.json` se normaliza antes de enviarse de nuevo al proveedor. Los mensajes heredados con `content: null`, rol inválido o resultados de herramienta huérfanos se reparan cuando es seguro y se descartan cuando no pueden formar una secuencia válida. La conversación afectada no necesita borrarse ni reiniciarse manualmente.
+
 ## Renombrar una sesión
 
 `/rename` abre un campo interactivo con el nombre actual. También acepta un nombre

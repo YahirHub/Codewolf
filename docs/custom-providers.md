@@ -25,7 +25,7 @@ The editor opens a four-step assistant:
 1. **Provider name** — used as the visible group name in `/models`; its storage ID is generated automatically.
 2. **API base URL** — accepts an API root such as `https://api.example.com/v1`, and also normalizes URLs ending in `/chat/completions`.
 3. **API key** — shown masked and saved separately from provider metadata. Leave it blank for a local endpoint without authentication.
-4. **Models** — enter IDs separated by commas, or leave the field blank and press Enter to discover them automatically.
+4. **Models** — enter IDs separated by commas. Append `=context-tokens` when the provider does not publish its context window, for example `deepseek-v4-pro=1000000`. Leave the field blank and press Enter to discover models automatically.
 
 The API key is typed in a dedicated masked input. It never passes through the chat prompt, input history, transcript, or terminal title.
 
@@ -51,7 +51,19 @@ The discovery parser supports the standard OpenAI response shape:
 }
 ```
 
-It also accepts a top-level array and arrays stored under `models` or `results`. Duplicate IDs are removed. Discovery has a 15-second timeout; if it fails, the assistant remains open so the user can correct the URL/key or enter model IDs manually.
+It also accepts a top-level array and arrays stored under `models` or `results`. Duplicate IDs are removed. When available, Codewolf reads the context window from `context_length`, `context_window`, `max_context_length`, `max_model_len`, or `max_position_embeddings`. Discovery has a 15-second timeout; if it fails, the assistant remains open so the user can correct the URL/key or enter model IDs manually.
+
+## Model context and automatic compaction
+
+Codewolf runs the bundled `context-pruner` before each Base2 step. The pruner replaces old history with a bounded summary when the current context reaches 90% of the selected model's maximum window. Manual model configuration uses this syntax:
+
+```text
+deepseek-v4-pro=1000000, local-coder=131072
+```
+
+The first value means auto-compaction starts near 900,000 tokens; the second starts near 117,964 tokens. Explicit or discovered values take precedence. For backward-compatible provider files without context metadata, models whose ID contains `deepseek` default to 1,000,000 tokens and other custom models default to 400,000.
+
+The manual `/compact` command is always available and does not wait for the threshold.
 
 ## Select a model with `/models`
 
@@ -80,6 +92,8 @@ Runtime tool schemas are also converted from live Zod/lazy instances into plain 
 
 This normalization is applied at the tool boundary, tool-schema snapshot, Codebuff-message conversion, provider request body, and final SDK response. It covers built-in tools, custom tools, MCP tool results, the main agent, and subagents.
 
+Provider metadata is never allowed to overwrite protocol-critical fields such as `role`, `content`, `tool_calls`, or `tool_call_id`. When an older `run-state.json` already contains nullable or malformed messages, Codewolf repairs compatible entries and removes irrecoverable/orphaned entries before replaying the session.
+
 ## Storage and security
 
 All persistent configuration is stored in Codewolf's single cross-platform home directory, `~/.codewolf/`. Development and compiled binaries use the same location:
@@ -97,7 +111,7 @@ Neither file belongs in the current project repository. The API key is never sto
 
 ## Advanced provider fields
 
-The interactive assistant creates standard OpenAI-compatible providers. Existing advanced metadata remains supported by `providers.json`, including custom headers, a different API-key header/prefix, structured-output capability, and per-model output-token limits.
+The interactive assistant creates standard OpenAI-compatible providers. Existing advanced metadata remains supported by `providers.json`, including custom headers, a different API-key header/prefix, structured-output capability, and per-model output/context-token limits.
 
 ```json
 {
@@ -119,7 +133,8 @@ The interactive assistant creates standard OpenAI-compatible providers. Existing
         {
           "id": "model-a",
           "name": "Model A",
-          "maxOutputTokens": 32768
+          "maxOutputTokens": 32768,
+          "maxContextTokens": 1000000
         }
       ]
     }
@@ -142,6 +157,7 @@ const client = new CodebuffClient({
     name: 'Local',
     baseUrl: 'http://127.0.0.1:11434/v1',
     modelId: 'qwen2.5-coder:14b',
+    maxContextTokens: 131072,
   },
 })
 ```
@@ -167,7 +183,7 @@ Desde cada proveedor se puede:
 - editar el nombre visible;
 - cambiar la URL base;
 - conservar, reemplazar o eliminar la API key;
-- actualizar modelos manualmente;
+- actualizar modelos manualmente, incluyendo `modelo=tokens` para su contexto máximo;
 - borrar el campo de modelos y pulsar Enter para consultar `/models`;
 - activarlo como proveedor actual;
 - abrir el selector global `/models`;

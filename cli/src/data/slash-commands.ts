@@ -144,6 +144,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     implicitCommand: true,
   },
   {
+    id: 'compact',
+    label: 'compact',
+    description: 'Resumir la conversación y liberar espacio de contexto',
+    implicitCommand: true,
+  },
+  {
     id: 'history',
     label: 'history',
     description: 'Explorar y reanudar conversaciones anteriores',

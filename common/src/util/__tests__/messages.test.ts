@@ -10,6 +10,7 @@ import {
   assistantMessage,
   jsonToolResult,
   mediaToolResult,
+  sanitizeCodebuffMessageHistory,
 } from '../messages'
 
 import type { Message } from '../../types/messages/codebuff-message'
@@ -20,6 +21,82 @@ type CacheControlValue = { type: string }
 type ProviderWithCacheControl = Record<string, unknown> & {
   cache_control?: CacheControlValue
 }
+
+describe('sanitizeCodebuffMessageHistory', () => {
+  it('repairs nullable tool messages and removes irrecoverable null content', () => {
+    const result = sanitizeCodebuffMessageHistory([
+      { role: 'user', content: null },
+      { role: 'assistant', content: null },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_files',
+            input: { paths: ['src/index.ts'] },
+          },
+        ],
+      },
+      {
+        role: null,
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        content: null,
+      },
+      {
+        role: null,
+        toolCallId: 'orphan-call',
+        toolName: 'read_files',
+        content: null,
+      },
+      { role: 'user', content: 'Continue working' },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_files',
+            input: { paths: ['src/index.ts'] },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        content: [],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Continue working' }],
+      },
+    ])
+  })
+
+  it('lets provider conversion recover a persisted content:null entry', () => {
+    const messages = [
+      { role: 'assistant', content: null },
+      { role: 'user', content: 'Next request' },
+    ] as unknown as Message[]
+
+    expect(
+      convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      }),
+    ).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Next request' }],
+      },
+    ])
+  })
+})
 
 describe('withCacheControl', () => {
   it('should add cache control to object without providerOptions', () => {

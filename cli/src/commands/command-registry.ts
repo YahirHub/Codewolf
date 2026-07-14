@@ -384,6 +384,33 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   defineCommand({
+    name: 'compact',
+    handler: (params) => {
+      const compactPrompt = '/compact'
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+
+      if (
+        params.isStreaming ||
+        params.streamMessageIdRef.current ||
+        params.isChainInProgressRef.current
+      ) {
+        params.addToQueue(compactPrompt)
+        params.setInputFocused(true)
+        params.inputRef.current?.focus()
+        return
+      }
+
+      params.sendMessage({
+        content: compactPrompt,
+        agentMode: params.agentMode,
+      })
+      setTimeout(() => {
+        params.scrollToLatest()
+      }, 0)
+    },
+  }),
+  defineCommand({
     name: 'init',
     handler: async (params) => {
       const { postUserMessage } = handleInitializationFlowLocally()

@@ -267,6 +267,117 @@ describe('tool calls', () => {
 })
 
 describe('provider-specific metadata merging', () => {
+  it('does not allow metadata to overwrite required wire message fields', () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Recovered response' }],
+        providerOptions: {
+          openaiCompatible: {
+            role: null,
+            content: null,
+            reasoning_content: null,
+            tool_calls: null,
+            safeMetadata: 'preserved',
+          },
+        },
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-safe',
+            toolName: 'safe_tool',
+            output: { type: 'json', value: { ok: true } },
+            providerOptions: {
+              openaiCompatible: {
+                role: null,
+                content: null,
+                tool_call_id: null,
+                safeMetadata: 'tool-preserved',
+              },
+            },
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Recovered response',
+        safeMetadata: 'preserved',
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call-safe',
+        content: JSON.stringify({ ok: true }),
+        safeMetadata: 'tool-preserved',
+      },
+    ])
+  })
+
+  it('does not allow content-part metadata to replace type or payload', () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Keep me',
+            providerOptions: {
+              openaiCompatible: {
+                type: null,
+                text: null,
+                custom: true,
+              },
+            },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_files',
+            input: { paths: ['a.ts'] },
+            providerOptions: {
+              openaiCompatible: {
+                id: null,
+                type: null,
+                function: null,
+                custom: true,
+              },
+            },
+          },
+        ],
+      },
+    ])
+
+    expect(result[0]).toEqual({
+      role: 'user',
+      content: [{ type: 'text', text: 'Keep me', custom: true }],
+    })
+    expect(result[1]).toEqual({
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'read_files',
+            arguments: JSON.stringify({ paths: ['a.ts'] }),
+          },
+          custom: true,
+        },
+      ],
+    })
+  })
+
   it('should merge system message metadata', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

@@ -13,7 +13,11 @@ import type {
   ToolMessage,
   UserMessage,
 } from '../types/messages/codebuff-message'
-import type { ToolResultOutput } from '../types/messages/content-part'
+import type {
+  FilePart,
+  ImagePart,
+  ToolResultOutput,
+} from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type {
   AssistantModelMessage,
@@ -22,7 +26,6 @@ import type {
   ToolModelMessage,
   UserModelMessage,
 } from 'ai'
-
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
@@ -235,6 +238,320 @@ function convertToolMessages(
   return withoutToolMessages
 }
 
+function getAuxiliaryMessageData(
+  record: Record<string, unknown>,
+): AuxiliaryMessageData {
+  return {
+    ...(record.providerOptions && typeof record.providerOptions === 'object'
+      ? { providerOptions: record.providerOptions as ProviderMetadata }
+      : {}),
+    ...(Array.isArray(record.tags)
+      ? {
+          tags: record.tags.filter(
+            (tag): tag is string => typeof tag === 'string',
+          ),
+        }
+      : {}),
+    ...(typeof record.sentAt === 'number' ? { sentAt: record.sentAt } : {}),
+    ...(record.timeToLive === 'agentStep' || record.timeToLive === 'userPrompt'
+      ? { timeToLive: record.timeToLive }
+      : {}),
+    ...(typeof record.keepDuringTruncation === 'boolean'
+      ? { keepDuringTruncation: record.keepDuringTruncation }
+      : {}),
+    ...(Array.isArray(record.keepLastTags)
+      ? {
+          keepLastTags: record.keepLastTags.filter(
+            (tag): tag is string => typeof tag === 'string',
+          ),
+        }
+      : {}),
+  }
+}
+
+/**
+ * Repairs persisted/legacy message history before it is replayed.
+ *
+ * Some OpenAI-compatible APIs return nullable wire fields in provider metadata.
+ * Older sessions can therefore contain `content: null` or a missing/null role.
+ * A single malformed historic entry makes every later request fail validation.
+ * This sanitizer preserves recognized content, converts legacy text strings to
+ * content parts, repairs empty tool outputs, and drops entries that cannot be
+ * represented safely.
+ */
+export function sanitizeCodebuffMessageHistory(
+  messages: unknown,
+  logger?: Logger,
+): Message[] {
+  if (!Array.isArray(messages)) return []
+
+  const sanitized: Message[] = []
+  let repairedMessages = 0
+  let droppedMessages = 0
+
+  for (const rawMessage of messages) {
+    if (!rawMessage || typeof rawMessage !== 'object') {
+      droppedMessages++
+      continue
+    }
+
+    const record = rawMessage as Record<string, unknown>
+    let role = record.role
+    if (
+      role !== 'system' &&
+      role !== 'user' &&
+      role !== 'assistant' &&
+      role !== 'tool'
+    ) {
+      if (
+        typeof record.toolCallId === 'string' &&
+        typeof record.toolName === 'string'
+      ) {
+        role = 'tool'
+        repairedMessages++
+      } else {
+        droppedMessages++
+        continue
+      }
+    }
+
+    const auxiliary = getAuxiliaryMessageData(record)
+
+    if (role === 'tool') {
+      if (
+        typeof record.toolCallId !== 'string' ||
+        !record.toolCallId ||
+        typeof record.toolName !== 'string' ||
+        !record.toolName
+      ) {
+        droppedMessages++
+        continue
+      }
+
+      const content: ToolResultOutput[] = []
+      if (Array.isArray(record.content)) {
+        for (const part of record.content) {
+          if (!part || typeof part !== 'object') continue
+          const item = part as Record<string, unknown>
+          if (item.type === 'json') {
+            content.push({
+              type: 'json',
+              value: normalizeJsonValue(item.value ?? ''),
+            })
+          } else if (
+            item.type === 'media' &&
+            typeof item.data === 'string' &&
+            typeof item.mediaType === 'string'
+          ) {
+            content.push({
+              type: 'media',
+              data: item.data,
+              mediaType: item.mediaType,
+            })
+          }
+        }
+      }
+
+      if (!Array.isArray(record.content)) repairedMessages++
+      sanitized.push({
+        role: 'tool',
+        toolCallId: record.toolCallId,
+        toolName: record.toolName,
+        content,
+        ...auxiliary,
+      })
+      continue
+    }
+
+    let rawContent = record.content
+    if (typeof rawContent === 'string') {
+      rawContent = rawContent ? [{ type: 'text', text: rawContent }] : []
+      repairedMessages++
+    }
+    if (!Array.isArray(rawContent)) {
+      droppedMessages++
+      continue
+    }
+
+    if (role === 'system') {
+      const content: SystemMessage['content'] = []
+      for (const part of rawContent) {
+        if (!part || typeof part !== 'object') continue
+        const item = part as Record<string, unknown>
+        if (item.type === 'text' && typeof item.text === 'string') {
+          content.push({
+            type: 'text',
+            text: item.text,
+            ...(item.providerOptions && typeof item.providerOptions === 'object'
+              ? { providerOptions: item.providerOptions as ProviderMetadata }
+              : {}),
+          })
+        }
+      }
+      if (content.length === 0) {
+        droppedMessages++
+        continue
+      }
+      sanitized.push({ role: 'system', content, ...auxiliary })
+      continue
+    }
+
+    if (role === 'user') {
+      const content: UserMessage['content'] = []
+      for (const part of rawContent) {
+        if (!part || typeof part !== 'object') continue
+        const item = part as Record<string, unknown>
+        if (item.type === 'text' && typeof item.text === 'string') {
+          content.push({
+            type: 'text',
+            text: item.text,
+            ...(item.providerOptions && typeof item.providerOptions === 'object'
+              ? { providerOptions: item.providerOptions as ProviderMetadata }
+              : {}),
+          })
+        } else if (item.type === 'image' && item.image != null) {
+          content.push({
+            type: 'image',
+            image: item.image as ImagePart['image'],
+            ...(typeof item.mediaType === 'string'
+              ? { mediaType: item.mediaType }
+              : {}),
+            ...(item.providerOptions && typeof item.providerOptions === 'object'
+              ? { providerOptions: item.providerOptions as ProviderMetadata }
+              : {}),
+          })
+        } else if (
+          item.type === 'file' &&
+          item.data != null &&
+          typeof item.mediaType === 'string'
+        ) {
+          content.push({
+            type: 'file',
+            data: item.data as FilePart['data'],
+            mediaType: item.mediaType,
+            ...(typeof item.filename === 'string'
+              ? { filename: item.filename }
+              : {}),
+            ...(item.providerOptions && typeof item.providerOptions === 'object'
+              ? { providerOptions: item.providerOptions as ProviderMetadata }
+              : {}),
+          })
+        }
+      }
+      if (content.length === 0) {
+        droppedMessages++
+        continue
+      }
+      sanitized.push({ role: 'user', content, ...auxiliary })
+      continue
+    }
+
+    const content: AssistantMessage['content'] = []
+    for (const part of rawContent) {
+      if (!part || typeof part !== 'object') continue
+      const item = part as Record<string, unknown>
+      if (
+        (item.type === 'text' || item.type === 'reasoning') &&
+        typeof item.text === 'string'
+      ) {
+        content.push({
+          type: item.type,
+          text: item.text,
+          ...(item.providerOptions && typeof item.providerOptions === 'object'
+            ? { providerOptions: item.providerOptions as ProviderMetadata }
+            : {}),
+        })
+      } else if (
+        item.type === 'tool-call' &&
+        typeof item.toolCallId === 'string' &&
+        item.toolCallId &&
+        typeof item.toolName === 'string' &&
+        item.toolName
+      ) {
+        content.push({
+          type: 'tool-call',
+          toolCallId: item.toolCallId,
+          toolName: item.toolName,
+          input:
+            item.input &&
+            typeof item.input === 'object' &&
+            !Array.isArray(item.input)
+              ? (normalizeJsonValue(item.input) as Record<string, unknown>)
+              : {},
+          ...(item.providerOptions && typeof item.providerOptions === 'object'
+            ? { providerOptions: item.providerOptions as ProviderMetadata }
+            : {}),
+          ...(typeof item.providerExecuted === 'boolean'
+            ? { providerExecuted: item.providerExecuted }
+            : {}),
+        })
+      }
+    }
+    if (content.length === 0) {
+      droppedMessages++
+      continue
+    }
+    sanitized.push({ role: 'assistant', content, ...auxiliary })
+  }
+
+  let protocolSafeMessages = sanitized
+  if (repairedMessages > 0 || droppedMessages > 0) {
+    const toolCallIds = new Set<string>()
+    const toolResultIds = new Set<string>()
+
+    for (const message of sanitized) {
+      if (message.role === 'assistant') {
+        for (const part of message.content) {
+          if (part.type === 'tool-call') toolCallIds.add(part.toolCallId)
+        }
+      } else if (message.role === 'tool') {
+        toolResultIds.add(message.toolCallId)
+      }
+    }
+
+    const pairedToolCallIds = new Set(
+      [...toolCallIds].filter((toolCallId) => toolResultIds.has(toolCallId)),
+    )
+    protocolSafeMessages = []
+
+    for (const message of sanitized) {
+      if (message.role === 'tool') {
+        if (!pairedToolCallIds.has(message.toolCallId)) {
+          droppedMessages++
+          continue
+        }
+        protocolSafeMessages.push(message)
+        continue
+      }
+
+      if (message.role === 'assistant') {
+        const content = message.content.filter(
+          (part) =>
+            part.type !== 'tool-call' || pairedToolCallIds.has(part.toolCallId),
+        )
+        if (content.length === 0) {
+          droppedMessages++
+          continue
+        }
+        if (content.length !== message.content.length) repairedMessages++
+        protocolSafeMessages.push({ ...message, content })
+        continue
+      }
+
+      protocolSafeMessages.push(message)
+    }
+  }
+
+  if ((repairedMessages > 0 || droppedMessages > 0) && logger) {
+    logger.warn(
+      { repairedMessages, droppedMessages },
+      'Repaired malformed messages before provider replay',
+    )
+  }
+
+  return protocolSafeMessages
+}
+
 /**
  * Recursively replace any lone (unpaired) UTF-16 surrogate with U+FFFD in every
  * string reachable from `value`, mutating objects/arrays in place.
@@ -294,8 +611,9 @@ export function convertCbToModelMessages({
   includeCacheControl?: boolean
   logger?: Logger
 }): ModelMessage[] {
+  const sanitizedMessages = sanitizeCodebuffMessageHistory(messages, logger)
   const toolMessagesConverted: ModelMessageWithAuxiliaryData[] =
-    convertToolMessages(messages)
+    convertToolMessages(sanitizedMessages)
 
   const aggregated: ModelMessageWithAuxiliaryData[] = []
   for (const message of toolMessagesConverted) {

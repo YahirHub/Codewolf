@@ -11,6 +11,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
 - Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
 - Conversaciones con nombre visible, historial, exportación e importación portable.
+- Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
@@ -83,6 +84,24 @@ Para administrar todos los proveedores:
 ```
 
 El administrador permite agregar, editar, activar y eliminar proveedores. Al editar se puede cambiar el nombre visible, la URL base, la credencial y la lista de modelos. En el paso de modelos puedes escribir identificadores separados por comas o dejar el campo vacío para consultar `GET <URL_BASE>/models`.
+
+Para declarar el contexto máximo de un modelo manualmente, usa `modelo=tokens`. Por ejemplo:
+
+```text
+deepseek-v4-pro=1000000, modelo-local=131072
+```
+
+Cuando `/models` informa `context_length`, `context_window`, `max_context_length`, `max_model_len` o `max_position_embeddings`, Codewolf guarda ese valor automáticamente. Si no existe el dato, usa 1 000 000 para modelos cuyo ID contiene `deepseek` y 400 000 para otros proveedores personalizados.
+
+## Compactar una conversación
+
+Ejecuta:
+
+```text
+/compact
+```
+
+El agente resume la conversación y sustituye el historial largo por esa memoria. Además, antes de cada paso, el agente base compacta automáticamente cuando el contexto alcanza el 90 % de la ventana configurada para el modelo. Así, un modelo con un millón de tokens empieza a compactar alrededor de 900 000.
 
 ## Sesiones con nombre y chats portables
 

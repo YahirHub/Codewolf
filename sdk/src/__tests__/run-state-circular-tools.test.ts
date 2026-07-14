@@ -51,4 +51,55 @@ describe('continuing sessions with legacy cyclic tool definitions', () => {
     expect(() => JSON.stringify(result)).not.toThrow()
     expect(result.sessionState?.mainAgentState.messageHistory).toHaveLength(1)
   })
+
+  test('repairs malformed persisted messages before continuing a session', async () => {
+    const source = sessionWithCircularToolSchema()
+    source.mainAgentState.messageHistory = [
+      { role: 'assistant', content: null },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_files',
+            input: { paths: ['src/index.ts'] },
+          },
+        ],
+      },
+      {
+        role: null,
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        content: null,
+      },
+      { role: 'user', content: 'Continue' },
+    ] as any
+
+    const nextTurn = await applyOverridesToSessionState(undefined, source, {})
+
+    expect(nextTurn.mainAgentState.messageHistory).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_files',
+            input: { paths: ['src/index.ts'] },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        content: [],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Continue' }],
+      },
+    ])
+  })
 })

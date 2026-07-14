@@ -6,6 +6,7 @@ import {
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { getContextCompactionThreshold } from '@codebuff/common/types/custom-provider'
 import { toOptionalFile } from '@codebuff/common/constants/paths'
 import {
   getMCPClient,
@@ -348,6 +349,18 @@ async function runOnce({
   } else {
     agentId = agent
   }
+
+  const promptParams =
+    agentId.startsWith('base2') &&
+    customProvider?.maxContextTokens &&
+    params?.maxContextLength === undefined
+      ? {
+          ...(params ?? {}),
+          maxContextLength: getContextCompactionThreshold(
+            customProvider.maxContextTokens,
+          ),
+        }
+      : params
   let sessionState: SessionState
   if (previousRun?.sessionState) {
     // applyOverridesToSessionState handles deep cloning and applying any provided overrides
@@ -695,7 +708,7 @@ async function runOnce({
       type: 'prompt',
       promptId,
       prompt,
-      promptParams: params,
+      promptParams,
       content: preparedContent,
       fingerprintId: fingerprintId,
       costMode: costMode ?? 'normal',

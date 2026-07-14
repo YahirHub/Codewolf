@@ -26,4 +26,15 @@ export interface CustomProviderRuntimeConfig {
   supportsStructuredOutputs?: boolean
   /** Optional maximum output token cap for this model. */
   maxOutputTokens?: number
+  /** Maximum context window supported by the selected model. */
+  maxContextTokens?: number
+}
+
+export const CONTEXT_COMPACTION_RATIO = 0.9
+
+/** Returns the automatic compaction threshold for a model context window. */
+export function getContextCompactionThreshold(
+  maxContextTokens: number,
+): number {
+  return Math.max(1, Math.floor(maxContextTokens * CONTEXT_COMPACTION_RATIO))
 }

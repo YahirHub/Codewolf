@@ -14,12 +14,28 @@ function getOpenAIMetadata(message: {
   return message?.providerOptions?.openaiCompatible ?? {}
 }
 
+function withoutReservedMetadata<T extends object>(
+  metadata: T,
+  reservedKeys: readonly string[],
+): T {
+  const sanitized = { ...metadata }
+  for (const key of reservedKeys) {
+    delete (sanitized as Record<string, unknown>)[key]
+  }
+  return sanitized
+}
+
 export function convertToOpenAICompatibleChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenAICompatibleChatPrompt {
   const messages: OpenAICompatibleChatPrompt = []
   for (const { role, content, ...message } of prompt) {
-    const metadata = getOpenAIMetadata({ ...message })
+    const metadata = withoutReservedMetadata(
+      getOpenAIMetadata({ ...message }),
+      role === 'assistant'
+        ? ['role', 'content', 'reasoning_content', 'tool_calls']
+        : ['role', 'content'],
+    )
     switch (role) {
       case 'system': {
         messages.push({ role: 'system', content, ...metadata })
@@ -33,7 +49,11 @@ export function convertToOpenAICompatibleChatMessages(
             const partMetadata = getOpenAIMetadata(part)
             switch (part.type) {
               case 'text': {
-                return { type: 'text', text: part.text, ...partMetadata }
+                return {
+                  type: 'text',
+                  text: part.text,
+                  ...withoutReservedMetadata(partMetadata, ['type', 'text']),
+                }
               }
               case 'file': {
                 if (part.mediaType.startsWith('image/')) {
@@ -48,7 +68,10 @@ export function convertToOpenAICompatibleChatMessages(
                           ? part.data.toString()
                           : `data:${mediaType};base64,${convertToBase64(part.data)}`,
                     },
-                    ...partMetadata,
+                    ...withoutReservedMetadata(partMetadata, [
+                      'type',
+                      'image_url',
+                    ]),
                   }
                 } else {
                   throw new UnsupportedFunctionalityError({
@@ -92,7 +115,11 @@ export function convertToOpenAICompatibleChatMessages(
                   name: part.toolName,
                   arguments: stringifyJsonValue(part.input),
                 },
-                ...partMetadata,
+                ...withoutReservedMetadata(partMetadata, [
+                  'id',
+                  'type',
+                  'function',
+                ]),
               })
               break
             }
@@ -161,7 +188,11 @@ export function convertToOpenAICompatibleChatMessages(
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content: contentValue,
-            ...toolResponseMetadata,
+            ...withoutReservedMetadata(toolResponseMetadata, [
+              'role',
+              'tool_call_id',
+              'content',
+            ]),
           })
         }
         break

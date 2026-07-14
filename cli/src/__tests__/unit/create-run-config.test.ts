@@ -1,6 +1,10 @@
 import { describe, test, expect } from 'bun:test'
 
-import { isSensitiveFile, isEnvTemplateFile } from '../../utils/create-run-config'
+import {
+  createRunConfig,
+  isSensitiveFile,
+  isEnvTemplateFile,
+} from '../../utils/create-run-config'
 
 describe('isSensitiveFile', () => {
   test.each([
@@ -70,5 +74,42 @@ describe('isEnvTemplateFile', () => {
     ['package.json', false],
   ])('%s → %s', (file, expected) => {
     expect(isEnvTemplateFile(file)).toBe(expected)
+  })
+})
+
+describe('createRunConfig context pruning', () => {
+  const baseParams = {
+    logger: {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+    },
+    prompt: 'test',
+    content: undefined,
+    previousRunState: null,
+    agentDefinitions: [],
+    eventHandlerState: {} as any,
+    signal: new AbortController().signal,
+  }
+
+  test('passes the 90% threshold to Base2 agents', () => {
+    const result = createRunConfig({
+      ...baseParams,
+      agent: 'base2',
+      maxContextLength: 900_000,
+    })
+
+    expect(result.params).toEqual({ maxContextLength: 900_000 })
+  })
+
+  test('does not inject Base2-only params into arbitrary custom agents', () => {
+    const result = createRunConfig({
+      ...baseParams,
+      agent: 'my-custom-agent',
+      maxContextLength: 900_000,
+    })
+
+    expect(result.params).toBeUndefined()
   })
 })

@@ -5,17 +5,30 @@ import { z } from 'zod'
 
 import { getConfigDir } from './config-dir'
 
+import {
+  CONTEXT_COMPACTION_RATIO,
+  getContextCompactionThreshold,
+} from '@codebuff/common/types/custom-provider'
+
 import type { CustomProviderRuntimeConfig } from '@codebuff/common/types/custom-provider'
 
 const PROVIDERS_FILE_VERSION = 1 as const
 const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 const MODEL_DISCOVERY_TIMEOUT_MS = 15_000
+const DEFAULT_CUSTOM_MODEL_CONTEXT_TOKENS = 400_000
+const DEEPSEEK_DEFAULT_CONTEXT_TOKENS = 1_000_000
+
+export {
+  CONTEXT_COMPACTION_RATIO,
+  getContextCompactionThreshold,
+}
 
 const modelSchema = z.object({
   id: z.string().trim().min(1),
   name: z.string().trim().min(1).optional(),
   maxOutputTokens: z.number().int().positive().optional(),
+  maxContextTokens: z.number().int().positive().optional(),
 })
 
 const providerSchema = z.object({
@@ -132,17 +145,68 @@ export function normalizeCustomProviderId(input: string): string {
 export function parseCustomProviderModels(
   input: string,
 ): CustomProviderModel[] {
-  const ids = input
+  const entries = input
     .split(/[,\n]/)
     .map((value) => value.trim())
     .filter(Boolean)
 
-  const uniqueIds = [...new Set(ids)]
-  if (uniqueIds.length === 0) {
+  const uniqueModels = new Map<string, CustomProviderModel>()
+  for (const entry of entries) {
+    const match = entry.match(/^(.+?)\s*=\s*([\d_]+)$/)
+    if (entry.includes('=') && !match) {
+      throw new Error(
+        `El modelo "${entry}" debe usar el formato modelo=tokens.`,
+      )
+    }
+
+    const id = (match?.[1] ?? entry).trim()
+    const maxContextTokens = match
+      ? Number.parseInt(match[2]!.replaceAll('_', ''), 10)
+      : undefined
+
+    if (!id) continue
+    if (
+      match &&
+      (!Number.isSafeInteger(maxContextTokens) || maxContextTokens! <= 0)
+    ) {
+      throw new Error(`El límite de contexto de ${id} no es válido.`)
+    }
+
+    const previous = uniqueModels.get(id)
+    uniqueModels.set(id, {
+      ...previous,
+      id,
+      ...(maxContextTokens ? { maxContextTokens } : {}),
+    })
+  }
+
+  if (uniqueModels.size === 0) {
     throw new Error('Debes indicar al menos un modelo.')
   }
 
-  return uniqueIds.map((id) => ({ id }))
+  return [...uniqueModels.values()]
+}
+
+export function formatCustomProviderModelsInput(
+  models: CustomProviderModel[],
+): string {
+  return models
+    .map((model) =>
+      model.maxContextTokens
+        ? `${model.id}=${model.maxContextTokens}`
+        : model.id,
+    )
+    .join(', ')
+}
+
+export function resolveCustomModelMaxContextTokens(
+  model: Pick<CustomProviderModel, 'id' | 'maxContextTokens'>,
+): number {
+  if (model.maxContextTokens) return model.maxContextTokens
+  if (model.id.toLowerCase().includes('deepseek')) {
+    return DEEPSEEK_DEFAULT_CONTEXT_TOKENS
+  }
+  return DEFAULT_CUSTOM_MODEL_CONTEXT_TOKENS
 }
 
 function normalizeModels(
@@ -518,7 +582,27 @@ export function getActiveCustomProviderRuntimeConfig(
     apiKeyPrefix: provider.apiKeyPrefix,
     supportsStructuredOutputs: provider.supportsStructuredOutputs,
     maxOutputTokens: model.maxOutputTokens,
+    maxContextTokens: resolveCustomModelMaxContextTokens(model),
   }
+}
+
+export function getActiveCustomProviderCompactionThreshold(
+  configDir = getConfigDir(),
+): number | undefined {
+  const config = loadCustomProvidersConfig(configDir)
+  const provider = config.providers.find(
+    (item) => item.id === config.activeProviderId,
+  )
+  if (!provider) return undefined
+
+  const model =
+    provider.models.find((item) => item.id === config.activeModelId) ??
+    provider.models[0]
+  if (!model) return undefined
+
+  return getContextCompactionThreshold(
+    resolveCustomModelMaxContextTokens(model),
+  )
 }
 
 export function formatCustomProviderStatus(
@@ -569,9 +653,39 @@ function parseDiscoveredModels(payload: unknown): CustomProviderModel[] {
       typeof record.name === 'string' && record.name.trim()
         ? record.name.trim()
         : undefined
-    models.set(id, { id, ...(name ? { name } : {}) })
+    const maxContextTokens = getDiscoveredContextTokens(record)
+    const previous = models.get(id)
+    models.set(id, {
+      ...previous,
+      id,
+      ...(name ? { name } : {}),
+      ...(maxContextTokens ? { maxContextTokens } : {}),
+    })
   }
   return [...models.values()]
+}
+
+function getDiscoveredContextTokens(
+  record: Record<string, unknown>,
+): number | undefined {
+  const candidates = [
+    record.context_length,
+    record.context_window,
+    record.max_context_length,
+    record.max_model_len,
+    record.max_position_embeddings,
+  ]
+
+  for (const candidate of candidates) {
+    const parsed =
+      typeof candidate === 'number'
+        ? candidate
+        : typeof candidate === 'string'
+          ? Number.parseInt(candidate.replaceAll('_', ''), 10)
+          : Number.NaN
+    if (Number.isSafeInteger(parsed) && parsed > 0) return parsed
+  }
+  return undefined
 }
 
 export async function discoverCustomProviderModels(params: {

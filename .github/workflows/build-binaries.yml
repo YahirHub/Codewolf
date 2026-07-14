@@ -1,0 +1,124 @@
+name: Compilar binarios y publicar release
+
+run-name: Release manual de Codewolf desde ${{ github.ref_name }}
+
+'on':
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: codewolf-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Linux y Windows x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Descargar repositorio y etiquetas
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Restaurar caché de paquetes de Bun
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Calcular la siguiente versión
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          INITIAL_VERSION="1.0.0"
+          git fetch --tags --force
+          LATEST_VERSION="$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+
+          if [[ -z "$LATEST_VERSION" ]]; then
+            NEXT_VERSION="$INITIAL_VERSION"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+            NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
+          if git rev-parse --verify --quiet "refs/tags/$NEXT_VERSION" >/dev/null; then
+            echo "La etiqueta $NEXT_VERSION ya existe." >&2
+            exit 1
+          fi
+
+          echo "Última versión: ${LATEST_VERSION:-ninguna}"
+          echo "Nueva versión: $NEXT_VERSION"
+          echo "value=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+
+      - name: Compilar Linux x64
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          bun ./cli/scripts/build-binary.ts codewolf "$VERSION"
+          mkdir -p dist/codewolf-linux-x64
+          cp cli/bin/codewolf cli/bin/tree-sitter.wasm dist/codewolf-linux-x64/
+          chmod +x dist/codewolf-linux-x64/codewolf
+
+      - name: Compilar Windows x64 desde Linux
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          OVERRIDE_TARGET: bun-windows-x64
+          OVERRIDE_PLATFORM: win32
+          OVERRIDE_ARCH: x64
+          CODEWOLF_SKIP_PREBUILD_AGENTS: 'true'
+          CODEWOLF_SKIP_SDK_BUILD: 'true'
+        run: |
+          set -euo pipefail
+          bun ./cli/scripts/build-binary.ts codewolf "$VERSION"
+          mkdir -p dist/codewolf-windows-x64
+          cp cli/bin/codewolf.exe cli/bin/tree-sitter.wasm dist/codewolf-windows-x64/
+
+      - name: Verificar binarios
+        run: |
+          set -euo pipefail
+          ./dist/codewolf-linux-x64/codewolf --version
+          ./dist/codewolf-linux-x64/codewolf --smoke-tree-sitter
+          test -s dist/codewolf-windows-x64/codewolf.exe
+          file dist/codewolf-windows-x64/codewolf.exe | grep -q 'PE32+'
+
+      - name: Empaquetar y generar sumas SHA-256
+        run: |
+          set -euo pipefail
+          tar -C dist/codewolf-linux-x64 -czf dist/codewolf-linux-x64.tar.gz .
+          python3 - <<'PYZIP'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path('dist/codewolf-windows-x64')
+          with ZipFile('dist/codewolf-windows-x64.zip', 'w', compression=ZIP_DEFLATED, compresslevel=6) as archive:
+              for file in sorted(source.iterdir()):
+                  archive.write(file, arcname=file.name)
+          PYZIP
+          cd dist
+          sha256sum codewolf-linux-x64.tar.gz codewolf-windows-x64.zip > SHA256SUMS.txt
+
+      - name: Crear etiqueta y release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          gh release create "$VERSION" dist/codewolf-linux-x64.tar.gz dist/codewolf-windows-x64.zip dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "$VERSION" --generate-notes

@@ -328,9 +328,12 @@ type Base2HandleSteps = NonNullable<SecretAgentDefinition['handleSteps']>
 
 function getBase2ContextPrunerMaxContextLength(
   model: SecretAgentDefinition['model'],
-): 250_000 | 400_000 {
-  if (model === FREEBUFF_KIMI_MODEL_ID) return 250_000
-  return 400_000
+): 225_000 | 360_000 | 900_000 {
+  // These values are auto-compaction thresholds (90% of the known window),
+  // not the provider's absolute context limits.
+  if (model === FREEBUFF_KIMI_MODEL_ID) return 225_000
+  if (String(model).toLowerCase().includes('deepseek')) return 900_000
+  return 360_000
 }
 
 function getBase2HandleSteps({
@@ -338,24 +341,26 @@ function getBase2HandleSteps({
   maxContextLength,
 }: {
   isFree: boolean
-  maxContextLength: 250_000 | 400_000
+  maxContextLength: 225_000 | 360_000 | 900_000
 }): Base2HandleSteps {
   if (isFree) {
-    if (maxContextLength === 250_000) return handleStepsFree250k
-    return handleStepsFree400k
+    if (maxContextLength === 225_000) return handleStepsFree225k
+    if (maxContextLength === 900_000) return handleStepsFree900k
+    return handleStepsFree360k
   }
-  if (maxContextLength === 250_000) return handleSteps250k
-  return handleSteps400k
+  if (maxContextLength === 225_000) return handleSteps225k
+  if (maxContextLength === 900_000) return handleSteps900k
+  return handleSteps360k
 }
 
-const handleStepsFree250k: Base2HandleSteps = function* ({ params }) {
+const handleStepsFree225k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 250_000,
+          maxContextLength: 225_000,
           ...(params ?? {}),
           cacheExpiryMs: 30 * 60 * 1000,
         },
@@ -368,14 +373,14 @@ const handleStepsFree250k: Base2HandleSteps = function* ({ params }) {
   }
 }
 
-const handleStepsFree400k: Base2HandleSteps = function* ({ params }) {
+const handleStepsFree360k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 400_000,
+          maxContextLength: 360_000,
           ...(params ?? {}),
           cacheExpiryMs: 30 * 60 * 1000,
         },
@@ -388,14 +393,34 @@ const handleStepsFree400k: Base2HandleSteps = function* ({ params }) {
   }
 }
 
-const handleSteps250k: Base2HandleSteps = function* ({ params }) {
+const handleStepsFree900k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 250_000,
+          maxContextLength: 900_000,
+          ...(params ?? {}),
+          cacheExpiryMs: 30 * 60 * 1000,
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleSteps225k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 225_000,
           ...(params ?? {}),
         },
       },
@@ -407,14 +432,33 @@ const handleSteps250k: Base2HandleSteps = function* ({ params }) {
   }
 }
 
-const handleSteps400k: Base2HandleSteps = function* ({ params }) {
+const handleSteps360k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 400_000,
+          maxContextLength: 360_000,
+          ...(params ?? {}),
+        },
+      },
+      includeToolCall: false,
+    } as any
+
+    const { stepsComplete } = yield 'STEP'
+    if (stepsComplete) break
+  }
+}
+
+const handleSteps900k: Base2HandleSteps = function* ({ params }) {
+  while (true) {
+    yield {
+      toolName: 'spawn_agent_inline',
+      input: {
+        agent_type: 'context-pruner',
+        params: {
+          maxContextLength: 900_000,
           ...(params ?? {}),
         },
       },

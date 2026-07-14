@@ -95,6 +95,10 @@ TypeScript con Bun, React y OpenTUI.
   estadísticas técnicas locales de tokens, sin precios ni cuotas.
 - Estadísticas locales mediante `/usage`, con cifras informadas por el proveedor
   cuando existen y cálculo local cuando no existen.
+- `/compact` resume manualmente una sesión; Base2 compacta automáticamente al
+  90 % del contexto máximo configurado o descubierto para el modelo.
+- Las sesiones heredadas con `role`/`content` nulos se normalizan al reanudarse,
+  y los metadatos del proveedor no pueden sobrescribir campos del protocolo.
 
 # Persistencia
 
@@ -161,6 +165,10 @@ lista exacta y versiones bloqueadas.
 - `cli/src/utils/chat-transfer.ts`
 - `cli/src/components/chat-transfer-screen.tsx`
 - `cli/src/utils/session-name.ts`
+- `agents/context-pruner.ts`
+- `packages/llm-providers/src/openai-compatible/chat/convert-to-openai-compatible-chat-messages.ts`
+- `common/src/util/messages.ts`
+- `sdk/src/run-state.ts`
 
 # Problemas encontrados
 
@@ -172,6 +180,10 @@ lista exacta y versiones bloqueadas.
 - Un investigador sin cierre podía bloquear el turno principal.
 - GitHub no muestra la ejecución manual si el workflow no está en la rama
   predeterminada, está deshabilitado o Actions está desactivado.
+- La compactación existente usaba umbrales fijos y `/compact` no estaba
+  registrado como comando real.
+- Metadatos OpenAI-compatible podían sobrescribir `role` o `content` con `null`
+  y envenenar todos los turnos posteriores de una sesión.
 
 # Soluciones implementadas
 
@@ -187,6 +199,11 @@ lista exacta y versiones bloqueadas.
 - `/usage` fue recuperado con un significado exclusivamente técnico y local: registra tokens, no facturación.
 - `/providers` administra proveedores sin exponer claves y permite actualizar modelos manualmente o mediante `/models`.
 - `/rename`, `/export` y `/import` permiten nombrar y transferir sesiones con un archivo JSONL portable.
+- `/compact` y `context-pruner` conservan conversaciones largas dentro del 90 %
+  de la ventana del modelo; el compactador también estima el historial actual
+  para detectar prompts nuevos grandes antes de la siguiente llamada.
+- Los campos reservados del protocolo quedan protegidos frente a metadatos del
+  proveedor y los historiales dañados se reparan antes de reproducirse.
 
 # Pendientes
 
@@ -221,3 +238,4 @@ al terminar.
 - `014`: contexto persistente, workflow manual y edición sin monetización.
 - `015`: estadísticas locales de tokens.
 - `016`: administración de proveedores y sesiones portables.
+- `017`: compactación al 90 % y recuperación de sesiones con mensajes nulos.

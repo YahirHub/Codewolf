@@ -505,7 +505,7 @@ export const runAgentStep = async (
   const wasCompacted =
     prompt &&
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
-  if (wasCompacted) {
+  if (wasCompacted && fullResponse.trim()) {
     agentState.messageHistory = [
       userMessage(
         withSystemTags(
@@ -514,6 +514,11 @@ export const runAgentStep = async (
       ),
     ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
+  } else if (wasCompacted) {
+    logger.warn(
+      {},
+      'Manual compaction returned an empty summary; preserving message history',
+    )
   }
 
   const hasNoToolResults =

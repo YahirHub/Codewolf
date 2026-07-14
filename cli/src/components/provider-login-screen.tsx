@@ -8,6 +8,7 @@ import { resetCodebuffClient } from '../utils/codebuff-client'
 import {
   createCustomProviderId,
   discoverCustomProviderModels,
+  formatCustomProviderModelsInput,
   getCustomProviderApiKey,
   loadCustomProvidersConfig,
   normalizeCustomProviderBaseUrl,
@@ -45,8 +46,8 @@ const STEP_COPY: Record<
   },
   models: {
     label: 'Modelos',
-    placeholder: 'modelo-a, modelo-b',
-    help: 'Escribe modelos separados por comas; deja vacío y pulsa Enter para consultar /models.',
+    placeholder: 'modelo-a=1000000, modelo-b=200000',
+    help: 'Usa modelo=tokens para indicar su contexto máximo; deja vacío y pulsa Enter para consultar /models.',
   },
 }
 
@@ -68,7 +69,7 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
     name: provider?.name ?? '',
     baseUrl: provider?.baseUrl ?? '',
     apiKey: '',
-    models: provider?.models.map((model) => model.id).join(', ') ?? '',
+    models: provider ? formatCustomProviderModelsInput(provider.models) : '',
   })
   const [cursorPosition, setCursorPosition] = useState(
     provider?.name.length ?? 0,

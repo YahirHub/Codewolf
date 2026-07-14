@@ -13,6 +13,7 @@ import {
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { stringifyJsonValue } from '@codebuff/common/util/json'
+import { sanitizeCodebuffMessageHistory } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
@@ -709,6 +710,9 @@ export async function applyOverridesToSessionState(
   const sessionState = JSON.parse(
     stringifyJsonValue(baseSessionState),
   ) as SessionState
+  sessionState.mainAgentState.messageHistory = sanitizeCodebuffMessageHistory(
+    sessionState.mainAgentState.messageHistory,
+  )
 
   // Apply maxAgentSteps override
   if (overrides.maxAgentSteps !== undefined) {

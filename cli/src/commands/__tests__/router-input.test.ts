@@ -204,6 +204,7 @@ describe('command-registry', () => {
       expect(findCommand('subscribe')).toBeUndefined()
 
       expect(findCommand('providers')?.name).toBe('providers')
+      expect(findCommand('compact')?.name).toBe('compact')
       expect(findCommand('rename')?.name).toBe('rename')
       expect(findCommand('export')?.name).toBe('export')
       expect(findCommand('import')?.name).toBe('import')

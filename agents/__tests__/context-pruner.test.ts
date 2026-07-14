@@ -1610,6 +1610,17 @@ describe('context-pruner threshold behavior', () => {
       '<conversation_summary>',
     )
   })
+
+  test('prunes a large new prompt even when the provider count is stale', () => {
+    const messages = [createMessage('user', 'x'.repeat(600_000))]
+
+    const results = runHandleSteps(messages, 1_000, 200_000)
+
+    expect(results[0].input.messages).toHaveLength(1)
+    expect(results[0].input.messages[0].content[0].text).toContain(
+      '<conversation_summary>',
+    )
+  })
 })
 
 describe('context-pruner str_replace and write_file tool results', () => {

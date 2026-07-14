@@ -128,6 +128,61 @@ const definition: AgentDefinition = {
     }
 
     /**
+     * Estimates the current history before the next model request. The provider
+     * token count belongs to the previous request, so a very large new user
+     * prompt must also be considered before deciding whether to compact. Binary
+     * image/file payloads use a bounded estimate instead of their base64 length.
+     */
+    function estimateCurrentHistoryTokens(history: Message[]): number {
+      let characterCount = agentState.systemPrompt?.length ?? 0
+
+      function safeJsonLength(value: unknown): number {
+        try {
+          const seen = new WeakSet<object>()
+          const serialized = JSON.stringify(value, (_key, item) => {
+            if (item && typeof item === 'object') {
+              if (seen.has(item)) return '[Circular]'
+              seen.add(item)
+            }
+            return item
+          })
+          return serialized?.length ?? 0
+        } catch {
+          return 0
+        }
+      }
+
+      characterCount += safeJsonLength(agentState.toolDefinitions)
+
+      for (const message of history) {
+        characterCount += message.role.length + 8
+        if (typeof message.content === 'string') {
+          characterCount += message.content.length
+          continue
+        }
+
+        for (const part of message.content) {
+          if (part.type === 'text' || part.type === 'reasoning') {
+            characterCount += part.text.length
+          } else if (part.type === 'tool-call') {
+            characterCount +=
+              part.toolName.length +
+              part.toolCallId.length +
+              safeJsonLength(part.input)
+          } else if (part.type === 'json') {
+            characterCount += safeJsonLength(part.value)
+          } else if (part.type === 'image' || part.type === 'file') {
+            characterCount += 3_000
+          } else if (part.type === 'media') {
+            characterCount += 3_000
+          }
+        }
+      }
+
+      return Math.ceil(characterCount / CHARS_PER_TOKEN)
+    }
+
+    /**
      * Summarizes a tool call into a human-readable description.
      */
     function summarizeToolCall(
@@ -346,7 +401,10 @@ const definition: AgentDefinition = {
     // =============================================================================
 
     const messages = agentState.messageHistory
-    const maxContextLength: number = params?.maxContextLength ?? 200_000
+    // Base2 passes a model-specific threshold equal to 90% of its context
+    // window. Keep the same safety ratio for standalone/custom callers that do
+    // not provide model metadata (200k assumed window -> 180k threshold).
+    const maxContextLength: number = params?.maxContextLength ?? 180_000
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
     // (these are inserted for the context-pruner subagent itself)
@@ -401,9 +459,15 @@ const definition: AgentDefinition = {
     // Check if we need to prune at all:
     // - Prune when context exceeds max, OR
     // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
-    // If not, return messages with just the subagent-specific tags removed
+    // The provider count belongs to the previous request, so include a local
+    // estimate of the current history to catch a large newly appended prompt.
+    // If not, return messages with just the subagent-specific tags removed.
+    const effectiveContextTokenCount = Math.max(
+      agentState.contextTokenCount,
+      estimateCurrentHistoryTokens(currentMessages),
+    )
     if (
-      agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <=
+      effectiveContextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <=
         maxContextLength &&
       !cacheWillMiss
     ) {

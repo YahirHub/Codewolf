@@ -27,6 +27,8 @@ export type CreateRunConfigParams = {
   signal: AbortSignal
   costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
+  /** Auto-compaction threshold for Base2 agents, already calculated at 90%. */
+  maxContextLength?: number
   /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
   onStateSnapshot?: (runState: RunState) => void
 }
@@ -106,8 +108,12 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     eventHandlerState,
     costMode,
     extraCodebuffMetadata,
+    maxContextLength,
     onStateSnapshot,
   } = params
+
+  const agentId = typeof agent === 'string' ? agent : agent.id
+  const supportsContextPruning = agentId.startsWith('base2')
 
   return {
     logger,
@@ -122,6 +128,10 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     signal: params.signal,
     costMode,
     extraCodebuffMetadata,
+    params:
+      supportsContextPruning && maxContextLength
+        ? { maxContextLength }
+        : undefined,
     onStateSnapshot,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }

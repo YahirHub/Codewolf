@@ -80,7 +80,7 @@ describe('base2 context pruning', () => {
     return step.input.params
   }
 
-  test('free mode (MiniMax M3) defaults context pruning to 400k tokens', () => {
+  test('free mode (MiniMax M3) defaults context pruning to 90% of 400k tokens', () => {
     const base2 = createBase2('free')
     const generator = base2.handleSteps!({ params: undefined } as any)
 
@@ -89,7 +89,7 @@ describe('base2 context pruning', () => {
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 400_000,
+          maxContextLength: 360_000,
           cacheExpiryMs: 30 * 60 * 1000,
         },
       },
@@ -97,22 +97,22 @@ describe('base2 context pruning', () => {
     })
   })
 
-  test('free Kimi mode defaults context pruning to 250k tokens', () => {
+  test('free Kimi mode defaults context pruning to 90% of 250k tokens', () => {
     expect(
       getContextPrunerParams('free', { model: FREEBUFF_KIMI_MODEL_ID }),
     ).toEqual({
-      maxContextLength: 250_000,
+      maxContextLength: 225_000,
       cacheExpiryMs: 30 * 60 * 1000,
     })
   })
 
-  test('free non-MiniMax/Kimi models default context pruning to 400k tokens', () => {
+  test('free DeepSeek models compact at 90% of one million tokens', () => {
     expect(
       getContextPrunerParams('free', {
         model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       }),
     ).toEqual({
-      maxContextLength: 400_000,
+      maxContextLength: 900_000,
       cacheExpiryMs: 30 * 60 * 1000,
     })
   })
@@ -135,17 +135,17 @@ describe('base2 context pruning', () => {
   })
 
   test.each(['default', 'lite', 'max', 'fast'] as const)(
-    '%s mode defaults context pruning to 400k tokens without a cache expiry override',
+    '%s mode defaults context pruning to 90% of 400k tokens without a cache expiry override',
     (mode) => {
       expect(getContextPrunerParams(mode)).toEqual({
-        maxContextLength: 400_000,
+        maxContextLength: 360_000,
       })
     },
   )
 
   test.each([
-    [FREEBUFF_KIMI_MODEL_ID, 250_000],
-    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 400_000],
+    [FREEBUFF_KIMI_MODEL_ID, 225_000],
+    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 900_000],
   ] as const)(
     'non-free model %p defaults context pruning to %p tokens',
     (model, maxContextLength) => {
@@ -156,10 +156,10 @@ describe('base2 context pruning', () => {
   )
 
   test.each([
-    ['free', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
-    ['free', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
-    ['default', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
-    ['default', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
+    ['free', { model: FREEBUFF_KIMI_MODEL_ID }, 225_000],
+    ['free', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 900_000],
+    ['default', { model: FREEBUFF_KIMI_MODEL_ID }, 225_000],
+    ['default', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 900_000],
   ] as const)(
     'serialized %s handleSteps for model %p defaults to %p tokens',
     (mode, options, maxContextLength) => {

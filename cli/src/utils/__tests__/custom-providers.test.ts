@@ -9,7 +9,10 @@ import {
   createCustomProviderId,
   disableCustomProvider,
   discoverCustomProviderModels,
+  formatCustomProviderModelsInput,
+  getActiveCustomProviderCompactionThreshold,
   getActiveCustomProviderRuntimeConfig,
+  getContextCompactionThreshold,
   getCustomProviderApiKey,
   getCustomProviderAuthPath,
   getCustomProviderAuthStatus,
@@ -63,6 +66,33 @@ describe('custom providers', () => {
     ])
   })
 
+  test('accepts and formats explicit context windows per model', () => {
+    const models = parseCustomProviderModels(
+      'deepseek-v4=1_000_000, coder-small=200000',
+    )
+
+    expect(models).toEqual([
+      { id: 'deepseek-v4', maxContextTokens: 1_000_000 },
+      { id: 'coder-small', maxContextTokens: 200_000 },
+    ])
+    expect(formatCustomProviderModelsInput(models)).toBe(
+      'deepseek-v4=1000000, coder-small=200000',
+    )
+  })
+
+  test('calculates automatic compaction at ninety percent', () => {
+    expect(getContextCompactionThreshold(1_000_000)).toBe(900_000)
+  })
+
+  test('merges a later explicit context and rejects malformed limits', () => {
+    expect(
+      parseCustomProviderModels('deepseek-v4, deepseek-v4=1_000_000'),
+    ).toEqual([{ id: 'deepseek-v4', maxContextTokens: 1_000_000 }])
+    expect(() => parseCustomProviderModels('deepseek-v4=unknown')).toThrow(
+      'modelo=tokens',
+    )
+  })
+
   test('stores provider metadata separately from direct API keys', () => {
     upsertCustomProvider({
       id: 'my-provider',
@@ -94,7 +124,9 @@ describe('custom providers', () => {
       baseUrl: 'https://example.test/v1',
       apiKey: 'secret-value',
       modelId: 'coder-large',
+      maxContextTokens: 400_000,
     })
+    expect(getActiveCustomProviderCompactionThreshold(configDir)).toBe(360_000)
   })
 
   test('allows providers without authentication', () => {
@@ -141,7 +173,7 @@ describe('custom providers', () => {
       authorization = new Headers(init?.headers).get('Authorization') ?? ''
       return Response.json({
         data: [
-          { id: 'coder-b', name: 'Coder B' },
+          { id: 'coder-b', name: 'Coder B', context_length: 1_000_000 },
           { id: 'coder-a' },
           { id: 'coder-b', name: 'Duplicate' },
         ],
@@ -154,11 +186,50 @@ describe('custom providers', () => {
         apiKey: 'secret',
       }),
     ).resolves.toEqual([
-      { id: 'coder-b', name: 'Duplicate' },
+      {
+        id: 'coder-b',
+        name: 'Duplicate',
+        maxContextTokens: 1_000_000,
+      },
       { id: 'coder-a' },
     ])
     expect(requestedUrl).toBe('https://example.test/v1/models')
     expect(authorization).toBe('Bearer secret')
+  })
+
+  test('reads context window metadata from model discovery', async () => {
+    globalThis.fetch = (async () =>
+      Response.json({
+        data: [
+          { id: 'large', context_window: '1_000_000' },
+          { id: 'small', max_model_len: 131072 },
+        ],
+      })) as typeof fetch
+
+    await expect(
+      discoverCustomProviderModels({
+        baseUrl: 'https://example.test/v1',
+      }),
+    ).resolves.toEqual([
+      { id: 'large', maxContextTokens: 1_000_000 },
+      { id: 'small', maxContextTokens: 131_072 },
+    ])
+  })
+
+  test('uses a one-million-token compatibility default for DeepSeek models', () => {
+    upsertCustomProvider({
+      id: 'deepseek-provider',
+      name: 'DeepSeek provider',
+      baseUrl: 'https://example.test/v1',
+      apiKeyInput: 'none',
+      models: 'deepseek-v4-pro',
+      configDir,
+    })
+
+    expect(getActiveCustomProviderRuntimeConfig(configDir)).toMatchObject({
+      maxContextTokens: 1_000_000,
+    })
+    expect(getActiveCustomProviderCompactionThreshold(configDir)).toBe(900_000)
   })
 
   test('switches providers and models and can return to the Codebuff backend', () => {

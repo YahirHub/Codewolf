@@ -15,6 +15,9 @@ describe('custom provider multi-turn session serialization', () => {
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
         invocation++
+        expect(params.action.promptParams).toEqual({
+          maxContextLength: 900_000,
+        })
         const state = params.action.sessionState
 
         if (invocation === 1) {
@@ -67,6 +70,7 @@ describe('custom provider multi-turn session serialization', () => {
         name: 'Local',
         baseUrl: 'http://127.0.0.1:11434/v1',
         modelId: 'coder-model',
+        maxContextTokens: 1_000_000,
       },
     })
 
