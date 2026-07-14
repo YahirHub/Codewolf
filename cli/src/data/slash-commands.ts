@@ -181,7 +181,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'feedback',
     description: IS_FREEBUFF
       ? 'Share general feedback about Freebuff'
-      : 'Share general feedback about Codebuff',
+      : 'Share general feedback about Codewolf',
   },
   {
     id: 'bash',

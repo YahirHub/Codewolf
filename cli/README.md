@@ -1,4 +1,4 @@
-# @codebuff/cli
+# Codewolf CLI
 
 A Terminal User Interface (TUI) package built with OpenTUI and React.
 
@@ -66,11 +66,11 @@ bun run build:binary
 On Windows, the distributable files are generated in:
 
 ```text
-cli\bin\codebuff.exe
+cli\bin\codewolf.exe
 cli\bin\tree-sitter.wasm
 ```
 
-Keep `tree-sitter.wasm` next to `codebuff.exe` when copying the binary to another directory or computer.
+Keep `tree-sitter.wasm` next to `codewolf.exe` when copying the binary to another directory or computer.
 
 ## Run
 
@@ -83,7 +83,7 @@ bun run start
 Or use the binary directly:
 
 ```bash
-codebuff-tui
+codewolf
 ```
 
 ## Features

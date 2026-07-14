@@ -57,7 +57,7 @@ export const ChatHeader = memo(function ChatHeader({
         {logoComponent}
       </box>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
-        {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf
+        {IS_FREEBUFF ? 'Freebuff' : 'Codewolf'} will run commands on your behalf
         to help you build.
       </text>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>

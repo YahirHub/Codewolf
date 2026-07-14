@@ -41,7 +41,7 @@
       "name": "@codebuff/cli",
       "version": "1.0.0",
       "bin": {
-        "codebuff-tui": "./bin/codecane",
+        "codewolf": "./bin/codewolf",
       },
       "dependencies": {
         "@codebuff/sdk": "workspace:*",

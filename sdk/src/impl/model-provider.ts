@@ -272,7 +272,7 @@ function createCustomProviderModel(
     headers: () => ({
       ...(authValue ? { [apiKeyHeader]: authValue } : {}),
       ...(config.headers ?? {}),
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-custom-provider`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codewolf-custom-provider`,
     }),
     fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
     includeUsage: undefined,

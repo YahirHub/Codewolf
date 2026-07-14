@@ -100,7 +100,7 @@ export function formatProcessDiagnostics(
 export function collectProcessDiagnostics(): ProcessDiagnosticsSnapshot {
   const cpuUsage = process.cpuUsage()
   return {
-    product: IS_FREEBUFF ? 'Freebuff' : 'Codebuff',
+    product: IS_FREEBUFF ? 'Freebuff' : 'Codewolf',
     version: getCliEnv().CODEBUFF_CLI_VERSION ?? 'dev',
     runtime:
       typeof Bun !== 'undefined'

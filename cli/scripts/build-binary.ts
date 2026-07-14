@@ -30,6 +30,8 @@ const OVERRIDE_PLATFORM = process.env.OVERRIDE_PLATFORM as
   NodeJS.Platform | undefined
 const OVERRIDE_ARCH = process.env.OVERRIDE_ARCH ?? undefined
 const OVERRIDE_COMPILE_EXECUTABLE_PATH = process.env.BUN_COMPILE_EXECUTABLE_PATH
+const SKIP_PREBUILD_AGENTS = process.env.CODEWOLF_SKIP_PREBUILD_AGENTS === 'true'
+const SKIP_SDK_BUILD = process.env.CODEWOLF_SKIP_SDK_BUILD === 'true'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -141,7 +143,7 @@ async function main() {
   applyCliEnvironmentDefaults('prod')
 
   const [, , binaryNameArg, version] = process.argv
-  const binaryName = binaryNameArg ?? 'codecane'
+  const binaryName = binaryNameArg ?? 'codewolf'
 
   if (!version) {
     throw new Error('Version argument is required when building a binary')
@@ -156,19 +158,27 @@ async function main() {
     mkdirSync(binDir, { recursive: true })
   }
 
-  // Generate bundled agents file before compiling
-  log('Generating bundled agents...')
-  runCommand(bunExecutable, ['run', 'scripts/prebuild-agents.ts'], {
-    cwd: cliRoot,
-    env: process.env,
-  })
+  // Generate bundled agents once. CI can reuse the result for a second target.
+  if (!SKIP_PREBUILD_AGENTS) {
+    log('Generating bundled agents...')
+    runCommand(bunExecutable, ['run', 'scripts/prebuild-agents.ts'], {
+      cwd: cliRoot,
+      env: process.env,
+    })
+  } else {
+    log('Reusing previously generated bundled agents')
+  }
 
-  // Ensure SDK assets exist before compiling the CLI
-  log('Building SDK dependencies...')
-  runCommand(bunExecutable, ['run', 'build'], {
-    cwd: join(repoRoot, 'sdk'),
-    env: process.env,
-  })
+  // Build SDK assets once. CI can reuse them for a second target.
+  if (!SKIP_SDK_BUILD) {
+    log('Building SDK dependencies...')
+    runCommand(bunExecutable, ['run', 'build'], {
+      cwd: join(repoRoot, 'sdk'),
+      env: process.env,
+    })
+  } else {
+    log('Reusing previously built SDK dependencies')
+  }
 
   patchOpenTuiAssetPaths()
   await ensureOpenTuiNativeBundle(targetInfo)
@@ -184,9 +194,12 @@ async function main() {
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
-    ['process.env.CODEBUFF_IS_BINARY', '"true"'],
-    ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
-    ['process.env.CODEBUFF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`],
+    ['process.env.CODEBUFF_IS_BINARY', '"true"'], // Legacy internal compatibility
+    ['process.env.CODEWOLF_IS_BINARY', '"true"'],
+    ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`], // Legacy internal compatibility
+    ['process.env.CODEWOLF_CLI_VERSION', `"${version}"`],
+    ['process.env.CODEBUFF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`], // Legacy internal compatibility
+    ['process.env.CODEWOLF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`],
     ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
     ...nextPublicEnvVars,
   ]
@@ -354,7 +367,8 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
   const opentuiPackagesDir = dirname(dirname(corePackagePath))
   const packageDir = join(opentuiPackagesDir, packageFolder)
   const registryBase =
-    process.env.CODEBUFF_NPM_REGISTRY ??
+    process.env.CODEWOLF_NPM_REGISTRY ??
+    process.env.CODEBUFF_NPM_REGISTRY ?? // Legacy compatibility
     process.env.NPM_REGISTRY_URL ??
     'https://registry.npmjs.org'
   const metadataUrl = `${registryBase.replace(/\/$/, '')}/${encodeURIComponent(packageName)}`

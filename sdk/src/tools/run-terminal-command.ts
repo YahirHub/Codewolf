@@ -267,7 +267,7 @@ To fix this, you have several options:
 
 2. Use WSL (Windows Subsystem for Linux):
    Run in PowerShell (Admin): wsl --install
-   Then run Codebuff inside WSL.
+   Then run Codewolf inside WSL.
 
 3. Set a custom bash path:
    Set the CODEBUFF_GIT_BASH_PATH environment variable to your bash.exe location.

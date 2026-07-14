@@ -1,7 +1,7 @@
 /**
- * Codebuff Agent Type Definitions
+ * Codewolf Agent Type Definitions
  *
- * This file provides TypeScript type definitions for creating custom Codebuff agents.
+ * This file provides TypeScript type definitions for creating custom Codewolf agents.
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage in .agents/your-agent.ts:

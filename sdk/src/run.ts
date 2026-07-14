@@ -748,7 +748,7 @@ async function runOnce({
 function requireCwd(cwd: string | undefined, toolName: string): string {
   if (!cwd) {
     throw new Error(
-      `cwd is required for the ${toolName} tool. Please provide cwd in CodebuffClientOptions or override the ${toolName} tool.`,
+      `cwd is required for the ${toolName} tool. Please provide cwd in the client options or override the ${toolName} tool.`,
     )
   }
   return cwd

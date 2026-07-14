@@ -33,7 +33,7 @@ describe('Initial Session State', () => {
         if (path.includes('.gitignore')) {
           return 'node_modules/\n.git/'
         }
-        if (path.includes('.codebuffignore')) {
+        if (path.includes('.codewolfignore')) {
           return ''
         }
         if (path.includes('.manicodeignore')) {
@@ -73,7 +73,7 @@ describe('Initial Session State', () => {
       }),
       exists: async (path: string) => {
         if (path.includes('.gitignore')) return true
-        if (path.includes('.codebuffignore')) return true
+        if (path.includes('.codewolfignore')) return true
         if (path.includes('.manicodeignore')) return true
         if (path.includes('src')) return true
         if (path.includes('.git')) return true

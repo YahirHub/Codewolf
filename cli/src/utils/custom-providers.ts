@@ -413,7 +413,7 @@ export function formatCustomProviderStatus(
     (item) => item.id === config.activeProviderId,
   )
   if (!provider)
-    return 'Backend de Codebuff (sin proveedor personalizado activo).'
+    return 'Backend heredado (sin proveedor personalizado activo).'
   const model =
     provider.models.find((item) => item.id === config.activeModelId) ??
     provider.models[0]

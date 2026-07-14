@@ -47,7 +47,7 @@ const CATEGORY_OPTIONS = [
     highlightKey: 'warning',
     placeholder: IS_FREEBUFF
       ? 'Report a problem with Freebuff (crashes, errors, UI issues, etc.)'
-      : 'Report a problem with Codebuff (crashes, errors, UI issues, etc.)',
+      : 'Report a problem with Codewolf (crashes, errors, UI issues, etc.)',
   },
   {
     id: 'other',

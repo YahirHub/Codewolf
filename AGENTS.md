@@ -1,6 +1,6 @@
-# Freebuff
+# Codewolf
 
-Freebuff is the public, free coding agent built from the Codebuff agent framework.
+Codewolf is a terminal coding editor with configurable model providers, multi-provider web search, persistent skills, and shared state under `~/.codewolf`.
 
 ## Key Technologies
 
@@ -68,3 +68,10 @@ Freebuff is the public, free coding agent built from the Codebuff agent framewor
 - Use an isolated abort controller and bounded execution for each subagent. `researcher-web` is capped at 120 seconds; a stalled provider must not block the parent turn indefinitely.
 - Ignore late chunks after a subagent times out and close unresolved UI placeholders when the root stream finishes.
 - `researcher-web` should scale source depth to the question: one authoritative page is enough for a simple release/version fact; avoid fixed minimum page counts that create unnecessary loops.
+
+## Codewolf Brand and Binary Distribution
+
+- The user-facing product name is Codewolf. The TUI logo, terminal title, help output, exported conversations, model selector, and base-agent identity must not display Codebuff.
+- The standalone executable is `codewolf` on Linux/macOS and `codewolf.exe` on Windows. Keep `tree-sitter.wasm` beside the executable.
+- Internal `@codebuff/*` workspace imports and legacy `CODEBUFF_*` environment keys remain compatibility details until a dedicated namespace migration; never expose them as the product brand.
+- `.github/workflows/build-binaries.yml` deliberately cross-compiles Windows from one Linux runner to reduce paid Actions minutes. Preserve manual/tag-only triggers, one dependency installation, reused agent/SDK builds, short artifact retention, and concurrency cancellation unless requirements change.

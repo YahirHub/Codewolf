@@ -12,23 +12,23 @@ const FREEBUFF_WEB_URL = IS_DEV
   : (env.NEXT_PUBLIC_FREEBUFF_APP_URL ?? FREEBUFF_WEB_URL_PROD)
 export const LOGIN_WEBSITE_URL = IS_FREEBUFF ? FREEBUFF_WEB_URL : WEBSITE_URL
 
-// Codebuff ASCII Logo - compact version for 80-width terminals
-const LOGO_CODEBUFF = `
-  ██████╗ ██████╗ ██████╗ ███████╗██████╗ ██╗   ██╗███████╗███████╗
- ██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝
- ██║     ██║   ██║██║  ██║█████╗  ██████╔╝██║   ██║█████╗  █████╗
- ██║     ██║   ██║██║  ██║██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══╝
- ╚██████╗╚██████╔╝██████╔╝███████╗██████╔╝╚██████╔╝██║     ██║
-  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
+// Codewolf ASCII logo - compact version for terminal use
+const LOGO_CODEWOLF = `
+  ██████╗ ██████╗ ██████╗ ███████╗██╗    ██╗ ██████╗ ██╗     ███████╗
+ ██╔════╝██╔═══██╗██╔══██╗██╔════╝██║    ██║██╔═══██╗██║     ██╔════╝
+ ██║     ██║   ██║██║  ██║█████╗  ██║ █╗ ██║██║   ██║██║     █████╗
+ ██║     ██║   ██║██║  ██║██╔══╝  ██║███╗██║██║   ██║██║     ██╔══╝
+ ╚██████╗╚██████╔╝██████╔╝███████╗╚███╔███╔╝╚██████╔╝███████╗██║
+  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚══════╝╚═╝
 `
 
-const LOGO_SMALL_CODEBUFF = `
-  ██████╗ ██████╗
- ██╔════╝ ██╔══██╗
- ██║      ██████╔╝
- ██║      ██╔══██╗
- ╚██████╗ ██████╔╝
-  ╚═════╝ ╚═════╝
+const LOGO_SMALL_CODEWOLF = `
+  ██████╗ ██╗    ██╗
+ ██╔════╝ ██║    ██║
+ ██║      ██║ █╗ ██║
+ ██║      ██║███╗██║
+ ╚██████╗ ╚███╔███╔╝
+  ╚═════╝  ╚══╝╚══╝
 `
 
 // Freebuff ASCII Logo
@@ -50,8 +50,8 @@ const LOGO_SMALL_FREEBUFF = `
  ╚═╝     ╚═════╝
 `
 
-export const LOGO = IS_FREEBUFF ? LOGO_FREEBUFF : LOGO_CODEBUFF
-export const LOGO_SMALL = IS_FREEBUFF ? LOGO_SMALL_FREEBUFF : LOGO_SMALL_CODEBUFF
+export const LOGO = IS_FREEBUFF ? LOGO_FREEBUFF : LOGO_CODEWOLF
+export const LOGO_SMALL = IS_FREEBUFF ? LOGO_SMALL_FREEBUFF : LOGO_SMALL_CODEWOLF
 
 // Shadow/border characters that receive the sheen animation effect
 export const SHADOW_CHARS = new Set([

@@ -405,10 +405,10 @@ export const useSendMessage = ({
       if (!client) {
         logger.error(
           {},
-          '[send-message] No Codebuff client available. Please ensure you are authenticated.',
+          '[send-message] No Codewolf client available. Configure a provider with /login and select a model with /models.',
         )
         // Show error to user instead of silently failing
-        const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
+        const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codewolf'
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(

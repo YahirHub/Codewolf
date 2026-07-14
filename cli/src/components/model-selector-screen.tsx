@@ -65,11 +65,11 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
     return [
       {
         providerId: null,
-        providerName: 'Codebuff',
+        providerName: 'Codewolf',
         choices: [
           {
             providerId: null,
-            providerName: 'Codebuff',
+            providerName: 'Codewolf',
             modelId: 'default',
             modelName: 'Backend predeterminado',
             isCodebuff: true,

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "codebuff-tui": "./bin/codecane"
+    "codewolf": "./bin/codewolf"
   },
   "exports": {
     ".": {
@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "bun run prebuild:agents && bun run --preload ./scripts/preload-cli-env.ts src/index.tsx --cwd ..",
     "prebuild:agents": "bun run --preload ./scripts/preload-cli-env.ts scripts/prebuild-agents.ts",
-    "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts codewolf $npm_package_version",
     "release": "bun run scripts/release.ts",
     "test": "NODE_ENV=production bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",

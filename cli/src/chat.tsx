@@ -1027,7 +1027,7 @@ export const Chat = ({
         ...previous,
         getSystemMessage(
           choice.isCodebuff
-            ? 'Proveedor personalizado desactivado. Se usará el backend predeterminado de Codebuff.'
+            ? 'Proveedor personalizado desactivado. Se usará el backend heredado configurado.'
             : `Modelo activo: ${choice.providerName} / ${choice.modelName}. Se aplicará al agente principal y a sus subagentes.`,
         ),
       ])

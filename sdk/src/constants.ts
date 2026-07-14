@@ -4,7 +4,9 @@ import { getRuntimeAppUrlFromEnv } from './env'
 
 export { IS_DEV, IS_TEST, IS_PROD }
 
-export const CODEBUFF_BINARY = 'codebuff'
+export const CODEWOLF_BINARY = 'codewolf'
+/** @deprecated Internal compatibility alias. */
+export const CODEBUFF_BINARY = CODEWOLF_BINARY
 
 /** URL baked in at bundle time (CLI / local dev shell). */
 const bundledWebsiteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL

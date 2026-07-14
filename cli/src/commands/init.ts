@@ -17,7 +17,7 @@ import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
-const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
+const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codewolf'
 
 const INITIAL_KNOWLEDGE_FILE = `# Project knowledge
 

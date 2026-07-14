@@ -67,10 +67,10 @@ export function parseArgs({
       )
       .helpOption('-h, --help', 'Show this help message')
   } else {
-    // Codebuff: full CLI with all options
+    // Codewolf: full CLI with all options
     program
-      .name('codebuff')
-      .description('Codebuff CLI - AI-powered coding assistant')
+      .name('codewolf')
+      .description('Codewolf CLI - AI-powered coding assistant')
       .version(version, '-v, --version', 'Print the CLI version')
       .option(
         '--agent <agent-id>',

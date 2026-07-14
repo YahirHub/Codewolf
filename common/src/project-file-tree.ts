@@ -228,6 +228,8 @@ export async function parseGitignore(params: {
   const relativeDirPath = path.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
     path.join(fullDirPath, '.gitignore'),
+    path.join(fullDirPath, '.codewolfignore'),
+    // Legacy compatibility for projects created before the Codewolf rename.
     path.join(fullDirPath, '.codebuffignore'),
     path.join(fullDirPath, '.manicodeignore'), // Legacy support
   ]
