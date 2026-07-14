@@ -202,6 +202,11 @@ describe('command-registry', () => {
       expect(usage).toBeDefined()
       expect(usage?.name).toBe('usage')
       expect(findCommand('subscribe')).toBeUndefined()
+
+      expect(findCommand('providers')?.name).toBe('providers')
+      expect(findCommand('rename')?.name).toBe('rename')
+      expect(findCommand('export')?.name).toBe('export')
+      expect(findCommand('import')?.name).toBe('import')
     })
 
     test('finds command by alias', () => {
@@ -219,6 +224,9 @@ describe('command-registry', () => {
       const signin = findCommand('signin')
       expect(signin).toBeDefined()
       expect(signin?.name).toBe('login')
+
+      expect(findCommand('provider')?.name).toBe('providers')
+      expect(findCommand('name')?.name).toBe('rename')
     })
 
     test('returns undefined for unknown command', () => {

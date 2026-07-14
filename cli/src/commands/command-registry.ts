@@ -4,9 +4,18 @@ import { handleCopyConversationCommand } from './copy-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
-import { handleModelsCommand, handleProviderLoginCommand } from './provider'
+import {
+  handleModelsCommand,
+  handleProviderLoginCommand,
+  handleProvidersCommand,
+} from './provider'
 import { handleSearchSetupCommand } from './search'
 import { handleTokenUsageCommand } from './usage'
+import {
+  handleExportCommand,
+  handleImportCommand,
+  handleRenameCommand,
+} from './session'
 import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
@@ -75,9 +84,15 @@ export type CommandResult = {
   openReviewScreen?: boolean
   preSelectAgents?: string[]
   openProviderLogin?: boolean
+  openProviderManager?: boolean
   openModelSelector?: boolean
   openSearchSetup?: boolean
   openTokenUsage?: boolean
+  openSessionRename?: boolean
+  openChatTransfer?: {
+    mode: 'export' | 'import'
+    initialPath?: string
+  }
 } | void
 
 export type CommandHandler = (
@@ -183,6 +198,7 @@ const clearInput = (params: RouterParams) => {
 
 const FREEBUFF_REMOVED_COMMANDS = new Set([
   'login',
+  'providers',
   'models',
   'setup-search',
   'usage',
@@ -194,6 +210,11 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
 const FREEBUFF_ONLY_COMMANDS = new Set(['connect', 'plan', 'end-session'])
 
 const ALL_COMMANDS: CommandDefinition[] = [
+  defineCommand({
+    name: 'providers',
+    aliases: ['provider'],
+    handler: handleProvidersCommand,
+  }),
   defineCommand({
     name: 'models',
     aliases: ['model'],
@@ -231,10 +252,23 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
   defineCommand({
     name: 'copy',
-    aliases: ['copy-chat', 'export'],
+    aliases: ['copy-chat'],
     handler: async (params) => {
       await handleCopyConversationCommand(params)
     },
+  }),
+  defineCommandWithArgs({
+    name: 'rename',
+    aliases: ['name'],
+    handler: handleRenameCommand,
+  }),
+  defineCommandWithArgs({
+    name: 'export',
+    handler: handleExportCommand,
+  }),
+  defineCommandWithArgs({
+    name: 'import',
+    handler: handleImportCommand,
   }),
   defineCommandWithArgs({
     name: 'feedback',

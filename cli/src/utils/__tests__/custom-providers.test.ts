@@ -10,7 +10,9 @@ import {
   disableCustomProvider,
   discoverCustomProviderModels,
   getActiveCustomProviderRuntimeConfig,
+  getCustomProviderApiKey,
   getCustomProviderAuthPath,
+  getCustomProviderAuthStatus,
   getCustomProvidersPath,
   loadCustomProvidersConfig,
   normalizeCustomProviderBaseUrl,
@@ -18,6 +20,7 @@ import {
   removeCustomProvider,
   setActiveCustomProvider,
   setActiveCustomProviderModel,
+  updateCustomProvider,
   upsertCustomProvider,
 } from '../custom-providers'
 
@@ -188,6 +191,70 @@ describe('custom providers', () => {
 
     disableCustomProvider(configDir)
     expect(getActiveCustomProviderRuntimeConfig(configDir)).toBeUndefined()
+  })
+
+
+  test('edits provider metadata and models without exposing or replacing its key', () => {
+    upsertCustomProvider({
+      id: 'editable',
+      name: 'Nombre anterior',
+      baseUrl: 'https://old.example.test/v1',
+      apiKeyInput: 'stored-secret',
+      models: 'model-a,model-b',
+      configDir,
+    })
+    setActiveCustomProviderModel('model-b', configDir)
+
+    const updated = updateCustomProvider({
+      id: 'editable',
+      name: 'Nombre actualizado',
+      baseUrl: 'https://new.example.test/v1/chat/completions',
+      models: 'model-b,model-c',
+      configDir,
+    })
+
+    expect(updated).toMatchObject({
+      id: 'editable',
+      name: 'Nombre actualizado',
+      baseUrl: 'https://new.example.test/v1',
+    })
+    expect(updated.models).toEqual([{ id: 'model-b' }, { id: 'model-c' }])
+    expect(loadCustomProvidersConfig(configDir).activeModelId).toBe('model-b')
+    expect(getCustomProviderApiKey('editable', configDir)).toBe('stored-secret')
+    expect(getCustomProviderAuthStatus('editable', configDir)).toEqual({
+      type: 'stored',
+      label: 'API key guardada',
+    })
+  })
+
+  test('selects the first remaining model and can remove authentication while editing', () => {
+    upsertCustomProvider({
+      id: 'editable',
+      name: 'Editable',
+      baseUrl: 'https://example.test/v1',
+      apiKeyInput: 'stored-secret',
+      models: 'model-a,model-b',
+      configDir,
+    })
+    setActiveCustomProviderModel('model-b', configDir)
+
+    updateCustomProvider({
+      id: 'editable',
+      name: 'Editable',
+      baseUrl: 'https://example.test/v1',
+      apiKeyInput: 'none',
+      models: 'model-c,model-d',
+      configDir,
+    })
+
+    const config = loadCustomProvidersConfig(configDir)
+    expect(config.activeProviderId).toBe('editable')
+    expect(config.activeModelId).toBe('model-c')
+    expect(getCustomProviderApiKey('editable', configDir)).toBeUndefined()
+    expect(getCustomProviderAuthStatus('editable', configDir)).toEqual({
+      type: 'none',
+      label: 'Sin autenticación',
+    })
   })
 
   test('removes credentials together with the provider', () => {

@@ -4,12 +4,13 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 
 ## Funciones principales
 
-- Proveedores OpenAI-compatible configurables desde `/login`.
+- Proveedores OpenAI-compatible configurables desde `/login` y administrables con `/providers`.
 - Selector de modelos agrupados por proveedor mediante `/models`.
 - Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
 - Fallback automático entre motores de búsqueda configurados.
 - Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
 - Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
+- Conversaciones con nombre visible, historial, exportación e importación portable.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
@@ -74,6 +75,50 @@ Para cambiar de modelo:
 ```text
 /models
 ```
+
+Para administrar todos los proveedores:
+
+```text
+/providers
+```
+
+El administrador permite agregar, editar, activar y eliminar proveedores. Al editar se puede cambiar el nombre visible, la URL base, la credencial y la lista de modelos. En el paso de modelos puedes escribir identificadores separados por comas o dejar el campo vacío para consultar `GET <URL_BASE>/models`.
+
+## Sesiones con nombre y chats portables
+
+Renombra la conversación actual desde una pantalla interactiva:
+
+```text
+/rename
+```
+
+También puedes indicar el nombre directamente:
+
+```text
+/rename Refactor de autenticación
+```
+
+El nombre aparece en `/history` y se conserva entre reinicios.
+
+Exporta la conversación actual a un archivo JSONL portable:
+
+```text
+/export
+```
+
+Codewolf propone una ruta dentro del proyecto. También puedes abrir la pantalla con una ruta inicial:
+
+```text
+/export "respaldos/chat principal.jsonl"
+```
+
+Para importar y continuar un chat:
+
+```text
+/import
+```
+
+La importación valida primero el archivo, muestra su nombre, proyecto de origen y cantidad de mensajes, y solicita confirmación antes de crear una sesión nueva en el proyecto actual. Los archivos exportados incluyen mensajes, estado del agente y nombre de sesión. No copian archivos externos ni credenciales guardadas por Codewolf, pero sí conservan cualquier texto, resultado de herramienta o fragmento de archivo que ya forme parte de la conversación; trátalos como información sensible.
 
 ## Configurar búsqueda web
 

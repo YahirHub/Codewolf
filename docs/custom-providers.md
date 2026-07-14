@@ -157,3 +157,24 @@ The CLI also uses an internal `local-custom-provider:<id>` sentinel instead of a
 ## Replayed tool-call protection
 
 Some OpenAI-compatible gateways repeat a completed tool call under another stream index or generated ID. Codewolf makes provider tool-call emission idempotent by provider ID and then performs semantic deduplication after direct-agent calls are normalized to `spawn_agents`. A repeated `researcher-web` request therefore results in one execution and one TUI card, while requests with different prompts or params continue to run separately.
+
+## Administrar proveedores con `/providers`
+
+`/providers` abre un administrador completamente interactivo. La lista muestra el
+proveedor activo, la cantidad de modelos, el tipo de autenticación y su URL base.
+Desde cada proveedor se puede:
+
+- editar el nombre visible;
+- cambiar la URL base;
+- conservar, reemplazar o eliminar la API key;
+- actualizar modelos manualmente;
+- borrar el campo de modelos y pulsar Enter para consultar `/models`;
+- activarlo como proveedor actual;
+- abrir el selector global `/models`;
+- eliminar su configuración y credencial guardada.
+
+El identificador interno del proveedor se conserva al editarlo, por lo que
+renombrar el texto visible no rompe la selección activa ni referencias guardadas.
+Una API key vacía durante la edición conserva la credencial existente; escribir
+`none` la elimina. Las claves permanecen en `~/.codewolf/provider-auth.json` y
+nunca se muestran en la lista ni pasan al historial del chat.

@@ -161,7 +161,14 @@ describe('command factory pattern', () => {
     })
 
     test('expected commands ignore args', () => {
-      const expectedNoArgs = ['login', 'logout', 'exit', 'init']
+      const expectedNoArgs = [
+        'login',
+        'providers',
+        'models',
+        'logout',
+        'exit',
+        'init',
+      ]
       for (const name of expectedNoArgs) {
         const cmd = COMMAND_REGISTRY.find((c) => c.name === name)
         expect(cmd, `Command ${name} should exist`).toBeDefined()
@@ -179,6 +186,9 @@ describe('command factory pattern', () => {
         'image',
         'publish',
         'new',
+        'rename',
+        'export',
+        'import',
         'mode:default',
         'mode:max',
         'mode:plan',

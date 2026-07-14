@@ -7,7 +7,9 @@ import {
   CHAT_MESSAGES_FILENAME,
   CHAT_META_FILENAME,
   getFirstUserPrompt,
+  readChatSessionName,
   readChatMeta,
+  setChatSessionName,
   writeChatMeta,
 } from '../chat-meta'
 import {
@@ -105,6 +107,26 @@ describe('chat-meta', () => {
     // Messages file deleted entirely
     fs.rmSync(path.join(chatDir, CHAT_MESSAGES_FILENAME))
     expect(readChatMeta(chatDir)).toBeNull()
+  })
+
+
+  test('stores a visible session name and preserves it across later checkpoints', () => {
+    const messages = [userMessage('original prompt')]
+    writeMessagesFile(messages)
+
+    expect(setChatSessionName(chatDir, '  Refactor   de\nautenticación  ')).toBe(
+      'Refactor de autenticación',
+    )
+    expect(readChatSessionName(chatDir)).toBe('Refactor de autenticación')
+
+    const nextMessages = [...messages, userMessage('second prompt')]
+    writeMessagesFile(nextMessages)
+    writeChatMeta(chatDir, nextMessages)
+
+    expect(readChatMeta(chatDir)).toMatchObject({
+      name: 'Refactor de autenticación',
+      messageCount: 2,
+    })
   })
 
   test('saveChatState writes the meta sidecar and clearChatState removes it', () => {

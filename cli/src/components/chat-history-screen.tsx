@@ -111,8 +111,9 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           chat.unreadable ? '—' : `${chat.messageCount} msjs.`,
           LAYOUT.MSGS_COL_WIDTH,
         )
+        const displayName = chat.name ?? chat.lastPrompt
         const prompt = padRight(
-          truncateText(chat.lastPrompt, maxPromptWidth),
+          truncateText(displayName, maxPromptWidth),
           maxPromptWidth,
         )
 
@@ -122,7 +123,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           // The full prompt is kept in secondary for search filtering
           label: `${time}${' '.repeat(LAYOUT.GAP_WIDTH)}${msgs}${' '.repeat(LAYOUT.GAP_WIDTH)}${prompt}`,
           icon: undefined,
-          secondary: chat.lastPrompt, // Keep original prompt for search
+          secondary: [chat.name, chat.lastPrompt].filter(Boolean).join(' '), // Search name and first prompt
           hideSecondary: true, // Don't display secondary, only use for filtering
         }
       }),

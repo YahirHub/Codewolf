@@ -155,6 +155,14 @@ export const useSendMessage = ({
   const previousRunStateRef = useRef<RunState | null>(
     useChatStore.getState().runState,
   )
+  const externalRunState = useChatStore((state) => state.runState)
+
+  // /import and other session-level actions can replace the active RunState
+  // outside this hook. Keep the request ref synchronized so the next message
+  // continues from the imported session instead of the previous conversation.
+  useEffect(() => {
+    previousRunStateRef.current = externalRunState
+  }, [externalRunState])
   // Memoize stream controller to maintain referential stability across renders
   const streamRefsRef = useRef<ReturnType<
     typeof createStreamController

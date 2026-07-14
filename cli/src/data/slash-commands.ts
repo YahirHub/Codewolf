@@ -32,6 +32,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'login',
+  'providers',
   'models',
   'setup-search',
   'usage',
@@ -50,6 +51,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description:
       'Configurar interactivamente un proveedor compatible con OpenAI',
     aliases: ['signin'],
+  },
+  {
+    id: 'providers',
+    label: 'providers',
+    description: 'Administrar, editar, activar o eliminar proveedores',
+    aliases: ['provider'],
   },
   {
     id: 'models',
@@ -143,11 +150,27 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'rename',
+    label: 'rename',
+    description: 'Cambiar el nombre visible de la sesión actual',
+    aliases: ['name'],
+  },
+  {
+    id: 'export',
+    label: 'export',
+    description: 'Exportar el chat actual a un archivo portable de Codewolf',
+  },
+  {
+    id: 'import',
+    label: 'import',
+    description: 'Importar y reanudar un chat exportado por Codewolf',
+  },
+  {
     id: 'copy',
     label: 'copy',
     description:
       'Copiar la conversación completa (mensajes y resultados de herramientas) al portapapeles',
-    aliases: ['copy-chat', 'export'],
+    aliases: ['copy-chat'],
   },
   {
     id: 'agent:gpt-5',

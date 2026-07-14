@@ -33,6 +33,8 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 - `docs/agents-and-tools.md`
 - `docs/testing.md`
+- `docs/custom-providers.md`
+- `docs/chat-sessions.md`
 
 ## Persistent Project Context
 
@@ -99,3 +101,30 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Internal `@codebuff/*` workspace imports and legacy `CODEBUFF_*` environment keys remain compatibility details until a dedicated namespace migration; never expose them as the product brand.
 - `.github/workflows/build-binaries.yml` runs only through `workflow_dispatch`, cross-compiles Windows from one Linux runner, and publishes numeric releases without a `v` prefix. The first release is `1.0.0`; later runs increment the patch number of the latest numeric tag. Preserve one dependency installation, reused agent/SDK builds, serialized release concurrency, and release creation only after both binaries pass validation.
 - User-visible CLI dialogs, navigation hints, warnings, errors, onboarding text, and status labels are Spanish. Keep slash commands, command-line flags, protocol values, agent IDs, tool names, environment keys, and internal prompts unchanged unless a dedicated compatibility migration is requested.
+
+## Provider Management and Portable Sessions
+
+- `/providers` is the interactive source of truth for listing, editing,
+  activating, and deleting custom providers. `/login` remains the short path
+  for adding one. Do not add standalone executable subcommands for provider
+  administration.
+- Editing a provider must preserve its stable internal ID. A blank API-key field
+  preserves the current credential; `none` removes it. Provider metadata and
+  authentication remain in separate files under `~/.codewolf`.
+- An empty models field means discovery through the normalized `/models`
+  endpoint. Manual comma/newline-separated model IDs remain supported. Reset
+  the cached SDK client after any active provider or model change.
+- `/rename` stores only a user-visible name in `chat-meta.json`; it must not
+  change the chat ID. Later checkpoint writes must preserve that name and
+  `/history` must search/display it.
+- `/export` and `/import` use the versioned Codewolf JSONL archive defined in
+  `cli/src/utils/chat-transfer.ts`. Exports contain session metadata, messages,
+  and RunState, but never provider/search credentials or project files.
+- Import must validate size and every record, preview metadata, require user
+  confirmation, create a fresh chat ID, and never overwrite an existing chat.
+  Keep quoted paths with spaces working on Windows and POSIX systems.
+- When an imported RunState replaces the active store outside the send hook,
+  synchronize the request reference so the next prompt continues the imported
+  conversation rather than the previous one.
+- Update `docs/chat-sessions.md`, `docs/custom-providers.md`, tests, and
+  `contexto/` whenever these contracts change.

@@ -157,6 +157,10 @@ lista exacta y versiones bloqueadas.
 - `sdk/src/impl/token-usage.ts`
 - `cli/src/utils/token-usage.ts`
 - `cli/src/components/token-usage-screen.tsx`
+- `cli/src/components/provider-manager-screen.tsx`
+- `cli/src/utils/chat-transfer.ts`
+- `cli/src/components/chat-transfer-screen.tsx`
+- `cli/src/utils/session-name.ts`
 
 # Problemas encontrados
 
@@ -181,6 +185,8 @@ lista exacta y versiones bloqueadas.
   después de validar Linux y Windows.
 - Se retiraron las superficies activas de anuncios, créditos y suscripciones.
 - `/usage` fue recuperado con un significado exclusivamente técnico y local: registra tokens, no facturación.
+- `/providers` administra proveedores sin exponer claves y permite actualizar modelos manualmente o mediante `/models`.
+- `/rename`, `/export` y `/import` permiten nombrar y transferir sesiones con un archivo JSONL portable.
 
 # Pendientes
 
@@ -214,3 +220,4 @@ al terminar.
 - `013`: releases numéricas y diálogos en español.
 - `014`: contexto persistente, workflow manual y edición sin monetización.
 - `015`: estadísticas locales de tokens.
+- `016`: administración de proveedores y sesiones portables.

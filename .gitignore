@@ -195,3 +195,7 @@ temp/
 
 # Codewolf local token statistics.
 **/usage.jsonl
+
+# Portable chat exports created by /export may contain conversation context.
+/codewolf-chat-*.jsonl
+/codewolf-chat-*.json

@@ -17,9 +17,12 @@ import { FreebuffActiveSessionSummary } from './components/freebuff-active-sessi
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { ProviderLoginScreen } from './components/provider-login-screen'
+import { ProviderManagerScreen } from './components/provider-manager-screen'
 import { ModelSelectorScreen } from './components/model-selector-screen'
 import { SearchSetupScreen } from './components/search-setup-screen'
 import { TokenUsageScreen } from './components/token-usage-screen'
+import { SessionRenameScreen } from './components/session-rename-screen'
+import { ChatTransferScreen } from './components/chat-transfer-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
@@ -48,7 +51,7 @@ import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, setCurrentChatId } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import { useReviewStore } from './state/review-store'
@@ -85,7 +88,9 @@ import {
   type AuthStatus,
 } from './utils/status-indicator-state'
 import { createPasteHandler } from './utils/strings'
+import { getCurrentSessionName } from './utils/session-name'
 import { setTerminalTitle } from './utils/terminal-title'
+import { abortActiveRun } from './utils/active-run'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { CommandResult } from './commands/command-registry'
@@ -96,6 +101,7 @@ import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { FreebuffSessionResponse } from './types/freebuff-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
+import type { ImportedChat } from './utils/chat-transfer'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -136,9 +142,15 @@ export const Chat = ({
   const headerRef = useRef<BoxRenderable | null>(null)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [providerLoginOpen, setProviderLoginOpen] = useState(false)
+  const [providerManagerOpen, setProviderManagerOpen] = useState(false)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const [searchSetupOpen, setSearchSetupOpen] = useState(false)
   const [tokenUsageOpen, setTokenUsageOpen] = useState(false)
+  const [sessionRenameOpen, setSessionRenameOpen] = useState(false)
+  const [chatTransfer, setChatTransfer] = useState<{
+    mode: 'export' | 'import'
+    initialPath?: string
+  } | null>(null)
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
@@ -764,15 +776,30 @@ export const Chat = ({
       }
 
       if (result.openProviderLogin) {
+        setProviderManagerOpen(false)
         setModelSelectorOpen(false)
         setSearchSetupOpen(false)
         setTokenUsageOpen(false)
+        setSessionRenameOpen(false)
+        setChatTransfer(null)
         setProviderLoginOpen(true)
+        setInputFocused(false)
+      }
+
+      if (result.openProviderManager) {
+        setProviderLoginOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
+        setSessionRenameOpen(false)
+        setChatTransfer(null)
+        setProviderManagerOpen(true)
         setInputFocused(false)
       }
 
       if (result.openModelSelector) {
         setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
         setSearchSetupOpen(false)
         setTokenUsageOpen(false)
         setModelSelectorOpen(true)
@@ -781,6 +808,7 @@ export const Chat = ({
 
       if (result.openSearchSetup) {
         setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
         setModelSelectorOpen(false)
         setTokenUsageOpen(false)
         setSearchSetupOpen(true)
@@ -789,9 +817,32 @@ export const Chat = ({
 
       if (result.openTokenUsage) {
         setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
         setModelSelectorOpen(false)
         setSearchSetupOpen(false)
         setTokenUsageOpen(true)
+        setInputFocused(false)
+      }
+
+      if (result.openSessionRename) {
+        setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
+        setChatTransfer(null)
+        setSessionRenameOpen(true)
+        setInputFocused(false)
+      }
+
+      if (result.openChatTransfer) {
+        setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
+        setSessionRenameOpen(false)
+        setChatTransfer(result.openChatTransfer)
         setInputFocused(false)
       }
     },
@@ -1014,7 +1065,16 @@ export const Chat = ({
 
   // Ensure bracketed paste events target the active chat input
   useEffect(() => {
-    if (providerLoginOpen || modelSelectorOpen || searchSetupOpen) return
+    if (
+      providerLoginOpen ||
+      providerManagerOpen ||
+      modelSelectorOpen ||
+      searchSetupOpen ||
+      tokenUsageOpen ||
+      sessionRenameOpen ||
+      chatTransfer
+    )
+      return
     if (feedbackMode) {
       inputRef.current?.focus()
       return
@@ -1026,15 +1086,19 @@ export const Chat = ({
     feedbackMode,
     askUserState,
     inputRef,
+    chatTransfer,
     modelSelectorOpen,
     providerLoginOpen,
+    providerManagerOpen,
     searchSetupOpen,
+    sessionRenameOpen,
+    tokenUsageOpen,
   ])
 
   const handleSubmit = useCallback(async () => {
     // Update terminal title with truncated user input
     if (inputValue.trim()) {
-      setTerminalTitle(inputValue)
+      setTerminalTitle(getCurrentSessionName() ?? inputValue)
     }
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
@@ -1362,9 +1426,12 @@ export const Chat = ({
       askUserState !== null ||
       reviewMode ||
       providerLoginOpen ||
+      providerManagerOpen ||
       modelSelectorOpen ||
       searchSetupOpen ||
-      tokenUsageOpen,
+      tokenUsageOpen ||
+      sessionRenameOpen ||
+      chatTransfer !== null,
   })
 
   // Sync message block context to zustand store for child components
@@ -1445,9 +1512,12 @@ export const Chat = ({
     !publishMode &&
     !reviewMode &&
     !providerLoginOpen &&
+    !providerManagerOpen &&
     !modelSelectorOpen &&
     !searchSetupOpen &&
     !tokenUsageOpen &&
+    !sessionRenameOpen &&
+    chatTransfer === null &&
     askUserState === null
 
   // Fire a one-time impression so we can measure onboarding-prompt usage
@@ -1522,9 +1592,12 @@ export const Chat = ({
   const shouldShowStatusLine =
     !feedbackMode &&
     !providerLoginOpen &&
+    !providerManagerOpen &&
     !modelSelectorOpen &&
     !searchSetupOpen &&
     !tokenUsageOpen &&
+    !sessionRenameOpen &&
+    chatTransfer === null &&
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
       !isAtBottom ||
@@ -1650,6 +1723,17 @@ export const Chat = ({
             onComplete={handleProviderConfigured}
             onCancel={closeProviderLogin}
           />
+        ) : providerManagerOpen ? (
+          <ProviderManagerScreen
+            onClose={() => {
+              setProviderManagerOpen(false)
+              setInputFocused(true)
+            }}
+            onOpenModels={() => {
+              setProviderManagerOpen(false)
+              setModelSelectorOpen(true)
+            }}
+          />
         ) : modelSelectorOpen ? (
           <ModelSelectorScreen
             onSelect={handleModelSelected}
@@ -1659,6 +1743,42 @@ export const Chat = ({
           <SearchSetupScreen onClose={closeSearchSetup} />
         ) : tokenUsageOpen ? (
           <TokenUsageScreen onClose={closeTokenUsage} />
+        ) : sessionRenameOpen ? (
+          <SessionRenameScreen
+            onComplete={(name) => {
+              setSessionRenameOpen(false)
+              setMessages((previous) => [
+                ...previous,
+                getSystemMessage(`Nombre de sesión establecido: ${name}`),
+              ])
+              setTerminalTitle(name)
+              setInputFocused(true)
+            }}
+            onCancel={() => {
+              setSessionRenameOpen(false)
+              setInputFocused(true)
+            }}
+          />
+        ) : chatTransfer ? (
+          <ChatTransferScreen
+            mode={chatTransfer.mode}
+            initialPath={chatTransfer.initialPath}
+            onClose={() => {
+              setChatTransfer(null)
+              setInputFocused(true)
+            }}
+            onImported={(imported: ImportedChat) => {
+              abortActiveRun()
+              const store = useChatStore.getState()
+              store.reset()
+              setCurrentChatId(imported.chatId)
+              store.setMessages(imported.messages)
+              store.setRunState(imported.runState)
+              setChatTransfer(null)
+              setInputFocused(true)
+              setTerminalTitle(imported.name ?? 'Chat importado')
+            }}
+          />
         ) : reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools

@@ -8,8 +8,11 @@ import { resetCodebuffClient } from '../utils/codebuff-client'
 import {
   createCustomProviderId,
   discoverCustomProviderModels,
+  getCustomProviderApiKey,
+  loadCustomProvidersConfig,
   normalizeCustomProviderBaseUrl,
   parseCustomProviderModels,
+  updateCustomProvider,
   upsertCustomProvider,
 } from '../utils/custom-providers'
 
@@ -50,27 +53,40 @@ const STEP_COPY: Record<
 interface ProviderLoginScreenProps {
   onComplete: (provider: CustomProviderDefinition) => void
   onCancel: () => void
+  provider?: CustomProviderDefinition
 }
 
 export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
   onComplete,
   onCancel,
+  provider,
 }) => {
   const theme = useTheme()
+  const isEditing = Boolean(provider)
   const [stepIndex, setStepIndex] = useState(0)
   const [values, setValues] = useState<Record<ProviderLoginStep, string>>({
-    name: '',
-    baseUrl: '',
+    name: provider?.name ?? '',
+    baseUrl: provider?.baseUrl ?? '',
     apiKey: '',
-    models: '',
+    models: provider?.models.map((model) => model.id).join(', ') ?? '',
   })
-  const [cursorPosition, setCursorPosition] = useState(0)
+  const [cursorPosition, setCursorPosition] = useState(
+    provider?.name.length ?? 0,
+  )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const step = STEPS[stepIndex]!
   const currentValue = values[step]
-  const copy = STEP_COPY[step]
+  const baseCopy = STEP_COPY[step]
+  const copy = useMemo(() => {
+    if (!isEditing || step !== 'apiKey') return baseCopy
+    return {
+      ...baseCopy,
+      placeholder: 'Deja vacío para conservar la clave actual',
+      help: 'Deja vacío para conservar la credencial actual; escribe none para eliminarla.',
+    }
+  }, [baseCopy, isEditing, step])
 
   const completedRows = useMemo(
     () =>
@@ -80,11 +96,15 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
         value:
           completedStep === 'apiKey'
             ? values.apiKey
-              ? '••••••••'
-              : 'Sin autenticación'
+              ? values.apiKey.toLowerCase() === 'none'
+                ? 'Se eliminará la autenticación'
+                : '••••••••'
+              : isEditing
+                ? 'Sin cambios'
+                : 'Sin autenticación'
             : values[completedStep],
       })),
-    [stepIndex, values],
+    [isEditing, stepIndex, values],
   )
 
   const setCurrentValue = useCallback(
@@ -119,28 +139,46 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
       try {
         const name = values.name.trim()
         const baseUrl = values.baseUrl.trim()
-        const apiKey = values.apiKey.trim()
+        const apiKeyInput = values.apiKey.trim()
+        const normalizedApiKeyInput = apiKeyInput.toLowerCase()
+        const discoveryApiKey = normalizedApiKeyInput === 'none'
+          ? undefined
+          : normalizedApiKeyInput.startsWith('env:')
+            ? process.env[apiKeyInput.slice(4).trim()]
+            : apiKeyInput || (provider
+                ? getCustomProviderApiKey(provider.id)
+                : undefined)
         const models = modelsInput.trim()
           ? parseCustomProviderModels(modelsInput)
-          : await discoverCustomProviderModels({ baseUrl, apiKey })
+          : await discoverCustomProviderModels({
+              baseUrl,
+              apiKey: discoveryApiKey,
+            })
 
-        const provider = upsertCustomProvider({
-          id: createCustomProviderId(name),
-          name,
-          baseUrl,
-          apiKeyInput: apiKey,
-          models,
-        })
+        const savedProvider = provider
+          ? updateCustomProvider({
+              id: provider.id,
+              name,
+              baseUrl,
+              models,
+              ...(apiKeyInput ? { apiKeyInput } : {}),
+            })
+          : upsertCustomProvider({
+              id: createCustomProviderId(name),
+              name,
+              baseUrl,
+              apiKeyInput,
+              models,
+            })
         refreshCustomProviderStore()
         resetCodebuffClient()
-        onComplete(provider)
+        onComplete(savedProvider)
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught))
       } finally {
         setLoading(false)
       }
-    },
-    [onComplete, values.apiKey, values.baseUrl, values.name],
+    }, [onComplete, provider, values.apiKey, values.baseUrl, values.name],
   )
 
   const handleSubmit = useCallback(() => {
@@ -150,7 +188,18 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
     try {
       if (step === 'name') {
         if (!trimmed) throw new Error('Escribe el nombre del proveedor.')
-        createCustomProviderId(trimmed)
+        if (!isEditing) {
+          const id = createCustomProviderId(trimmed)
+          if (
+            loadCustomProvidersConfig().providers.some(
+              (configuredProvider) => configuredProvider.id === id,
+            )
+          ) {
+            throw new Error(
+              'Ya existe un proveedor con ese nombre. Edítalo desde /providers.',
+            )
+          }
+        }
         advance()
         return
       }
@@ -171,7 +220,7 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     }
-  }, [advance, currentValue, loading, saveProvider, step])
+  }, [advance, currentValue, isEditing, loading, saveProvider, step])
 
   const handlePaste = useCallback(
     (text?: string) => {
@@ -208,7 +257,7 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
 
   return (
     <box
-      title=" Configurar proveedor "
+      title={isEditing ? ' Editar proveedor ' : ' Configurar proveedor '}
       titleAlignment="center"
       style={{
         width: '100%',

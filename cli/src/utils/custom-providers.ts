@@ -341,6 +341,121 @@ export function setActiveCustomProviderModel(
   return activateCustomProviderModel(config.activeProviderId, modelId, configDir)
 }
 
+
+export type CustomProviderAuthStatus =
+  | { type: 'stored'; label: 'API key guardada' }
+  | { type: 'environment'; label: string; envName: string; available: boolean }
+  | { type: 'none'; label: 'Sin autenticación' }
+
+export function getCustomProviderAuthStatus(
+  providerId: string,
+  configDir = getConfigDir(),
+): CustomProviderAuthStatus {
+  const id = normalizeCustomProviderId(providerId)
+  const config = loadCustomProvidersConfig(configDir)
+  const provider = config.providers.find((item) => item.id === id)
+  if (!provider) throw new Error(`No existe el proveedor ${id}.`)
+
+  if (provider.apiKeyEnv) {
+    return {
+      type: 'environment',
+      label: process.env[provider.apiKeyEnv]
+        ? `Variable ${provider.apiKeyEnv}`
+        : `Variable ${provider.apiKeyEnv} no disponible`,
+      envName: provider.apiKeyEnv,
+      available: Boolean(process.env[provider.apiKeyEnv]),
+    }
+  }
+
+  const auth = loadProviderAuth(configDir)
+  if (auth.apiKeys[id]) {
+    return { type: 'stored', label: 'API key guardada' }
+  }
+  return { type: 'none', label: 'Sin autenticación' }
+}
+
+export function getCustomProviderApiKey(
+  providerId: string,
+  configDir = getConfigDir(),
+): string | undefined {
+  const id = normalizeCustomProviderId(providerId)
+  const config = loadCustomProvidersConfig(configDir)
+  const provider = config.providers.find((item) => item.id === id)
+  if (!provider) throw new Error(`No existe el proveedor ${id}.`)
+  if (provider.apiKeyEnv) return process.env[provider.apiKeyEnv]
+  return loadProviderAuth(configDir).apiKeys[id]
+}
+
+export function updateCustomProvider(params: {
+  id: string
+  name: string
+  baseUrl: string
+  models: string | CustomProviderModel[]
+  /** Undefined preserves the current credential. Use "none" to remove it. */
+  apiKeyInput?: string
+  configDir?: string
+}): CustomProviderDefinition {
+  const configDir = params.configDir ?? getConfigDir()
+  const id = normalizeCustomProviderId(params.id)
+  const config = loadCustomProvidersConfig(configDir)
+  const existing = config.providers.find((provider) => provider.id === id)
+  if (!existing) throw new Error(`No existe el proveedor ${id}.`)
+
+  const name = params.name.trim()
+  if (!name) throw new Error('Debes indicar el nombre del proveedor.')
+  const baseUrl = normalizeCustomProviderBaseUrl(params.baseUrl)
+  const models = normalizeModels(params.models)
+  const auth = loadProviderAuth(configDir)
+  let apiKeyEnv = existing.apiKeyEnv
+
+  if (params.apiKeyInput !== undefined) {
+    const input = params.apiKeyInput.trim()
+    if (!input || input.toLowerCase() === 'none') {
+      apiKeyEnv = undefined
+      delete auth.apiKeys[id]
+    } else if (input.toLowerCase().startsWith('env:')) {
+      const envName = input.slice(4).trim()
+      if (!ENV_NAME_PATTERN.test(envName)) {
+        throw new Error('El nombre de variable de entorno no es válido.')
+      }
+      apiKeyEnv = envName
+      delete auth.apiKeys[id]
+    } else {
+      apiKeyEnv = undefined
+      auth.apiKeys[id] = input
+    }
+  }
+
+  const provider = providerSchema.parse({
+    ...existing,
+    id,
+    name,
+    baseUrl,
+    models,
+    apiKeyEnv,
+  })
+
+  const activeModelId =
+    config.activeProviderId === id
+      ? models.some((model) => model.id === config.activeModelId)
+        ? config.activeModelId
+        : models[0]!.id
+      : config.activeModelId
+
+  saveCustomProvidersConfig(
+    {
+      ...config,
+      providers: config.providers.map((item) =>
+        item.id === id ? provider : item,
+      ),
+      activeModelId,
+    },
+    configDir,
+  )
+  saveProviderAuth(auth, configDir)
+  return provider
+}
+
 export function removeCustomProvider(
   providerId: string,
   configDir = getConfigDir(),

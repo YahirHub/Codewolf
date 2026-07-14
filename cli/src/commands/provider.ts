@@ -11,6 +11,14 @@ export function handleProviderLoginCommand(params: RouterParams): {
   return { openProviderLogin: true }
 }
 
+export function handleProvidersCommand(params: RouterParams): {
+  openProviderManager: true
+} {
+  params.saveToHistory(params.inputValue.trim())
+  clearInput(params)
+  return { openProviderManager: true }
+}
+
 export function handleModelsCommand(params: RouterParams): {
   openModelSelector: true
 } {

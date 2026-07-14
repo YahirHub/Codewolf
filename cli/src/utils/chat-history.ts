@@ -5,6 +5,7 @@ import {
   CHAT_MESSAGES_FILENAME,
   getFirstUserPrompt,
   readChatMeta,
+  readChatSessionName,
 } from './chat-meta'
 import { CHAT_LOG_FILENAME, logger } from './logger'
 import { getProjectDataDir } from '../project-files'
@@ -20,6 +21,8 @@ export interface ChatHistoryEntry {
    * by a crash mid-write). Shown in /history so the chat doesn't silently
    * vanish; can be deleted but not resumed. */
   unreadable?: boolean
+  /** User-defined session name set through /rename. */
+  name?: string
 }
 
 function getChatsDir(dataDir: string = getProjectDataDir()): string {
@@ -80,6 +83,7 @@ export function getAllChats(
       try {
         let messageCount = 0
         let lastPrompt = '(empty chat)'
+        const name = readChatSessionName(info.chatPath)
 
         if (fs.existsSync(info.messagesPath)) {
           // Prefer the sidecar summary: transcripts are unbounded, so parsing
@@ -109,6 +113,7 @@ export function getAllChats(
             lastPrompt,
             timestamp: info.mtime,
             messageCount,
+            ...(name ? { name } : {}),
           })
         }
       } catch (error) {
