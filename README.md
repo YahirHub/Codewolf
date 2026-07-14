@@ -8,6 +8,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Selector de modelos agrupados por proveedor mediante `/models`.
 - Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
 - Fallback automático entre motores de búsqueda configurados.
+- Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
 - Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
@@ -31,8 +32,9 @@ historial de una sesión anterior.
 
 Codewolf usa proveedores y motores configurados por el usuario. Esta edición no
 expone anuncios, créditos, suscripciones ni enlaces de compra. Los comandos
-`/subscribe`, `/usage`, `/ads:enable`, `/ads:disable` y sus alias no forman
-parte del CLI.
+`/subscribe`, `/ads:enable`, `/ads:disable` y sus alias comerciales no forman
+parte del CLI. `/usage` existe únicamente para mostrar estadísticas técnicas
+locales de tokens; no consulta saldo, cuotas, precios ni servicios comerciales.
 
 ## Requisitos de desarrollo
 
@@ -83,6 +85,22 @@ También están disponibles los alias `/search` y `/search-setup`.
 
 Desde el menú puedes configurar claves, activar o desactivar motores, seleccionar el predeterminado, ordenar respaldos y probar todos los proveedores configurados.
 
+## Consultar uso local de tokens
+
+Dentro del editor:
+
+```text
+/usage
+```
+
+La pantalla muestra tokens de entrada, salida y total para la sesión actual, el
+proyecto, los agentes y los modelos utilizados. Cuando el proveedor informa el
+uso, Codewolf conserva esa cifra; cuando no lo hace, calcula los tokens
+localmente. No se calculan precios ni se guardan prompts, respuestas o claves.
+
+Las estadísticas pueden limpiarse desde la misma pantalla con `R` y se conservan
+como máximo durante 90 días o 10 000 llamadas.
+
 ## Datos persistentes
 
 Codewolf utiliza una única carpeta en todos los modos:
@@ -104,6 +122,7 @@ Estructura principal:
 ├── settings.json
 ├── message-history.json
 ├── recent-projects.json
+├── usage.jsonl
 ├── projects/
 └── skills/
 ```

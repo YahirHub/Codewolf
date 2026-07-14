@@ -11,6 +11,7 @@ import type { Message } from '../messages/codebuff-message'
 import type { PromptResult } from '../../util/error'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type { CustomProviderRuntimeConfig } from '../custom-provider'
+import type { TokenUsageCallback } from '../token-usage'
 import type z from 'zod/v4'
 
 export type StreamChunk =
@@ -50,6 +51,10 @@ export type PromptAiSdkStreamFn = (
     thinkingBudget?: number
     userInputId: string
     agentId?: string
+    agentType?: string
+    usageSessionId?: string
+    usageProjectPath?: string
+    onTokenUsage?: TokenUsageCallback
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     onCacheDebugProviderRequestBuilt?: (params: {
@@ -91,6 +96,10 @@ export type PromptAiSdkFn = (
     userId: string | undefined
     chargeUser?: boolean
     agentId?: string
+    agentType?: string
+    usageSessionId?: string
+    usageProjectPath?: string
+    onTokenUsage?: TokenUsageCallback
     onCostCalculated?: (credits: number) => Promise<void>
     onCacheDebugProviderRequestBuilt?: (params: {
       provider: string
@@ -128,6 +137,10 @@ export type PromptAiSdkStructuredInput<T> = {
   timeout?: number
   chargeUser?: boolean
   agentId?: string
+  agentType?: string
+  usageSessionId?: string
+  usageProjectPath?: string
+  onTokenUsage?: TokenUsageCallback
   onCostCalculated?: (credits: number) => Promise<void>
   onCacheDebugProviderRequestBuilt?: (params: {
     provider: string

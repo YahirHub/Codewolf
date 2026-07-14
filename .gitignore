@@ -101,7 +101,7 @@ id_ed25519.*
 **/.next/
 .vercel/
 
-# Compiled standalone CLI. Do not commit codebuff.exe or tree-sitter.wasm.
+# Compiled standalone CLI. Do not commit codewolf binaries or tree-sitter.wasm.
 /cli/bin/
 
 # Generated agent bundle recreated by prebuild:agents.
@@ -192,3 +192,6 @@ temp/
 **/search-auth.json
 /search.json
 /search.local.json
+
+# Codewolf local token statistics.
+**/usage.jsonl

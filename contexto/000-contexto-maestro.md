@@ -90,8 +90,11 @@ TypeScript con Bun, React y OpenTUI.
 - Interfaz visible en español; comandos e identificadores técnicos permanecen
   estables.
 - La edición personalizada no ofrece anuncios, créditos, suscripciones ni
-  diálogos de compra. No reintroducir `/subscribe`, `/usage`, `/ads:enable`,
-  `/ads:disable` ni sus alias.
+  diálogos de compra. No reintroducir `/subscribe`, `/ads:enable`,
+  `/ads:disable` ni sus alias comerciales. `/usage` está reservado para
+  estadísticas técnicas locales de tokens, sin precios ni cuotas.
+- Estadísticas locales mediante `/usage`, con cifras informadas por el proveedor
+  cuando existen y cálculo local cuando no existen.
 
 # Persistencia
 
@@ -104,6 +107,7 @@ TypeScript con Bun, React y OpenTUI.
 ├── settings.json
 ├── message-history.json
 ├── recent-projects.json
+├── usage.jsonl
 ├── projects/
 └── skills/
 ```
@@ -114,7 +118,7 @@ Windows usa `C:\Users\<usuario>\.codewolf`; Linux usa
 # Build y releases
 
 - Desarrollo: `bun run dev`.
-- Typecheck del CLI: `bun --cwd cli run typecheck`.
+- Typecheck del CLI: `bun run --cwd ./cli typecheck` o `cd cli && bun run typecheck`.
 - Binario local: `bun run build:binary`.
 - Workflow: `.github/workflows/build-binaries.yml`.
 - Ejecución exclusivamente manual mediante `workflow_dispatch`.
@@ -149,6 +153,10 @@ lista exacta y versiones bloqueadas.
 - `.github/workflows/build-binaries.yml`
 - `AGENTS.md`
 - `README.md`
+- `common/src/types/token-usage.ts`
+- `sdk/src/impl/token-usage.ts`
+- `cli/src/utils/token-usage.ts`
+- `cli/src/components/token-usage-screen.tsx`
 
 # Problemas encontrados
 
@@ -172,6 +180,7 @@ lista exacta y versiones bloqueadas.
 - El workflow tiene un formulario manual explícito y publica releases solo
   después de validar Linux y Windows.
 - Se retiraron las superficies activas de anuncios, créditos y suscripciones.
+- `/usage` fue recuperado con un significado exclusivamente técnico y local: registra tokens, no facturación.
 
 # Pendientes
 
@@ -204,3 +213,4 @@ al terminar.
 - `012`: marca Codewolf y workflow de binarios.
 - `013`: releases numéricas y diálogos en español.
 - `014`: contexto persistente, workflow manual y edición sin monetización.
+- `015`: estadísticas locales de tokens.

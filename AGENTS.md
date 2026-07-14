@@ -42,9 +42,20 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 ## Custom Edition Without Monetization
 
-- Codewolf does not expose ads, credits, subscriptions, purchase links, or commercial rate-limit dialogs. Do not register `/subscribe`, `/usage`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`.
+- Codewolf does not expose ads, credits, subscriptions, purchase links, or commercial rate-limit dialogs. Do not register `/subscribe`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`. `/usage` is reserved exclusively for local technical token statistics and must never query billing, balances, quotas, or prices.
 - The chat must not query subscription/usage endpoints, request ads, display credit counters, or replace the editor with a purchase banner. Provider errors stay ordinary actionable errors.
 - Upstream compatibility modules may remain temporarily if shared packages still reference them, but they must be unreachable from the Codewolf CLI. Remove them only in a dedicated tested cleanup.
+
+## Local Token Usage Architecture
+
+- `/usage` displays local technical token statistics only. It must not expose prices, credits, subscriptions, balances, or provider quota claims.
+- Capture usage at the shared LLM boundary so the main agent, subagents, non-streaming calls, streaming calls, and structured calls use the same accounting path.
+- Prefer input/output/total token values reported by the provider. If either side is missing, calculate the missing value locally and label the event `mixed`; if no values are reported, label it `local`. Never present a local estimate as provider-reported.
+- Persist append-only numeric metadata in `~/.codewolf/usage.jsonl`. Never store prompts, responses, tool results, file contents, images, API keys, or authorization headers in usage records.
+- Development and compiled binaries must share the same file. Retain at most 90 days and 10,000 events, compacting only when the file reaches the configured threshold.
+- Count the complete normalized model request, including history and tool definitions. Summarize embedded data URLs before counting so base64 payload length is not mistaken for text tokens; mark multimedia-only totals as approximate.
+- Token statistics must remain best-effort. A storage or callback failure must never fail the model request.
+- Update `docs/token-usage.md`, `contexto/`, and focused normalization/storage/command tests whenever this accounting contract changes.
 
 ## Custom Provider Architecture
 

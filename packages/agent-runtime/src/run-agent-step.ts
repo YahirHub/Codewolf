@@ -403,6 +403,8 @@ export const runAgentStep = async (
       ...params,
       messages: agentState.messageHistory,
       model,
+      agentId: agentState.parentId ? agentState.agentId : undefined,
+      agentType: String(agentType),
       n: params.n,
       onCostCalculated,
       cacheDebugCorrelation: cacheDebugCorrelation

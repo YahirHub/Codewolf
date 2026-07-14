@@ -374,4 +374,14 @@ describe('interactive provider commands', () => {
     expect(params.saveToHistory).not.toHaveBeenCalled()
     expect(params.setInputValue).toHaveBeenCalled()
   })
+
+  test('/usage opens local token statistics without saving prompt history', async () => {
+    const command = COMMAND_REGISTRY.find((item) => item.name === 'usage')
+    const params = createParams()
+    const result = await command?.handler(params, '')
+
+    expect(result).toEqual({ openTokenUsage: true })
+    expect(params.saveToHistory).not.toHaveBeenCalled()
+    expect(params.setInputValue).toHaveBeenCalled()
+  })
 })

@@ -1,26 +1,8 @@
-import { useChatStore } from '../state/chat-store'
-import { getAuthToken } from '../utils/auth'
-import { getSystemMessage } from '../utils/message-history'
+import type { RouterParams } from './command-registry'
 
-import type { PostUserMessageFn } from '../types/contracts/send-message'
-
-export async function handleUsageCommand(): Promise<{
-  postUserMessage: PostUserMessageFn
-}> {
-  const authToken = getAuthToken()
-
-  if (!authToken) {
-    const postUserMessage: PostUserMessageFn = (prev) => [
-      ...prev,
-      getSystemMessage('Inicia sesión para consultar tu uso.'),
-    ]
-    return { postUserMessage }
-  }
-
-  // Show the usage banner - the useUsageQuery hook will automatically fetch
-  // the data when the banner becomes visible
-  useChatStore.getState().setInputMode('usage')
-
-  const postUserMessage: PostUserMessageFn = (prev) => prev
-  return { postUserMessage }
+export function handleTokenUsageCommand(params: RouterParams): {
+  openTokenUsage: true
+} {
+  params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+  return { openTokenUsage: true }
 }

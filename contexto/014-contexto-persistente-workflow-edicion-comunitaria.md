@@ -6,6 +6,8 @@
 
 # Objetivo
 
+> Nota histórica: este documento describe la eliminación del antiguo `/usage` comercial. El comando fue recuperado posteriormente en `015-estadisticas-locales-de-tokens.md` con una implementación totalmente local, sin precios, créditos ni suscripciones.
+
 Adoptar una metodología persistente basada en `contexto/`, reforzar la
 visibilidad de la ejecución manual de GitHub Actions y retirar las superficies
 activas de anuncios, créditos y suscripciones del CLI personalizado.

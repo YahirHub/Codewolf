@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Remove obsolete commercial CLI command files after copying an update ZIP."""
+"""Remove obsolete commercial CLI command files after copying an update ZIP.
+
+The current usage.ts is a local token-statistics command and must be preserved.
+"""
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OBSOLETE_FILES = (
-    ROOT / "cli" / "src" / "commands" / "usage.ts",
     ROOT / "cli" / "src" / "commands" / "subscribe.ts",
 )
 

@@ -6,6 +6,7 @@ import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleModelsCommand, handleProviderLoginCommand } from './provider'
 import { handleSearchSetupCommand } from './search'
+import { handleTokenUsageCommand } from './usage'
 import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
@@ -76,6 +77,7 @@ export type CommandResult = {
   openProviderLogin?: boolean
   openModelSelector?: boolean
   openSearchSetup?: boolean
+  openTokenUsage?: boolean
 } | void
 
 export type CommandHandler = (
@@ -183,6 +185,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'login',
   'models',
   'setup-search',
+  'usage',
   'image',
   'publish',
   'gpt-5-agent',
@@ -200,6 +203,11 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'setup-search',
     aliases: ['search-setup', 'search'],
     handler: handleSearchSetupCommand,
+  }),
+  defineCommand({
+    name: 'usage',
+    aliases: ['tokens', 'stats'],
+    handler: handleTokenUsageCommand,
   }),
   defineCommand({
     name: 'help',

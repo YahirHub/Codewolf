@@ -28,7 +28,7 @@ function setupExitMessageHandler() {
       if (chatId) {
         // This runs synchronously during the exit phase
         // OpenTUI has already cleaned up by this point
-        const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
+        const cliName = IS_FREEBUFF ? 'freebuff' : 'codewolf'
         process.stdout.write(
           `\nPara continuar esta sesión más tarde, ejecuta:\n${cliName} --continue ${chatId}\n`,
         )

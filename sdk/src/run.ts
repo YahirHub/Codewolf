@@ -69,6 +69,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
+import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -162,6 +163,8 @@ export type CodebuffClientOptions = {
    *  history at each agent step boundary; implementations should append each
    *  message once (see TraceWriter). */
   traceWriter?: TraceWriter
+  /** Receives local numeric token-usage metadata for every model call. */
+  onTokenUsage?: TokenUsageCallback
 }
 
 export type ImageContent = {
@@ -310,6 +313,7 @@ async function runOnce({
   spawnSource,
   logger,
   traceWriter,
+  onTokenUsage,
 
   agent,
   prompt,
@@ -502,6 +506,9 @@ async function runOnce({
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
     traceWriter,
+    onTokenUsage,
+    usageSessionId: traceSessionId,
+    usageProjectPath: cwd,
     apiKey,
     customProvider,
     handleStepsLogChunk: () => {

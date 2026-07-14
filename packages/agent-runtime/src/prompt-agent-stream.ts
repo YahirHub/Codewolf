@@ -80,6 +80,7 @@ export const getAgentStreamFromTemplate = (params: {
 
   const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
     agentId,
+    agentType: template.id,
     apiKey,
     customProvider,
     clientSessionId,

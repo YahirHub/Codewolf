@@ -34,6 +34,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'login',
   'models',
   'setup-search',
+  'usage',
   'agent:gpt-5',
   'image',
   'publish',
@@ -62,6 +63,13 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description:
       'Configurar motores de búsqueda, proveedor predeterminado, respaldos y pruebas',
     aliases: ['search-setup', 'search'],
+  },
+  {
+    id: 'usage',
+    label: 'usage',
+    description:
+      'Mostrar estadísticas locales de tokens por sesión, agente y modelo',
+    aliases: ['tokens', 'stats'],
   },
   {
     id: 'help',

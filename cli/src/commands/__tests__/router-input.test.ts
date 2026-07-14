@@ -105,7 +105,6 @@ describe('router-utils', () => {
     })
 
     test('returns null for commands not configured for slashless invocation', () => {
-      expect(parseCommandInput('help')).toBe(null)
       expect(parseCommandInput('bash')).toBe(null)
       expect(parseCommandInput('feedback')).toBe(null)
     })
@@ -139,7 +138,9 @@ describe('router-utils', () => {
     })
 
     test('parseCommandInput matches all implicitCommand commands', () => {
-      const implicitCommands = SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand)
+      const implicitCommands = SLASH_COMMANDS.filter(
+        (cmd) => cmd.implicitCommand,
+      )
       for (const cmd of implicitCommands) {
         expect(parseCommandInput(cmd.id)).toEqual({
           command: cmd.id.toLowerCase(),
@@ -188,7 +189,6 @@ describe('router-utils', () => {
       })
     }
   })
-
 })
 
 describe('command-registry', () => {
@@ -198,7 +198,9 @@ describe('command-registry', () => {
       expect(login).toBeDefined()
       expect(login?.name).toBe('login')
 
-      expect(findCommand('usage')).toBeUndefined()
+      const usage = findCommand('usage')
+      expect(usage).toBeDefined()
+      expect(usage?.name).toBe('usage')
       expect(findCommand('subscribe')).toBeUndefined()
     })
 
@@ -230,7 +232,7 @@ describe('command-registry', () => {
 
     test('is case insensitive', () => {
       expect(findCommand('LOGIN')?.name).toBe('login')
-      expect(findCommand('UsAgE')).toBeUndefined()
+      expect(findCommand('UsAgE')?.name).toBe('usage')
       expect(findCommand('CREDITS')).toBeUndefined()
     })
   })
@@ -259,7 +261,6 @@ describe('command-registry', () => {
     test('commercial commands are absent from slash command metadata', () => {
       const commercialCommands = new Set([
         'subscribe',
-        'usage',
         'ads:enable',
         'ads:disable',
         'strong',

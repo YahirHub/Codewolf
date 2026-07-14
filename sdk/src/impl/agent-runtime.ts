@@ -26,6 +26,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { CustomProviderRuntimeConfig } from '@codebuff/common/types/custom-provider'
+import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
 
 const DATABASE_AGENT_CACHE_MAX_ENTRIES = 200
 
@@ -51,6 +52,9 @@ export function getAgentRuntimeImpl(
   params: {
     logger?: Logger
     traceWriter?: TraceWriter
+    onTokenUsage?: TokenUsageCallback
+    usageSessionId?: string
+    usageProjectPath?: string
     apiKey: string
     customProvider?: CustomProviderRuntimeConfig
     clientEnv?: ClientEnv
@@ -68,6 +72,9 @@ export function getAgentRuntimeImpl(
   const {
     logger,
     traceWriter,
+    onTokenUsage,
+    usageSessionId,
+    usageProjectPath,
     apiKey,
     customProvider,
     clientEnv: clientEnvInput,
@@ -133,9 +140,27 @@ export function getAgentRuntimeImpl(
       }),
 
     // LLM
-    promptAiSdkStream,
-    promptAiSdk,
-    promptAiSdkStructured,
+    promptAiSdkStream: (promptParams) =>
+      promptAiSdkStream({
+        ...promptParams,
+        onTokenUsage,
+        usageSessionId,
+        usageProjectPath,
+      }),
+    promptAiSdk: (promptParams) =>
+      promptAiSdk({
+        ...promptParams,
+        onTokenUsage,
+        usageSessionId,
+        usageProjectPath,
+      }),
+    promptAiSdkStructured: (promptParams) =>
+      promptAiSdkStructured({
+        ...promptParams,
+        onTokenUsage,
+        usageSessionId,
+        usageProjectPath,
+      }),
 
     // Mutable State
     databaseAgentCache,

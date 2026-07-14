@@ -19,6 +19,7 @@ import { ReviewScreen } from './components/review-screen'
 import { ProviderLoginScreen } from './components/provider-login-screen'
 import { ModelSelectorScreen } from './components/model-selector-screen'
 import { SearchSetupScreen } from './components/search-setup-screen'
+import { TokenUsageScreen } from './components/token-usage-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
@@ -137,6 +138,7 @@ export const Chat = ({
   const [providerLoginOpen, setProviderLoginOpen] = useState(false)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const [searchSetupOpen, setSearchSetupOpen] = useState(false)
+  const [tokenUsageOpen, setTokenUsageOpen] = useState(false)
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
@@ -764,6 +766,7 @@ export const Chat = ({
       if (result.openProviderLogin) {
         setModelSelectorOpen(false)
         setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
         setProviderLoginOpen(true)
         setInputFocused(false)
       }
@@ -771,6 +774,7 @@ export const Chat = ({
       if (result.openModelSelector) {
         setProviderLoginOpen(false)
         setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
         setModelSelectorOpen(true)
         setInputFocused(false)
       }
@@ -778,7 +782,16 @@ export const Chat = ({
       if (result.openSearchSetup) {
         setProviderLoginOpen(false)
         setModelSelectorOpen(false)
+        setTokenUsageOpen(false)
         setSearchSetupOpen(true)
+        setInputFocused(false)
+      }
+
+      if (result.openTokenUsage) {
+        setProviderLoginOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(true)
         setInputFocused(false)
       }
     },
@@ -959,6 +972,12 @@ export const Chat = ({
 
   const closeSearchSetup = useCallback(() => {
     setSearchSetupOpen(false)
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, setInputFocused])
+
+  const closeTokenUsage = useCallback(() => {
+    setTokenUsageOpen(false)
     setInputFocused(true)
     setTimeout(() => inputRef.current?.focus(), 0)
   }, [inputRef, setInputFocused])
@@ -1343,7 +1362,9 @@ export const Chat = ({
       askUserState !== null ||
       reviewMode ||
       providerLoginOpen ||
-      modelSelectorOpen,
+      modelSelectorOpen ||
+      searchSetupOpen ||
+      tokenUsageOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1425,6 +1446,8 @@ export const Chat = ({
     !reviewMode &&
     !providerLoginOpen &&
     !modelSelectorOpen &&
+    !searchSetupOpen &&
+    !tokenUsageOpen &&
     askUserState === null
 
   // Fire a one-time impression so we can measure onboarding-prompt usage
@@ -1500,6 +1523,8 @@ export const Chat = ({
     !feedbackMode &&
     !providerLoginOpen &&
     !modelSelectorOpen &&
+    !searchSetupOpen &&
+    !tokenUsageOpen &&
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
       !isAtBottom ||
@@ -1632,6 +1657,8 @@ export const Chat = ({
           />
         ) : searchSetupOpen ? (
           <SearchSetupScreen onClose={closeSearchSetup} />
+        ) : tokenUsageOpen ? (
+          <TokenUsageScreen onClose={closeTokenUsage} />
         ) : reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools

@@ -7,6 +7,7 @@ import { getActiveCustomProviderRuntimeConfig } from './custom-providers'
 import { getCliEnv, getSystemProcessEnv } from './env'
 import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
+import { recordTokenUsage } from './token-usage'
 import { createTraceWriter } from './trace-writer'
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -96,6 +97,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         agentDefinitions,
         logger,
         traceWriter: createTraceWriter(),
+        onTokenUsage: (event) => recordTokenUsage(event),
         overrideTools: {
           ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
             const askUserResponse = await AskUserBridge.request(

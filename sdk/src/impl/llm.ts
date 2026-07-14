@@ -28,6 +28,12 @@ import {
   markChatGptOAuthRateLimited,
 } from './model-provider'
 import { refreshChatGptOAuthToken } from '../credentials'
+import {
+  buildTokenUsageEvent,
+  estimateOutputTokens,
+  estimateRequestTokens,
+  resolveProviderIdentity,
+} from './token-usage'
 import { getErrorStatusCode } from '../error-utils'
 
 import type { ModelRequestParams } from './model-provider'
@@ -44,6 +50,7 @@ import type {
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
 import type { LanguageModel } from 'ai'
+import type { TokenUsageStatus } from '@codebuff/common/types/token-usage'
 import type z from 'zod/v4'
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
@@ -231,6 +238,70 @@ function emitCacheDebugProviderRequest(params: {
   })
 }
 
+async function emitTokenUsage(params: {
+  callback?: ParamsOf<PromptAiSdkStreamFn>['onTokenUsage']
+  logger: ParamsOf<PromptAiSdkStreamFn>['logger']
+  messages: ParamsOf<PromptAiSdkStreamFn>['messages']
+  rawBody?: unknown
+  provider: string
+  requestedModel: string
+  customProvider?: ParamsOf<PromptAiSdkStreamFn>['customProvider']
+  providerUsage?: {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+    cachedInputTokens?: number
+  }
+  outputParts: unknown[]
+  status: TokenUsageStatus
+  startedAt: number
+  runId: string
+  userInputId: string
+  agentId?: string
+  agentType?: string
+  usageSessionId?: string
+  usageProjectPath?: string
+  errorType?: string
+}) {
+  if (!params.callback) return
+
+  try {
+    const requestEstimate = estimateRequestTokens({
+      messages: params.messages,
+      provider: params.provider,
+      rawBody: params.rawBody,
+    })
+    const identity = resolveProviderIdentity({
+      requestedModel: params.requestedModel,
+      provider: params.provider,
+      customProvider: params.customProvider,
+    })
+    await params.callback(
+      buildTokenUsageEvent({
+        sessionId: params.usageSessionId,
+        projectPath: params.usageProjectPath,
+        runId: params.runId,
+        userInputId: params.userInputId,
+        agentId: params.agentId,
+        agentType: params.agentType,
+        ...identity,
+        providerUsage: params.providerUsage,
+        estimatedInputTokens: requestEstimate.tokens,
+        estimatedOutputTokens: estimateOutputTokens(params.outputParts),
+        hasMultimodalContent: requestEstimate.hasMultimodalContent,
+        status: params.status,
+        durationMs: Date.now() - params.startedAt,
+        errorType: params.errorType,
+      }),
+    )
+  } catch (error) {
+    params.logger.warn(
+      { error: getErrorObject(error) },
+      'Failed to record local token usage',
+    )
+  }
+}
+
 function emitCacheDebugUsage(params: {
   callback?: (usage: {
     inputTokens: number
@@ -302,6 +373,8 @@ export async function* promptAiSdkStream(
   } = params
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
+  const usageStartedAt = Date.now()
+  const usageOutputParts: unknown[] = []
 
   if (params.signal.aborted) {
     logger.info(
@@ -639,6 +712,7 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
+      usageOutputParts.push(chunkValue.text)
       const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
         (p) =>
           (params.providerOptions?.[p] as OpenRouterProviderOptions | undefined)
@@ -652,6 +726,7 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'text-delta') {
+      usageOutputParts.push(chunkValue.text)
       if (!params.stopSequences) {
         if (chunkValue.text) {
           hasYieldedContent = true
@@ -675,6 +750,10 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'tool-call') {
+      usageOutputParts.push({
+        toolName: chunkValue.toolName,
+        input: chunkValue.input,
+      })
       yield chunkValue
     }
   }
@@ -701,6 +780,25 @@ export async function* promptAiSdkStream(
   emitCacheDebugUsage({
     callback: params.onCacheDebugUsageReceived,
     usage: usageResult,
+  })
+  await emitTokenUsage({
+    callback: params.onTokenUsage,
+    logger,
+    messages: params.messages,
+    rawBody: requestMetadata.body,
+    provider: getModelProvider(aiSDKModel),
+    requestedModel,
+    customProvider,
+    providerUsage: usageResult,
+    outputParts: usageOutputParts,
+    status: 'success',
+    startedAt: usageStartedAt,
+    runId: params.runId,
+    userInputId,
+    agentId: params.agentId,
+    agentType: params.agentType,
+    usageSessionId: params.usageSessionId,
+    usageProjectPath: params.usageProjectPath,
   })
 
   // Skip cost tracking for ChatGPT OAuth (user is on their own subscription)
@@ -735,6 +833,7 @@ export async function promptAiSdk(
   params: ParamsOf<PromptAiSdkFn>,
 ): ReturnType<PromptAiSdkFn> {
   const { logger, customProvider, ...generateParams } = params
+  const usageStartedAt = Date.now()
 
   if (params.signal.aborted) {
     logger.info(
@@ -788,6 +887,32 @@ export async function promptAiSdk(
     callback: params.onCacheDebugUsageReceived,
     usage: response.usage,
   })
+  await emitTokenUsage({
+    callback: params.onTokenUsage,
+    logger,
+    messages: params.messages,
+    rawBody: response.request?.body,
+    provider: getModelProvider(aiSDKModel),
+    requestedModel: params.model,
+    customProvider,
+    providerUsage: response.usage,
+    outputParts: [
+      response.text,
+      ...(response.reasoningText ? [response.reasoningText] : []),
+      ...response.toolCalls.map((toolCall) => ({
+        toolName: toolCall.toolName,
+        input: toolCall.input,
+      })),
+    ],
+    status: 'success',
+    startedAt: usageStartedAt,
+    runId: params.runId,
+    userInputId: params.userInputId,
+    agentId: params.agentId,
+    agentType: params.agentType,
+    usageSessionId: params.usageSessionId,
+    usageProjectPath: params.usageProjectPath,
+  })
   const content = response.text
 
   const providerMetadata = response.providerMetadata ?? {}
@@ -817,6 +942,7 @@ export async function promptAiSdkStructured<T>(
   params: PromptAiSdkStructuredInput<T>,
 ): PromptAiSdkStructuredOutput<T> {
   const { logger, customProvider, ...generateParams } = params
+  const usageStartedAt = Date.now()
 
   if (params.signal.aborted) {
     logger.info(
@@ -862,6 +988,25 @@ export async function promptAiSdkStructured<T>(
   emitCacheDebugUsage({
     callback: params.onCacheDebugUsageReceived,
     usage: response.usage,
+  })
+  await emitTokenUsage({
+    callback: params.onTokenUsage,
+    logger,
+    messages: params.messages,
+    rawBody: response.request?.body,
+    provider: getModelProvider(aiSDKModel),
+    requestedModel: params.model,
+    customProvider,
+    providerUsage: response.usage,
+    outputParts: [response.object],
+    status: 'success',
+    startedAt: usageStartedAt,
+    runId: params.runId,
+    userInputId: params.userInputId,
+    agentId: params.agentId,
+    agentType: params.agentType,
+    usageSessionId: params.usageSessionId,
+    usageProjectPath: params.usageProjectPath,
   })
 
   const content = response.object
