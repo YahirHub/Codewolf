@@ -133,6 +133,16 @@ export async function getModelForRequest(
     }
   }
 
+  // The CLI uses this sentinel whenever a custom provider is active. Reaching
+  // this branch means a parent run failed to propagate its provider context to
+  // a subagent. Never fall through to the original backend: that produced a
+  // misleading HTTP 401 and made a healthy Tavily configuration look broken.
+  if (apiKey.startsWith('local-custom-provider:')) {
+    throw new Error(
+      'Error interno: el proveedor personalizado activo no se propagó al agente secundario. Reinicia Codewolf con la versión corregida.',
+    )
+  }
+
   // Check if we should use ChatGPT OAuth direct
   // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
   if (

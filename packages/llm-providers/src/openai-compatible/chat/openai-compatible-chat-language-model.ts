@@ -357,6 +357,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       }
       hasFinished: boolean
     }> = []
+    // Several OpenAI-compatible gateways repeat a tool call using the same ID
+    // but a different array index. Index-only assembly treats that as a second
+    // call. Track IDs independently and make final emission idempotent.
+    const toolCallIndexById = new Map<string, number>()
+    const emittedToolCallIds = new Set<string>()
 
     let finishReason: LanguageModelV2FinishReason = 'unknown'
     const usage: {
@@ -513,7 +518,28 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
-                const index = toolCallDelta.index
+                const providerToolCallId = toolCallDelta.id ?? undefined
+                const knownIndex = providerToolCallId
+                  ? toolCallIndexById.get(providerToolCallId)
+                  : undefined
+                let index = knownIndex ?? toolCallDelta.index
+
+                // Some gateways restart indexes for a later call. If the
+                // requested slot belongs to a different completed ID, allocate
+                // a fresh slot instead of merging unrelated arguments.
+                if (
+                  knownIndex === undefined &&
+                  providerToolCallId &&
+                  toolCalls[index] != null &&
+                  toolCalls[index].id !== providerToolCallId &&
+                  toolCalls[index].hasFinished
+                ) {
+                  index = toolCalls.length
+                }
+
+                if (providerToolCallId && knownIndex === undefined) {
+                  toolCallIndexById.set(providerToolCallId, index)
+                }
 
                 if (toolCalls[index] == null) {
                   if (toolCallDelta.function?.name == null) {
@@ -565,12 +591,15 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                         id: toolCall.id,
                       })
 
-                      controller.enqueue({
-                        type: 'tool-call',
-                        toolCallId: toolCall.id ?? generateId(),
-                        toolName: toolCall.function.name,
-                        input: toolCall.function.arguments,
-                      })
+                      if (!emittedToolCallIds.has(toolCall.id)) {
+                        emittedToolCallIds.add(toolCall.id)
+                        controller.enqueue({
+                          type: 'tool-call',
+                          toolCallId: toolCall.id,
+                          toolName: toolCall.function.name,
+                          input: toolCall.function.arguments,
+                        })
+                      }
                       toolCall.hasFinished = true
                     }
                   }
@@ -608,12 +637,15 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                     id: toolCall.id,
                   })
 
-                  controller.enqueue({
-                    type: 'tool-call',
-                    toolCallId: toolCall.id ?? generateId(),
-                    toolName: toolCall.function.name,
-                    input: toolCall.function.arguments,
-                  })
+                  if (!emittedToolCallIds.has(toolCall.id)) {
+                    emittedToolCallIds.add(toolCall.id)
+                    controller.enqueue({
+                      type: 'tool-call',
+                      toolCallId: toolCall.id,
+                      toolName: toolCall.function.name,
+                      input: toolCall.function.arguments,
+                    })
+                  }
                   toolCall.hasFinished = true
                 }
               }
@@ -638,12 +670,15 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 id: toolCall.id,
               })
 
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: toolCall.id ?? generateId(),
-                toolName: toolCall.function.name,
-                input: toolCall.function.arguments,
-              })
+              if (!emittedToolCallIds.has(toolCall.id)) {
+                emittedToolCallIds.add(toolCall.id)
+                controller.enqueue({
+                  type: 'tool-call',
+                  toolCallId: toolCall.id,
+                  toolName: toolCall.function.name,
+                  input: toolCall.function.arguments,
+                })
+              }
             }
 
             const providerMetadata: SharedV2ProviderMetadata = {

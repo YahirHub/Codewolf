@@ -44,6 +44,17 @@ describe('model-provider', () => {
 })
 
 describe('custom provider routing', () => {
+  test('never falls back to the original backend when custom-provider context is missing', async () => {
+    const { getModelForRequest } = await import('../impl/model-provider')
+
+    await expect(
+      getModelForRequest({
+        apiKey: 'local-custom-provider:local',
+        model: 'google/gemini-3.1-flash-lite',
+      }),
+    ).rejects.toThrow('no se propagó al agente secundario')
+  })
+
   test('creates a direct OpenAI-compatible model with the selected model id', async () => {
     const { getModelForRequest } = await import('../impl/model-provider')
     const result = await getModelForRequest({

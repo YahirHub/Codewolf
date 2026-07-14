@@ -33,6 +33,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'login',
   'models',
+  'setup-search',
   'ads:enable',
   'ads:disable',
   'usage',
@@ -57,6 +58,13 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'models',
     description: 'Select a model grouped by provider',
     aliases: ['model'],
+  },
+  {
+    id: 'setup-search',
+    label: 'setup-search',
+    description:
+      'Configure search engines, default provider, fallbacks, and tests',
+    aliases: ['search-setup', 'search'],
   },
   {
     id: 'help',

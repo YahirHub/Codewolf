@@ -82,6 +82,7 @@ export function extractSubagentContextParams(
     trackEvent: params.trackEvent,
     // AgentRuntimeDeps - Other
     logger: params.logger,
+    traceWriter: params.traceWriter,
     fetch: params.fetch,
 
     // AgentRuntimeScopedDeps - Client (WebSocket)
@@ -93,6 +94,7 @@ export function extractSubagentContextParams(
     sendAction: params.sendAction,
     sendSubagentChunk: params.sendSubagentChunk,
     apiKey: params.apiKey,
+    customProvider: params.customProvider,
 
     // Core context params
     clientSessionId: params.clientSessionId,
@@ -333,8 +335,34 @@ export function logAgentSpawn(params: {
   )
 }
 
+const RESEARCHER_WEB_TIMEOUT_MS = 120_000
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60_000
+
+export class SubagentTimeoutError extends Error {
+  constructor(
+    public readonly agentType: string,
+    public readonly timeoutMs: number,
+  ) {
+    super(
+      `Subagent ${agentType} exceeded the ${Math.round(timeoutMs / 1000)} second execution limit.`,
+    )
+    this.name = 'SubagentTimeoutError'
+  }
+}
+
+export function getSubagentTimeoutMs(agentTemplate: AgentTemplate): number {
+  return agentTemplate.id === 'researcher-web'
+    ? RESEARCHER_WEB_TIMEOUT_MS
+    : DEFAULT_SUBAGENT_TIMEOUT_MS
+}
+
 /**
- * Executes a subagent using loopAgentSteps
+ * Executes a subagent using loopAgentSteps.
+ *
+ * Every subagent gets an isolated abort signal and a bounded execution time.
+ * This prevents one provider stream that never closes from blocking the parent
+ * `spawn_agents` call forever. The finish event is emitted from `finally`, so
+ * the CLI never leaves a stale "running" card after errors or timeouts.
  */
 export async function executeSubagent(
   options: OptionalFields<
@@ -376,30 +404,72 @@ export async function executeSubagent(
   }
   onResponseChunk(startEvent)
 
-  const result = await loopAgentSteps({
-    ...withDefaults,
-    // Don't propagate parent's image content to subagents.
-    // If subagents need to see images, they get them through includeMessageHistory,
-    // not by creating new image-containing messages for their prompts.
-    content: undefined,
-    ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
-    agentType: agentTemplate.id,
-  })
+  const childAbortController = new AbortController()
+  const parentSignal = withDefaults.signal
+  const abortFromParent = () =>
+    childAbortController.abort(
+      parentSignal.reason ?? new DOMException('Aborted', 'AbortError'),
+    )
 
-  onResponseChunk({
-    type: 'subagent_finish',
-    agentId: result.agentState.agentId,
-    agentType: agentTemplate.id,
-    displayName: agentTemplate.displayName,
-    onlyChild: isOnlyChild,
-    parentAgentId: parentAgentState.agentId,
-    prompt,
-    params: spawnParams,
-  })
-
-  if (result.agentState.runId) {
-    parentAgentState.childRunIds.push(result.agentState.runId)
+  if (parentSignal.aborted) {
+    abortFromParent()
+  } else {
+    parentSignal.addEventListener('abort', abortFromParent, { once: true })
   }
 
-  return result
+  const timeoutMs = getSubagentTimeoutMs(agentTemplate)
+  let acceptLateChunks = true
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      acceptLateChunks = false
+      const timeoutError = new SubagentTimeoutError(agentTemplate.id, timeoutMs)
+      childAbortController.abort(timeoutError)
+      reject(timeoutError)
+    }, timeoutMs)
+  })
+
+  try {
+    const runPromise = loopAgentSteps({
+      ...withDefaults,
+      signal: childAbortController.signal,
+      onResponseChunk: (chunk) => {
+        if (acceptLateChunks) {
+          onResponseChunk(chunk)
+        }
+      },
+      // Don't propagate parent's image content to subagents.
+      // If subagents need to see images, they get them through includeMessageHistory,
+      // not by creating new image-containing messages for their prompts.
+      content: undefined,
+      ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
+      agentType: agentTemplate.id,
+    })
+
+    const result = await Promise.race([runPromise, timeoutPromise])
+
+    if (result.agentState.runId) {
+      parentAgentState.childRunIds.push(result.agentState.runId)
+    }
+
+    return result
+  } finally {
+    acceptLateChunks = false
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId)
+    }
+    parentSignal.removeEventListener('abort', abortFromParent)
+
+    onResponseChunk({
+      type: 'subagent_finish',
+      agentId: withDefaults.agentState.agentId,
+      agentType: agentTemplate.id,
+      displayName: agentTemplate.displayName,
+      onlyChild: isOnlyChild,
+      parentAgentId: parentAgentState.agentId,
+      prompt,
+      params: spawnParams,
+    })
+  }
 }

@@ -21,6 +21,7 @@ import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { ProviderLoginScreen } from './components/provider-login-screen'
 import { ModelSelectorScreen } from './components/model-selector-screen'
+import { SearchSetupScreen } from './components/search-setup-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
@@ -144,6 +145,7 @@ export const Chat = ({
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [providerLoginOpen, setProviderLoginOpen] = useState(false)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
+  const [searchSetupOpen, setSearchSetupOpen] = useState(false)
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
@@ -807,13 +809,22 @@ export const Chat = ({
 
       if (result.openProviderLogin) {
         setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
         setProviderLoginOpen(true)
         setInputFocused(false)
       }
 
       if (result.openModelSelector) {
         setProviderLoginOpen(false)
+        setSearchSetupOpen(false)
         setModelSelectorOpen(true)
+        setInputFocused(false)
+      }
+
+      if (result.openSearchSetup) {
+        setProviderLoginOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(true)
         setInputFocused(false)
       }
     },
@@ -976,7 +987,6 @@ export const Chat = ({
     setInputFocused(true)
   }, [closeReviewScreen, setInputFocused])
 
-
   const closeProviderLogin = useCallback(() => {
     setProviderLoginOpen(false)
     setInputFocused(true)
@@ -1000,6 +1010,12 @@ export const Chat = ({
 
   const closeModelSelector = useCallback(() => {
     setModelSelectorOpen(false)
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, setInputFocused])
+
+  const closeSearchSetup = useCallback(() => {
+    setSearchSetupOpen(false)
     setInputFocused(true)
     setTimeout(() => inputRef.current?.focus(), 0)
   }, [inputRef, setInputFocused])
@@ -1036,7 +1052,7 @@ export const Chat = ({
 
   // Ensure bracketed paste events target the active chat input
   useEffect(() => {
-    if (providerLoginOpen || modelSelectorOpen) return
+    if (providerLoginOpen || modelSelectorOpen || searchSetupOpen) return
     if (feedbackMode) {
       inputRef.current?.focus()
       return
@@ -1044,7 +1060,14 @@ export const Chat = ({
     if (!askUserState) {
       inputRef.current?.focus()
     }
-  }, [feedbackMode, askUserState, inputRef, modelSelectorOpen, providerLoginOpen])
+  }, [
+    feedbackMode,
+    askUserState,
+    inputRef,
+    modelSelectorOpen,
+    providerLoginOpen,
+    searchSetupOpen,
+  ])
 
   const handleSubmit = useCallback(async () => {
     // Report activity for ad rotation
@@ -1718,6 +1741,8 @@ export const Chat = ({
             onSelect={handleModelSelected}
             onCancel={closeModelSelector}
           />
+        ) : searchSetupOpen ? (
+          <SearchSetupScreen onClose={closeSearchSetup} />
         ) : reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools

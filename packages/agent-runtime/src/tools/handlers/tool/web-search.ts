@@ -1,6 +1,9 @@
+import {
+  loadWebSearchAuth,
+  loadWebSearchSettings,
+} from '@codebuff/common/web-search/search-storage'
+import { runWebSearchWithFallback } from '@codebuff/common/web-search/search-runtime'
 import { jsonToolResult } from '@codebuff/common/util/messages'
-
-import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -27,6 +30,7 @@ export const handleWebSearch = (async (params: {
   fetch: typeof globalThis.fetch
   clientEnv: ClientEnv
   ciEnv: CiEnv
+  signal?: AbortSignal
 }): Promise<{
   output: CodebuffToolOutput<'web_search'>
   creditsUsed: number
@@ -34,22 +38,19 @@ export const handleWebSearch = (async (params: {
   const {
     previousToolCallFinished,
     toolCall,
-
     agentStepId,
-    apiKey,
     clientSessionId,
     fingerprintId,
     logger,
     repoId,
-    repoUrl,
     userId,
     userInputId,
-
     fetch,
-    clientEnv,
-    ciEnv,
+    signal,
   } = params
-  const { query, depth } = toolCall.input
+  const { query, depth = 'standard' } = toolCall.input
+
+  await previousToolCallFinished
 
   const searchStartTime = Date.now()
   const searchContext = {
@@ -64,72 +65,41 @@ export const handleWebSearch = (async (params: {
     repoId,
   }
 
-  await previousToolCallFinished
-
-  let creditsUsed = 0
-
   try {
-    const webApi = await callWebSearchAPI({
-      query,
-      depth,
-      repoUrl: repoUrl ?? null,
+    const settings = loadWebSearchSettings()
+    const auth = loadWebSearchAuth()
+    const result = await runWebSearchWithFallback(
+      {
+        query,
+        numResults: depth === 'deep' ? 15 : 8,
+        type: depth === 'deep' ? 'deep' : 'fast',
+        livecrawl: depth === 'deep' ? 'preferred' : 'fallback',
+      },
+      { settings, auth },
+      signal,
       fetch,
-      logger,
-      apiKey,
-      env: { clientEnv, ciEnv },
-    })
-
-    if (webApi.error) {
-      const searchDuration = Date.now() - searchStartTime
-      logger.warn(
-        {
-          ...searchContext,
-          searchDuration,
-          usedWebApi: true,
-          success: false,
-          error: webApi.error,
-        },
-        'Web API search returned error',
-      )
-      return {
-        output: jsonToolResult({
-          errorMessage: webApi.error,
-        }),
-        creditsUsed,
-      }
-    }
-    const searchDuration = Date.now() - searchStartTime
-    const resultLength = webApi.result?.length || 0
-    const hasResults = Boolean(webApi.result && webApi.result.trim())
-
-    // Capture credits used from the API response
-    if (typeof webApi.creditsUsed === 'number') {
-      creditsUsed = webApi.creditsUsed
-    }
+    )
 
     logger.info(
       {
         ...searchContext,
-        searchDuration,
-        resultLength,
-        hasResults,
-        usedWebApi: true,
-        creditsCharged: 'server',
-        creditsUsed,
+        searchDuration: Date.now() - searchStartTime,
+        provider: result.provider,
+        resultCount: result.resultCount,
+        attempts: result.attempts,
         success: true,
       },
-      'Search completed via web API',
+      'Search completed with configured provider fallback',
     )
 
     return {
-      output: jsonToolResult({ result: webApi.result ?? '' }),
-      creditsUsed,
+      output: jsonToolResult({ result: result.text }),
+      creditsUsed: 0,
     }
   } catch (error) {
-    const searchDuration = Date.now() - searchStartTime
-    const errorMessage = `Error performing web search for "${query}": ${
-      error instanceof Error ? error.message : 'Unknown error'
-    }`
+    const errorMessage =
+      error instanceof Error ? error.message : 'Error de búsqueda desconocido.'
+
     logger.error(
       {
         ...searchContext,
@@ -141,11 +111,15 @@ export const handleWebSearch = (async (params: {
                 stack: error.stack,
               }
             : error,
-        searchDuration,
+        searchDuration: Date.now() - searchStartTime,
         success: false,
       },
-      'Search failed with error',
+      'Search failed with every configured provider',
     )
-    return { output: jsonToolResult({ errorMessage }), creditsUsed }
+
+    return {
+      output: jsonToolResult({ errorMessage }),
+      creditsUsed: 0,
+    }
   }
 }) satisfies CodebuffToolHandlerFunction<'web_search'>

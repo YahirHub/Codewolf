@@ -17,6 +17,8 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 interface SpawnAgentInfo {
   index: number
   agentType: string
+  prompt?: string
+  params?: Record<string, unknown>
 }
 
 // SDK event types for testing
@@ -53,6 +55,9 @@ const createStreamRefs = (): {
     planExtracted: boolean
     wasAbortedByUser: boolean
     spawnAgentsMap: Map<string, SpawnAgentInfo>
+    seenSpawnRequestKeys: Set<string>
+    seenSubagentStartIds: Set<string>
+    semanticSpawnAgentIds: Map<string, string>
   }
 } => {
   const state = {
@@ -62,6 +67,9 @@ const createStreamRefs = (): {
     planExtracted: false,
     wasAbortedByUser: false,
     spawnAgentsMap: new Map<string, SpawnAgentInfo>(),
+    seenSpawnRequestKeys: new Set<string>(),
+    seenSubagentStartIds: new Set<string>(),
+    semanticSpawnAgentIds: new Map<string, string>(),
   }
 
   const controller = {
@@ -603,5 +611,276 @@ describe('sdk-event-handlers', () => {
       content: 'Streamed output from basher',
     })
     expect(getStreamingAgents().size).toBe(0)
+  })
+
+  test('matches same-type subagents by prompt even when start events arrive out of order', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-research',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest Android version',
+          },
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest PHP version',
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'php-agent',
+      agentType: 'researcher-web',
+      displayName: 'Web Researcher',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: undefined,
+      prompt: 'Find the latest PHP version',
+    })
+
+    const blocks = getMessages()[0].blocks ?? []
+    const androidBlock = blocks[0] as AgentContentBlock
+    const phpBlock = blocks[1] as AgentContentBlock
+    expect(androidBlock.initialPrompt).toBe('Find the latest Android version')
+    expect(androidBlock.agentId).toBe('tool-research-0')
+    expect(phpBlock.initialPrompt).toBe('Find the latest PHP version')
+    expect(phpBlock.agentId).toBe('php-agent')
+  })
+
+  test('matches same-type and same-prompt subagents by params', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-params',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest release',
+            params: { product: 'Debian' },
+          },
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest release',
+            params: { product: 'Laravel' },
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'laravel-agent',
+      agentType: 'researcher-web',
+      displayName: 'Web Researcher',
+      onlyChild: false,
+      parentAgentId: undefined,
+      params: { product: 'Laravel' },
+      prompt: 'Find the latest release',
+    })
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect((blocks[0] as AgentContentBlock).agentId).toBe('tool-params-0')
+    expect((blocks[1] as AgentContentBlock).agentId).toBe('laravel-agent')
+    expect((blocks[1] as AgentContentBlock).params).toEqual({
+      product: 'Laravel',
+    })
+  })
+
+  test('shows only one placeholder for identical duplicate subagent requests', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-duplicate',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest PHP version',
+          },
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest PHP version',
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).initialPrompt).toBe(
+      'Find the latest PHP version',
+    )
+    expect(getStreamingAgents()).toEqual(new Set(['tool-duplicate-0']))
+  })
+
+  test('closes unresolved subagent placeholders when the root stream finishes', () => {
+    const { ctx, getMessages, getStreamingAgents, streamRefs } =
+      createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-orphan',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find a release',
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    handleEvent({ type: 'finish', totalCost: 0 } as any)
+
+    const block = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(block.status).toBe('complete')
+    expect(getStreamingAgents().size).toBe(0)
+    expect(streamRefs.state.spawnAgentsMap.size).toBe(0)
+  })
+
+  test('suppresses the same semantic spawn request across separate tool calls', () => {
+    const { ctx, getMessages, getStreamingAgents } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    const input = {
+      agents: [
+        {
+          agent_type: 'researcher-web',
+          prompt: 'Find the latest Laravel version',
+        },
+      ],
+    }
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-first',
+      toolName: 'spawn_agents',
+      input,
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-replayed',
+      toolName: 'spawn_agents',
+      input,
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).agentId).toBe('tool-first-0')
+    expect(getStreamingAgents()).toEqual(new Set(['tool-first-0']))
+  })
+
+  test('reuses a rendered placeholder when the transient spawn map was lost', () => {
+    const { ctx, getMessages, getStreamingAgents, streamRefs } =
+      createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({
+      type: 'tool_call',
+      toolCallId: 'tool-placeholder',
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'researcher-web',
+            prompt: 'Find the latest Debian version',
+          },
+        ],
+      },
+      agentId: 'main-agent',
+      parentAgentId: undefined,
+    } as any)
+
+    // Simulate event reordering/state loss between the tool call and start.
+    streamRefs.state.spawnAgentsMap.clear()
+
+    handleEvent({
+      type: 'subagent_start',
+      agentId: 'researcher-real',
+      agentType: 'researcher-web',
+      displayName: 'Web Researcher',
+      onlyChild: true,
+      parentAgentId: 'main-agent',
+      params: undefined,
+      prompt: 'Find the latest Debian version',
+    })
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).agentId).toBe('researcher-real')
+    expect(getStreamingAgents()).toEqual(new Set(['researcher-real']))
+  })
+
+  test('suppresses a second real agent id for the same semantic request', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    const base = {
+      type: 'subagent_start' as const,
+      agentType: 'researcher-web',
+      displayName: 'Web Researcher',
+      onlyChild: true,
+      parentAgentId: undefined,
+      params: undefined,
+      prompt: 'Find the latest Debian version',
+    }
+
+    handleEvent({ ...base, agentId: 'researcher-first' })
+    handleEvent({ ...base, agentId: 'researcher-replayed' })
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).agentId).toBe('researcher-first')
+  })
+
+  test('treats a replayed subagent_start event as idempotent', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+    const startEvent = {
+      type: 'subagent_start',
+      agentId: 'researcher-one',
+      agentType: 'researcher-web',
+      displayName: 'Web Researcher',
+      onlyChild: true,
+      parentAgentId: undefined,
+      params: undefined,
+      prompt: 'Find the latest PHP version',
+    } as const
+
+    handleEvent(startEvent)
+    handleEvent(startEvent)
+
+    const blocks = getMessages()[0].blocks ?? []
+    expect(blocks).toHaveLength(1)
+    expect((blocks[0] as AgentContentBlock).agentId).toBe('researcher-one')
   })
 })

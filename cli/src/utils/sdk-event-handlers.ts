@@ -1,3 +1,7 @@
+import {
+  getSpawnAgentRequestKey,
+  getSpawnAgentSignature,
+} from '@codebuff/common/util/spawn-agent'
 import { match } from 'ts-pattern'
 
 import {
@@ -170,11 +174,30 @@ const handleSubagentStart = (
     return
   }
 
+  // A replayed start event must be idempotent. Without this guard, one real
+  // subagent can be rendered twice even though it only executed once.
+  if (
+    state.streaming.streamRefs.state.seenSubagentStartIds.has(event.agentId)
+  ) {
+    state.logger.info(
+      { agentId: event.agentId, agentType: event.agentType },
+      'Ignoring duplicate subagent_start event',
+    )
+    return
+  }
+  state.streaming.streamRefs.state.seenSubagentStartIds.add(event.agentId)
   state.subagents.addActiveSubagent(event.agentId)
 
+  const semanticKey = getSpawnAgentSignature({
+    agentType: event.agentType,
+    prompt: event.prompt,
+    agentParams: event.params,
+  })
   const spawnAgentMatch = findMatchingSpawnAgent(
     state.streaming.streamRefs.state.spawnAgentsMap,
     event.agentType || '',
+    event.prompt,
+    event.params,
   )
 
   if (spawnAgentMatch) {
@@ -190,6 +213,10 @@ const handleSubagentStart = (
       }),
     )
 
+    state.streaming.streamRefs.state.semanticSpawnAgentIds.set(
+      semanticKey,
+      event.agentId,
+    )
     updateStreamingAgents(state, {
       remove: spawnAgentMatch.tempId,
       add: event.agentId,
@@ -200,6 +227,67 @@ const handleSubagentStart = (
     return
   }
 
+  const existingSemanticAgentId =
+    state.streaming.streamRefs.state.semanticSpawnAgentIds.get(semanticKey)
+
+  if (existingSemanticAgentId) {
+    const existingIsPlaceholder =
+      !state.streaming.streamRefs.state.seenSubagentStartIds.has(
+        existingSemanticAgentId,
+      )
+
+    if (existingIsPlaceholder) {
+      state.message.updater.updateAiMessageBlocks((blocks) =>
+        resolveSpawnAgentToReal({
+          blocks,
+          match: {
+            tempId: existingSemanticAgentId,
+            info: {
+              index: -1,
+              agentType: event.agentType || '',
+              prompt: event.prompt,
+              params: event.params,
+            },
+          },
+          realAgentId: event.agentId,
+          realAgentType: event.agentType,
+          parentAgentId: event.parentAgentId,
+          params: event.params,
+          prompt: event.prompt,
+        }),
+      )
+
+      state.streaming.streamRefs.state.semanticSpawnAgentIds.set(
+        semanticKey,
+        event.agentId,
+      )
+      updateStreamingAgents(state, {
+        remove: existingSemanticAgentId,
+        add: event.agentId,
+      })
+      state.streaming.streamRefs.setters.removeSpawnAgentInfo(
+        existingSemanticAgentId,
+      )
+      return
+    }
+
+    // A second real ID for the same semantic request means the provider replayed
+    // the tool call. Keep the first card as the single source of truth.
+    state.logger.info(
+      {
+        agentId: event.agentId,
+        existingAgentId: existingSemanticAgentId,
+        agentType: event.agentType,
+      },
+      'Ignoring replayed semantic subagent start',
+    )
+    return
+  }
+
+  state.streaming.streamRefs.state.semanticSpawnAgentIds.set(
+    semanticKey,
+    event.agentId,
+  )
   state.logger.info(
     {
       agentId: event.agentId,
@@ -210,7 +298,6 @@ const handleSubagentStart = (
   )
 
   state.message.updater.updateAiMessageBlocks((blocks) => {
-    // Look up the parent agent's type if there's a parent agent ID
     const parentAgentType = event.parentAgentId
       ? findAgentTypeById(blocks, event.parentAgentId)
       : undefined
@@ -262,13 +349,36 @@ const handleSpawnAgentsToolCall = (
   event: PrintModeToolCall,
 ) => {
   const agents = Array.isArray(event.input?.agents) ? event.input?.agents : []
+  const seenInThisCall = new Set<string>()
+  const visibleAgents = agents
+    .map((agent: any, originalIndex: number) => ({ agent, originalIndex }))
+    .filter(({ agent }) => {
+      const key = getSpawnAgentRequestKey(agent)
+      if (
+        seenInThisCall.has(key) ||
+        state.streaming.streamRefs.state.seenSpawnRequestKeys.has(key)
+      ) {
+        return false
+      }
 
-  agents.forEach((agent: any, index: number) => {
-    const tempAgentId = `${event.toolCallId}-${index}`
-    state.streaming.streamRefs.setters.setSpawnAgentInfo(tempAgentId, {
-      index,
-      agentType: agent.agent_type || 'unknown',
+      seenInThisCall.add(key)
+      state.streaming.streamRefs.state.seenSpawnRequestKeys.add(key)
+      return true
     })
+
+  visibleAgents.forEach(({ agent, originalIndex }) => {
+    const tempAgentId = `${event.toolCallId}-${originalIndex}`
+    const semanticKey = getSpawnAgentRequestKey(agent)
+    state.streaming.streamRefs.setters.setSpawnAgentInfo(tempAgentId, {
+      index: originalIndex,
+      agentType: agent.agent_type || 'unknown',
+      prompt: agent.prompt,
+      params: agent.params,
+    })
+    state.streaming.streamRefs.state.semanticSpawnAgentIds.set(
+      semanticKey,
+      tempAgentId,
+    )
   })
 
   state.message.updater.updateAiMessageBlocks((blocks) => {
@@ -277,8 +387,7 @@ const handleSpawnAgentsToolCall = (
       ? findAgentTypeById(blocks, event.agentId)
       : undefined
 
-    const newAgentBlocks: ContentBlock[] = agents
-      .map((agent: any, originalIndex: number) => ({ agent, originalIndex }))
+    const newAgentBlocks: ContentBlock[] = visibleAgents
       .filter(({ agent }) => !shouldHideAgent(agent.agent_type || ''))
       .map(({ agent, originalIndex }) =>
         createAgentBlock({
@@ -295,8 +404,10 @@ const handleSpawnAgentsToolCall = (
     return [...blocks, ...newAgentBlocks]
   })
 
-  agents.forEach((_: any, index: number) => {
-    updateStreamingAgents(state, { add: `${event.toolCallId}-${index}` })
+  visibleAgents.forEach(({ originalIndex }) => {
+    updateStreamingAgents(state, {
+      add: `${event.toolCallId}-${originalIndex}`,
+    })
   })
 }
 
@@ -486,6 +597,19 @@ const handleToolResult = (
 const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   if (typeof event.totalCost === 'number' && state.onTotalCost) {
     state.onTotalCost(event.totalCost)
+  }
+
+  // A provider may omit or reorder a subagent_start event. Any placeholder that
+  // is still registered when the root stream finishes is orphaned; close it so
+  // the terminal never remains permanently in a "running" state.
+  for (const tempAgentId of Array.from(
+    state.streaming.streamRefs.state.spawnAgentsMap.keys(),
+  )) {
+    state.message.updater.updateAiMessageBlocks((blocks) =>
+      markAgentComplete(blocks, tempAgentId),
+    )
+    updateStreamingAgents(state, { remove: tempAgentId })
+    state.streaming.streamRefs.setters.removeSpawnAgentInfo(tempAgentId)
   }
 }
 

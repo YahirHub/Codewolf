@@ -118,6 +118,8 @@ Each agent available is already defined as another tool, or, dynamically defined
 
 You can call agents either as direct tool calls (using the listed tool name, e.g. \`example_agent\`) or use \`spawn_agents\` with the canonical agent name in \`agent_type\` (e.g. \`example-agent\`). Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. Both use the same schema with nested \`prompt\` and \`params\` fields.
 
+**Choose exactly one invocation format per task. Never submit the same agent type, prompt, and params more than once in one response, and do not repeat an identical request while its first execution is still running.**
+
 **IMPORTANT**: Many agents have REQUIRED fields in their params schema. Check the agent's schema before spawning - if params has required fields, you MUST include them in the params object. For example, code-searcher requires \`searchQueries\`, basher requires \`command\`.
 
 Example:

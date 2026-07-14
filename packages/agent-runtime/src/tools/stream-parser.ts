@@ -1,11 +1,9 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { AbortError } from '@codebuff/common/util/error'
-import {
-  assistantMessage,
-  userMessage,
-} from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { createSpawnAgentRequestDeduper } from '@codebuff/common/util/spawn-agent'
 
 import { processStreamWithTools } from '../tool-stream-parser'
 import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
@@ -65,10 +63,7 @@ export async function processStream(
   > &
     ParamsExcluding<
       typeof processStreamWithTools,
-      | 'processors'
-      | 'defaultProcessor'
-      | 'loggerOptions'
-      | 'executeXmlToolCall'
+      'processors' | 'defaultProcessor' | 'loggerOptions' | 'executeXmlToolCall'
     >,
 ) {
   const {
@@ -89,13 +84,19 @@ export async function processStream(
   const toolResults: ToolMessage[] = []
   const toolResultsToAddToMessageHistory: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
-  const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
+  const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] =
+    []
   const assistantMessages: Message[] = []
   let hadToolCallError = false
   const errorMessages: Message[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
+
+  // Some OpenAI-compatible providers emit the same logical subagent call more
+  // than once in a single model response (for example once as a direct agent
+  // tool and once as spawn_agents, or with two generated tool-call IDs).
+  const spawnRequestDeduper = createSpawnAgentRequestDeduper()
 
   const fileProcessingState: FileProcessingState = {
     promisesByPath: {},
@@ -132,7 +133,7 @@ export async function processStream(
   function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
     const responseHandler = createResponseHandler()
     return {
-      onTagStart: () => { },
+      onTagStart: () => {},
       onTagEnd: async (_: string, input: Record<string, string>) => {
         if (signal.aborted) {
           return
@@ -143,10 +144,10 @@ export async function processStream(
         // Check if this is an agent tool call that should be transformed to spawn_agents
         const transformed = !isNativeTool
           ? tryTransformAgentToolCall({
-            toolName,
-            input,
-            spawnableAgents: agentTemplate.spawnableAgents,
-          })
+              toolName,
+              input,
+              spawnableAgents: agentTemplate.spawnableAgents,
+            })
           : null
 
         // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
@@ -157,16 +158,29 @@ export async function processStream(
             ? Promise.resolve()
             : previousToolCallFinished
 
+        const effectiveToolName = transformed ? transformed.toolName : toolName
+        let effectiveInput = transformed ? transformed.input : input
+
+        if (effectiveToolName === 'spawn_agents') {
+          const filteredInput = spawnRequestDeduper.filterInput(effectiveInput)
+          if (filteredInput === null) {
+            params.logger.info(
+              { toolName, effectiveToolName },
+              'Ignoring repeated semantic subagent call in the same model response',
+            )
+            return
+          }
+          effectiveInput = filteredInput
+        }
+
         // Determine which executor to use and with what parameters
         let toolPromise: Promise<void>
         if (isNativeTool || transformed) {
           // Use executeToolCall for native tools or transformed agent calls
           toolPromise = executeToolCall({
             ...params,
-            toolName: transformed
-              ? transformed.toolName
-              : (toolName as ToolName),
-            input: transformed ? transformed.input : input,
+            toolName: effectiveToolName as ToolName,
+            input: effectiveInput,
             fromHandleSteps: false,
 
             fileProcessingState,
@@ -186,7 +200,7 @@ export async function processStream(
           toolPromise = executeCustomToolCall({
             ...params,
             toolName,
-            input,
+            input: effectiveInput,
 
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
@@ -355,15 +369,16 @@ export async function processStream(
     const completedToolCallIds = new Set(
       toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
     )
-    const filteredToolCalls =
-      toolCallsToAddToMessageHistory.filter((tc) =>
-        completedToolCallIds.has(tc.toolCallId),
-      )
+    const filteredToolCalls = toolCallsToAddToMessageHistory.filter((tc) =>
+      completedToolCallIds.has(tc.toolCallId),
+    )
 
     agentState.messageHistory = buildArray<Message>([
       ...agentState.messageHistory,
       ...assistantMessages,
-      ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+      ...filteredToolCalls.map((toolCall) =>
+        assistantMessage({ ...toolCall, type: 'tool-call' }),
+      ),
       ...toolResultsToAddToMessageHistory,
       ...errorMessages,
     ])

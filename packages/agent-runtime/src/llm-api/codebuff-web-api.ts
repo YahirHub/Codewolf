@@ -38,9 +38,7 @@ const getNumberField = (value: unknown, key: string): number | undefined => {
 
 const callCodebuffV1 = async (params: {
   endpoint:
-    | '/api/v1/web-search'
-    | '/api/v1/docs-search'
-    | '/api/v1/gravity-index'
+    '/api/v1/web-search' | '/api/v1/docs-search' | '/api/v1/gravity-index'
   payload: unknown
   fetch: typeof globalThis.fetch
   logger: Logger
@@ -158,6 +156,11 @@ const callCodebuffV1 = async (params: {
   return { error: lastError ?? 'Request failed after all retries' }
 }
 
+/**
+ * @deprecated Native Codewolf searches use the local multi-provider runtime in
+ * `common/src/web-search`. This function remains only for upstream API
+ * compatibility and must not be wired back into the active `web_search` tool.
+ */
 export async function callWebSearchAPI(params: {
   query: string
   depth?: 'standard' | 'deep'

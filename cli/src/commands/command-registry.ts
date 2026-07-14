@@ -7,6 +7,7 @@ import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleModelsCommand, handleProviderLoginCommand } from './provider'
+import { handleSearchSetupCommand } from './search'
 import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
@@ -78,6 +79,7 @@ export type CommandResult = {
   preSelectAgents?: string[]
   openProviderLogin?: boolean
   openModelSelector?: boolean
+  openSearchSetup?: boolean
 } | void
 
 export type CommandHandler = (
@@ -184,6 +186,7 @@ const clearInput = (params: RouterParams) => {
 const FREEBUFF_REMOVED_COMMANDS = new Set([
   'login',
   'models',
+  'setup-search',
   'ads:enable',
   'ads:disable',
   'usage',
@@ -200,6 +203,11 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'models',
     aliases: ['model'],
     handler: handleModelsCommand,
+  }),
+  defineCommand({
+    name: 'setup-search',
+    aliases: ['search-setup', 'search'],
+    handler: handleSearchSetupCommand,
   }),
   defineCommand({
     name: 'ads:enable',

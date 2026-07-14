@@ -362,4 +362,16 @@ describe('interactive provider commands', () => {
     expect(params.saveToHistory).not.toHaveBeenCalled()
     expect(params.setInputValue).toHaveBeenCalled()
   })
+
+  test('/setup-search opens search settings without saving prompt history', async () => {
+    const command = COMMAND_REGISTRY.find(
+      (item) => item.name === 'setup-search',
+    )
+    const params = createParams()
+    const result = await command?.handler(params, '')
+
+    expect(result).toEqual({ openSearchSetup: true })
+    expect(params.saveToHistory).not.toHaveBeenCalled()
+    expect(params.setInputValue).toHaveBeenCalled()
+  })
 })

@@ -1,4 +1,8 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import {
+  deduplicateSpawnAgentRequests,
+  getSpawnAgentRequestKey,
+} from '@codebuff/common/util/spawn-agent'
 
 import {
   validateAndGetAgentTemplate,
@@ -30,6 +34,9 @@ export type SendSubagentChunk = (data: {
 }) => void
 
 type ToolName = 'spawn_agents'
+
+export { deduplicateSpawnAgentRequests, getSpawnAgentRequestKey }
+
 export const handleSpawnAgents = (async (
   params: {
     previousToolCallFinished: Promise<void>
@@ -79,12 +86,24 @@ export const handleSpawnAgents = (async (
     writeToClient,
   } = params
   const { agents } = toolCall.input
+  const { uniqueAgents, originalToUniqueIndex } =
+    deduplicateSpawnAgentRequests(agents)
   const { logger } = params
+
+  if (uniqueAgents.length !== agents.length) {
+    logger.info(
+      {
+        requestedCount: agents.length,
+        uniqueCount: uniqueAgents.length,
+      },
+      'Ignoring duplicate spawn_agents entries',
+    )
+  }
 
   await previousToolCallFinished
 
   const results = await Promise.allSettled(
-    agents.map(
+    uniqueAgents.map(
       async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
           ...params,
@@ -116,7 +135,7 @@ export const handleSpawnAgents = (async (
           parentAgentState,
           agentState: subAgentState,
           fingerprintId,
-          isOnlyChild: agents.length === 1,
+          isOnlyChild: uniqueAgents.length === 1,
           excludeToolFromMessageHistory: false,
           fromHandleSteps: false,
           parentSystemPrompt,
@@ -188,7 +207,7 @@ export const handleSpawnAgents = (async (
     ),
   )
 
-  const reports = await Promise.all(
+  const uniqueReports = await Promise.all(
     results.map(async (result, index) => {
       if (result.status === 'fulfilled') {
         const { output, agentType, agentName } = result.value
@@ -197,20 +216,30 @@ export const handleSpawnAgents = (async (
           agentType,
           value: output,
         }
-      } else {
-        const agentTypeStr = agents[index].agent_type
-        return {
-          agentType: agentTypeStr,
-          agentName: agentTypeStr,
-          value: { errorMessage: `Error spawning agent: ${result.reason}` },
-        }
+      }
+
+      const agentTypeStr = uniqueAgents[index].agent_type
+      const reason =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason)
+      return {
+        agentType: agentTypeStr,
+        agentName: agentTypeStr,
+        value: { errorMessage: `Error spawning agent: ${reason}` },
       }
     }),
   )
 
+  // Keep one report per original input so clients that created placeholders by
+  // array index can close every card, while duplicate work is executed once.
+  const reports = originalToUniqueIndex.map(
+    (uniqueIndex) => uniqueReports[uniqueIndex],
+  )
+
   // Aggregate costs from subagents
   results.forEach((result, index) => {
-    const agentInfo = agents[index]
+    const agentInfo = uniqueAgents[index]
     let subAgentCredits = 0
 
     if (result.status === 'fulfilled') {

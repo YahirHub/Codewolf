@@ -19,3 +19,10 @@ base-lite "fix this bug"
 
 - Tool definitions live in `common/src/tools` and are executed via the SDK helpers + agent-runtime.
 
+## Idempotent subagent execution
+
+OpenAI-compatible gateways may replay a tool call, restart tool-call indexes, or emit the same logical agent request once as a direct agent tool and again through `spawn_agents`. Codewolf treats a subagent request as the tuple of normalized agent type, prompt, and params.
+
+Within one model response, each semantic request is executed once. Replayed provider IDs, duplicate entries in one `spawn_agents` array, and later equivalent tool calls are discarded before execution. The TUI also maps the provisional `spawn_agents` card to the real `subagent_start` event so it cannot render both as separate researchers.
+
+Requests with different prompts or params remain independent. This allows several `researcher-web` agents to run concurrently for different products while suppressing only true duplicates.

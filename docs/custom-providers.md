@@ -88,7 +88,6 @@ All persistent configuration is stored in Codewolf's single cross-platform home 
 - Linux: `/home/<user>/.codewolf/`
 - macOS: `/Users/<user>/.codewolf/`
 
-
 - `~/.codewolf/providers.json` stores provider names, URLs, model lists, and the active selection.
 - `~/.codewolf/provider-auth.json` stores directly entered API keys separately and is written with user-only permissions where POSIX modes are supported.
 - `~/.codewolf/skills/` stores global skills.
@@ -148,3 +147,13 @@ const client = new CodebuffClient({
 ```
 
 When `customProvider` is present, the SDK skips Codebuff user validation, remote agent lookups, billing callbacks, and run persistence. Bundled and local agent definitions remain available, and all model calls go directly to the configured endpoint.
+
+## Subagent routing guarantee
+
+The selected provider is propagated to every spawned agent, including `researcher-web`, inline agents, reviewers, file explorers, and other bundled subagents. Their hard-coded template model remains metadata only while a custom provider is active; the actual request uses the model selected in `/models`.
+
+The CLI also uses an internal `local-custom-provider:<id>` sentinel instead of any stored Codebuff token while direct-provider mode is active. If provider context is ever lost, the SDK stops with an explicit internal routing error rather than silently contacting the original backend and returning a misleading HTTP 401.
+
+## Replayed tool-call protection
+
+Some OpenAI-compatible gateways repeat a completed tool call under another stream index or generated ID. Codewolf makes provider tool-call emission idempotent by provider ID and then performs semantic deduplication after direct-agent calls are normalized to `spawn_agents`. A repeated `researcher-web` request therefore results in one execution and one TUI card, while requests with different prompts or params continue to run separately.

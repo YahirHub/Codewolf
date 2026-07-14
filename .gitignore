@@ -186,3 +186,8 @@ temp/
 
 # Generated local documentation/debug report retained from the upstream rules.
 /docs/bot-detection.md
+
+# Codewolf search-provider settings copied accidentally into the repository.
+**/search-auth.json
+/search.json
+/search.local.json

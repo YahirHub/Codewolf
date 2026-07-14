@@ -57,11 +57,13 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
     }
 
     const { token: storedApiKey } = getAuthTokenDetails()
-    const apiKey =
-      storedApiKey ??
-      (customProvider
-        ? `local-custom-provider:${customProvider.id}`
-        : undefined)
+    // Direct-provider mode must remain completely independent from the original
+    // Codebuff backend. Use an internal sentinel even when a legacy Codebuff
+    // token is still stored, so an accidentally dropped customProvider context
+    // cannot silently route a subagent through the upstream service.
+    const apiKey = customProvider
+      ? `local-custom-provider:${customProvider.id}`
+      : storedApiKey
 
     if (!apiKey) {
       logger.warn(

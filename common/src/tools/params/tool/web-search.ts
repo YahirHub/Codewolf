@@ -20,9 +20,11 @@ const inputSchema = z
         `Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'.`,
       ),
   })
-  .describe(`Search the web for current information using Serper API.`)
+  .describe(
+    `Search the web for current information using the configured provider fallback chain.`,
+  )
 const description = `
-Purpose: Search the web for current, up-to-date information on any topic. This tool uses Serper's Google Search API to find relevant content from across the internet.
+Purpose: Search the web for current, up-to-date information. Codewolf uses the default engine configured in /setup-search and automatically falls back to the next active provider when an engine is unavailable, rate-limited, or returns no usable results.
 
 Use cases:
 - Finding current information about technologies, libraries, or frameworks
@@ -31,7 +33,7 @@ Use cases:
 - Finding examples and tutorials
 - Checking current status of services or APIs
 
-The tool will return JSON search results with titles, URLs, content snippets, and other available SERP fields such as answer boxes or related questions.
+The tool returns normalized results with titles, URLs, publication metadata, and snippets, regardless of which search provider completed the request. If no engine is configured, ask the user to open /setup-search.
 
 Example:
 ${$getNativeToolCallExampleString({
