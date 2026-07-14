@@ -29,7 +29,9 @@ function parseOAuthTokenResponse(data: unknown): {
   expiresInMs: number
 } {
   if (!data || typeof data !== 'object') {
-    throw new Error('Invalid token response format from ChatGPT OAuth.')
+    throw new Error(
+      'El formato de la respuesta del token OAuth de ChatGPT no es válido.',
+    )
   }
 
   const tokenData = data as {
@@ -42,7 +44,9 @@ function parseOAuthTokenResponse(data: unknown): {
     typeof tokenData.access_token !== 'string' ||
     tokenData.access_token.trim().length === 0
   ) {
-    throw new Error('Token exchange did not return a valid access token.')
+    throw new Error(
+      'El intercambio de tokens no devolvió un token de acceso válido.',
+    )
   }
 
   const refreshToken =
@@ -80,7 +84,10 @@ function generateCodeChallenge(verifier: string): string {
 let pendingCodeVerifier: string | null = null
 let pendingState: string | null = null
 
-export function startChatGptOAuthFlow(): { codeVerifier: string; authUrl: string } {
+export function startChatGptOAuthFlow(): {
+  codeVerifier: string
+  authUrl: string
+} {
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = generateCodeChallenge(codeVerifier)
   const state = codeVerifier
@@ -109,7 +116,11 @@ let callbackServer: http.Server | null = null
 
 export function stopChatGptOAuthServer(): void {
   if (callbackServer) {
-    try { callbackServer.close() } catch { /* ignore */ }
+    try {
+      callbackServer.close()
+    } catch {
+      /* ignore */
+    }
     callbackServer = null
   }
   pendingCodeVerifier = null
@@ -117,16 +128,23 @@ export function stopChatGptOAuthServer(): void {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function callbackPageHtml(success: boolean, errorMessage?: string): string {
-  const title = success ? 'Connected — Codewolf' : 'Connection Failed — Codewolf'
-  const heading = success ? '✓ Connected to ChatGPT' : 'Connection Failed'
+  const title = success
+    ? 'Conectado — Codewolf'
+    : 'Falló la conexión — Codewolf'
+  const heading = success ? '✓ Conectado con ChatGPT' : 'Falló la conexión'
   const headingColor = success ? '#4ade80' : '#f87171'
   const body = success
-    ? 'You can close this tab and return to Codewolf.'
-    : `${escapeHtml(errorMessage ?? 'Unknown error')}. Return to Codewolf and try /connect:chatgpt again.`
+    ? 'Puedes cerrar esta pestaña y volver a Codewolf.'
+    : `${escapeHtml(errorMessage ?? 'Error desconocido')}. Vuelve a Codewolf e intenta nuevamente con /connect:chatgpt.`
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#0a0a0a;color:#e5e5e5">
@@ -136,7 +154,9 @@ function callbackPageHtml(success: boolean, errorMessage?: string): string {
 </div></body></html>`
 }
 
-function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredentials> {
+function startCallbackServer(
+  codeVerifier: string,
+): Promise<ChatGptOAuthCredentials> {
   const redirectUrl = new URL(CHATGPT_OAUTH_REDIRECT_URI)
   const port = parseInt(redirectUrl.port, 10)
   const callbackPath = redirectUrl.pathname
@@ -144,7 +164,9 @@ function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredenti
   return new Promise<ChatGptOAuthCredentials>((resolve, reject) => {
     const timeout = setTimeout(() => {
       stopChatGptOAuthServer()
-      reject(new Error('Timeout waiting for ChatGPT authorization'))
+      reject(
+        new Error('Se agotó el tiempo de espera de la autorización de ChatGPT'),
+      )
     }, CALLBACK_SERVER_TIMEOUT_MS)
 
     const server = http.createServer(async (req, res) => {
@@ -152,33 +174,43 @@ function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredenti
 
       if (reqUrl.pathname !== callbackPath) {
         res.writeHead(404, { 'Content-Type': 'text/plain' })
-        res.end('Not found')
+        res.end('No encontrado')
         return
       }
 
       const code = reqUrl.searchParams.get('code')
       if (!code) {
         res.writeHead(400, { 'Content-Type': 'text/html' })
-        res.end(callbackPageHtml(false, 'No authorization code received.'))
+        res.end(
+          callbackPageHtml(false, 'No se recibió un código de autorización.'),
+        )
         clearTimeout(timeout)
         stopChatGptOAuthServer()
-        reject(new Error('No authorization code in callback'))
+        reject(new Error('No hay un código de autorización en el callback'))
         return
       }
 
       const state = reqUrl.searchParams.get('state')
       if (pendingState && (!state || state !== pendingState)) {
         res.writeHead(400, { 'Content-Type': 'text/html' })
-        res.end(callbackPageHtml(false, 'OAuth state mismatch. Please try again.'))
+        res.end(
+          callbackPageHtml(
+            false,
+            'El estado OAuth no coincide. Inténtalo de nuevo.',
+          ),
+        )
         clearTimeout(timeout)
         stopChatGptOAuthServer()
-        reject(new Error('OAuth state mismatch in callback'))
+        reject(new Error('El estado OAuth no coincide en el callback'))
         return
       }
 
       try {
         const fullCallbackUrl = `${CHATGPT_OAUTH_REDIRECT_URI}${reqUrl.search}`
-        const credentials = await exchangeChatGptCodeForTokens(fullCallbackUrl, codeVerifier)
+        const credentials = await exchangeChatGptCodeForTokens(
+          fullCallbackUrl,
+          codeVerifier,
+        )
 
         res.writeHead(200, { 'Content-Type': 'text/html' })
         res.end(callbackPageHtml(true))
@@ -187,7 +219,8 @@ function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredenti
         stopChatGptOAuthServer()
         resolve(credentials)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Token exchange failed'
+        const message =
+          err instanceof Error ? err.message : 'Falló el intercambio del token'
         res.writeHead(500, { 'Content-Type': 'text/html' })
         res.end(callbackPageHtml(false, message))
 
@@ -232,7 +265,9 @@ function parseAuthCodeInput(input: string): { code: string; state?: string } {
     const state = callback.searchParams.get('state') ?? undefined
 
     if (!code) {
-      throw new Error('No authorization code found in callback URL.')
+      throw new Error(
+        'No se encontró un código de autorización en la URL de callback.',
+      )
     }
 
     return { code, state }
@@ -247,13 +282,15 @@ export async function exchangeChatGptCodeForTokens(
 ): Promise<ChatGptOAuthCredentials> {
   const verifier = codeVerifier ?? pendingCodeVerifier
   if (!verifier) {
-    throw new Error('No PKCE verifier found. Please run /connect:chatgpt again.')
+    throw new Error(
+      'No se encontró el verificador PKCE. Ejecuta /connect:chatgpt de nuevo.',
+    )
   }
 
   const { code, state } = parseAuthCodeInput(authCodeInput)
 
   if (pendingState && state && pendingState !== state) {
-    throw new Error('OAuth state mismatch. Please restart /connect:chatgpt.')
+    throw new Error('El estado OAuth no coincide. Reinicia /connect:chatgpt.')
   }
 
   const response = await fetch(CHATGPT_OAUTH_TOKEN_URL, {
@@ -272,7 +309,7 @@ export async function exchangeChatGptCodeForTokens(
 
   if (!response.ok) {
     throw new Error(
-      `Failed to exchange ChatGPT OAuth code (status ${response.status}). Please retry /connect:chatgpt.`,
+      `No se pudo intercambiar el código OAuth de ChatGPT (estado ${response.status}). Vuelve a intentar /connect:chatgpt.`,
     )
   }
 

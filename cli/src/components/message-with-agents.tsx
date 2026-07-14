@@ -72,7 +72,7 @@ const AgentChildrenGrid = memo(
     }
 
     const errorFallback = (
-      <text fg={theme?.error}>Error rendering agent children</text>
+      <text fg={theme?.error}>Error al mostrar los subagentes</text>
     )
 
     return (
@@ -101,33 +101,49 @@ interface MessageWithAgentsProps {
 }
 
 export const MessageWithAgents = memo(
-  ({ message, depth, isLastMessage, availableWidth }: MessageWithAgentsProps): ReactNode => {
+  ({
+    message,
+    depth,
+    isLastMessage,
+    availableWidth,
+  }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
 
     // Use useShallow for grouped selectors to prevent unnecessary re-renders
-    const { theme, markdownPalette, messageTree, isWaitingForResponse, timerStartTime } =
-      useMessageBlockStore(
-        useShallow((state) => ({
-          theme: state.context.theme,
-          markdownPalette: state.context.markdownPalette,
-          messageTree: state.context.messageTree,
-          isWaitingForResponse: state.context.isWaitingForResponse,
-          timerStartTime: state.context.timerStartTime,
-        })),
-      )
+    const {
+      theme,
+      markdownPalette,
+      messageTree,
+      isWaitingForResponse,
+      timerStartTime,
+    } = useMessageBlockStore(
+      useShallow((state) => ({
+        theme: state.context.theme,
+        markdownPalette: state.context.markdownPalette,
+        messageTree: state.context.messageTree,
+        isWaitingForResponse: state.context.isWaitingForResponse,
+        timerStartTime: state.context.timerStartTime,
+      })),
+    )
 
-    const { onToggleCollapsed, onBuildFast, onBuildMax, onBuildLite, onFeedback, onCloseFeedback } =
-      useMessageBlockStore(
-        useShallow((state) => ({
-          onToggleCollapsed: state.callbacks.onToggleCollapsed,
-          onBuildFast: state.callbacks.onBuildFast,
-          onBuildMax: state.callbacks.onBuildMax,
-          onBuildLite: state.callbacks.onBuildLite,
-          onFeedback: state.callbacks.onFeedback,
-          onCloseFeedback: state.callbacks.onCloseFeedback,
-        })),
-      )
+    const {
+      onToggleCollapsed,
+      onBuildFast,
+      onBuildMax,
+      onBuildLite,
+      onFeedback,
+      onCloseFeedback,
+    } = useMessageBlockStore(
+      useShallow((state) => ({
+        onToggleCollapsed: state.callbacks.onToggleCollapsed,
+        onBuildFast: state.callbacks.onBuildFast,
+        onBuildMax: state.callbacks.onBuildMax,
+        onBuildLite: state.callbacks.onBuildLite,
+        onFeedback: state.callbacks.onFeedback,
+        onCloseFeedback: state.callbacks.onCloseFeedback,
+      })),
+    )
 
     // Memoize onOpenFeedback to prevent unnecessary re-renders
     const onOpenFeedback = useCallback(
@@ -158,7 +174,13 @@ export const MessageWithAgents = memo(
     )
 
     if (isAgent) {
-      return <AgentMessage message={message} depth={depth} availableWidth={availableWidth} />
+      return (
+        <AgentMessage
+          message={message}
+          depth={depth}
+          availableWidth={availableWidth}
+        />
+      )
     }
 
     const isAi = message.variant === 'ai'
@@ -183,23 +205,26 @@ export const MessageWithAgents = memo(
     const lineColor = isError
       ? 'red'
       : isAi
-        ? theme?.aiLine ?? 'white'
-        : theme?.userLine ?? 'white'
+        ? (theme?.aiLine ?? 'white')
+        : (theme?.userLine ?? 'white')
     const textColor = theme?.foreground ?? 'white'
     const timestampColor = isError
       ? 'red'
       : isAi
-        ? theme?.muted ?? 'white'
-        : theme?.muted ?? 'white'
+        ? (theme?.muted ?? 'white')
+        : (theme?.muted ?? 'white')
 
     const estimatedMessageWidth = availableWidth
     const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
 
     const paletteForMessage: MarkdownPalette | undefined = useMemo(
-      () => markdownPalette ? {
-        ...markdownPalette,
-        codeTextFg: textColor,
-      } : undefined,
+      () =>
+        markdownPalette
+          ? {
+              ...markdownPalette,
+              codeTextFg: textColor,
+            }
+          : undefined,
       [markdownPalette, textColor],
     )
 
@@ -344,24 +369,27 @@ interface AgentMessageProps {
 const AgentMessage = memo(
   ({ message, depth, availableWidth }: AgentMessageProps): ReactNode => {
     // Use useShallow for grouped selectors to prevent unnecessary re-renders
-    const { theme, markdownPalette, messageTree, onToggleCollapsed } = useMessageBlockStore(
-      useShallow((state) => ({
-        theme: state.context.theme,
-        markdownPalette: state.context.markdownPalette,
-        messageTree: state.context.messageTree,
-        onToggleCollapsed: state.callbacks.onToggleCollapsed,
-      })),
-    )
+    const { theme, markdownPalette, messageTree, onToggleCollapsed } =
+      useMessageBlockStore(
+        useShallow((state) => ({
+          theme: state.context.theme,
+          markdownPalette: state.context.markdownPalette,
+          messageTree: state.context.messageTree,
+          onToggleCollapsed: state.callbacks.onToggleCollapsed,
+        })),
+      )
 
     // Derive streaming boolean for this specific message to avoid re-renders when other agents change
-    const isStreaming = useChatStore((state) => state.streamingAgents.has(message.id))
+    const isStreaming = useChatStore((state) =>
+      state.streamingAgents.has(message.id),
+    )
     const setFocusedAgentId = useChatStore((state) => state.setFocusedAgentId)
 
     // Guard against missing agent info (should not happen for agent variant messages)
     if (!message.agent) {
       return (
         <text fg={theme?.error}>
-          Error: Missing agent info for agent message
+          Error: falta la información del agente en el mensaje
         </text>
       )
     }
@@ -393,10 +421,12 @@ const AgentMessage = memo(
       10,
       availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING,
     )
-    const agentPalette: MarkdownPalette | undefined = markdownPalette ? {
-      ...markdownPalette,
-      codeTextFg: theme?.foreground ?? markdownPalette.codeTextFg,
-    } : undefined
+    const agentPalette: MarkdownPalette | undefined = markdownPalette
+      ? {
+          ...markdownPalette,
+          codeTextFg: theme?.foreground ?? markdownPalette.codeTextFg,
+        }
+      : undefined
     const agentMarkdownOptions = {
       codeBlockWidth: agentCodeBlockWidth,
       palette: agentPalette!,

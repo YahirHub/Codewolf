@@ -30,12 +30,12 @@ export const FreebuffActiveSessionSummary: React.FC<
 
   const resetCountdown = formatFreebuffPremiumResetCountdown(
     new Date(quota.resetAt),
-    now
+    now,
   )
   const label =
     'accessTier' in session && session.accessTier === 'limited'
-      ? 'sessions'
-      : 'premium sessions'
+      ? 'sesiones'
+      : 'sesiones prémium'
   // recentCount already includes the active session's 1.0-unit reservation
   // (written as an admit row at promotion), so it reflects everything counted
   // against the quota — spent plus in-flight. Show it as the total used to match
@@ -51,11 +51,11 @@ export const FreebuffActiveSessionSummary: React.FC<
     >
       <text style={{ wrapMode: 'word', fg: theme.muted }}>
         <span fg={theme.foreground}>
-          {formatSessionUnits(quota.recentCount)} of {quota.limit}
+          {formatSessionUnits(quota.recentCount)} de {quota.limit}
         </span>
         <span fg={theme.muted}>
           {' '}
-          {label} used · resets in {resetCountdown}
+          {label} usadas · se restablece en {resetCountdown}
         </span>
       </text>
     </box>

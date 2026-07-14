@@ -40,6 +40,6 @@ Line 196: getAgentBaseName(options.agentType ?? '') === 'code-searcher'`),
 
     const markup = renderToStaticMarkup(<>{result.content}</>)
 
-    expect(markup).toContain('getAgentBaseName in cli/src/utils (2 results)')
+    expect(markup).toContain('getAgentBaseName en cli/src/utils (2 resultados)')
   })
 })

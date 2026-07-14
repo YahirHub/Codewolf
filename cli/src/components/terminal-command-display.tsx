@@ -61,7 +61,8 @@ export const TerminalCommandDisplay = ({
       </span>
       {timeoutLabel && (
         <span fg={theme.muted} attributes={TextAttributes.DIM}>
-          {' '}({timeoutLabel})
+          {' '}
+          ({timeoutLabel})
         </span>
       )}
     </text>
@@ -123,7 +124,7 @@ export const TerminalCommandDisplay = ({
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
         {hasMoreLines && !expandable && (
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ... ({hiddenLinesCount} more lines above)
+            ... (${hiddenLinesCount} líneas adicionales arriba)
           </text>
         )}
         <text fg={theme.muted} style={{ wrapMode: 'word' }}>
@@ -140,8 +141,8 @@ export const TerminalCommandDisplay = ({
               attributes={TextAttributes.UNDERLINE}
             >
               {isExpanded
-                ? 'Show less'
-                : `Show ${hiddenLinesCount} more ${hiddenLinesCount === 1 ? 'line' : 'lines'}`}
+                ? 'Mostrar menos'
+                : `Mostrar ${hiddenLinesCount} ${hiddenLinesCount === 1 ? 'línea' : 'líneas'} más`}
             </text>
           </Button>
         )}

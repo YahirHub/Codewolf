@@ -53,7 +53,13 @@ export function useLoginPolling({
     // fingerprintHash only becomes non-null after the login-URL mutation
     // succeeds, and that path always sets fingerprintId first — so gating
     // on fingerprintHash implicitly gates on fingerprintId.
-    if (!loginUrl || !fingerprintId || !fingerprintHash || !expiresAt || !isWaitingForEnter) {
+    if (
+      !loginUrl ||
+      !fingerprintId ||
+      !fingerprintHash ||
+      !expiresAt ||
+      !isWaitingForEnter
+    ) {
       return
     }
 
@@ -88,7 +94,9 @@ export function useLoginPolling({
           const user = result.user as User
           onSuccessRef.current(user)
         } else if (result.status === 'timeout') {
-          logger.warn('Login polling timed out after configured limit')
+          logger.warn(
+            'La comprobación del inicio de sesión agotó el tiempo configurado',
+          )
           onTimeoutRef.current()
         }
       })
@@ -100,10 +108,12 @@ export function useLoginPolling({
           {
             error: error instanceof Error ? error.message : String(error),
           },
-          '💥 Unexpected error while polling login status',
+          '💥 Error inesperado al comprobar el estado del inicio de sesión',
         )
         onErrorRef.current(
-          error instanceof Error ? error.message : 'Failed to complete login',
+          error instanceof Error
+            ? error.message
+            : 'No se pudo completar el inicio de sesión',
         )
       })
 

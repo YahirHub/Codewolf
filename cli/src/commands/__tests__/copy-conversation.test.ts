@@ -34,7 +34,11 @@ describe('serializeConversation', () => {
       msg('ai', {
         blocks: [
           { type: 'text', content: 'Sure, reading it now.' },
-          toolBlock('read_files', { paths: ['config.ts'] }, 'export const x = 1'),
+          toolBlock(
+            'read_files',
+            { paths: ['config.ts'] },
+            'export const x = 1',
+          ),
         ],
       }),
     ]
@@ -42,9 +46,9 @@ describe('serializeConversation', () => {
     const { text, omittedCount } = serializeConversation(messages)
 
     expect(omittedCount).toBe(0)
-    expect(text).toContain('## User')
+    expect(text).toContain('## Usuario')
     expect(text).toContain('Read the config file')
-    expect(text).toContain('## Assistant')
+    expect(text).toContain('## Asistente')
     expect(text).toContain('Sure, reading it now.')
     // Tool call: display name, input, and output all present.
     expect(text).toContain('Read Files')
@@ -53,10 +57,13 @@ describe('serializeConversation', () => {
   })
 
   test('pretty-prints JSON tool output envelopes', () => {
-    const envelope =
-      '[{"type":"json","value":{"stdout":"hi\\n","exitCode":0}}]'
+    const envelope = '[{"type":"json","value":{"stdout":"hi\\n","exitCode":0}}]'
     const messages: ChatMessage[] = [
-      msg('ai', { blocks: [toolBlock('run_terminal_command', { command: 'echo hi' }, envelope)] }),
+      msg('ai', {
+        blocks: [
+          toolBlock('run_terminal_command', { command: 'echo hi' }, envelope),
+        ],
+      }),
     ]
     const { text } = serializeConversation(messages)
     // Pretty-printed across multiple lines, not a single dense JSON string.
@@ -67,7 +74,9 @@ describe('serializeConversation', () => {
 
   test('leaves non-JSON tool output as raw text', () => {
     const messages: ChatMessage[] = [
-      msg('ai', { blocks: [toolBlock('read_files', { p: 'a' }, 'plain text output')] }),
+      msg('ai', {
+        blocks: [toolBlock('read_files', { p: 'a' }, 'plain text output')],
+      }),
     ]
     const { text } = serializeConversation(messages)
     expect(text).toContain('plain text output')
@@ -83,7 +92,7 @@ describe('serializeConversation', () => {
       }),
     ]
     const { text } = serializeConversation(messages)
-    expect(text).toContain('> _Reasoning_')
+    expect(text).toContain('> _Razonamiento_')
     expect(text).toContain('> Thinking hard')
     expect(text).toContain('Answer')
   })
@@ -94,7 +103,9 @@ describe('serializeConversation', () => {
         blocks: [toolBlock('read_files', { p: 'a' }, 'short output')],
       }),
     ]
-    const { omittedCount } = serializeConversation(messages, { maxBytes: 10_000 })
+    const { omittedCount } = serializeConversation(messages, {
+      maxBytes: 10_000,
+    })
     expect(omittedCount).toBe(0)
   })
 
@@ -120,7 +131,7 @@ describe('serializeConversation', () => {
     expect(omittedCount).toBeGreaterThan(0)
     // Largest result is omitted with a note; smallest survives intact.
     expect(text).not.toContain(big)
-    expect(text).toContain('Result omitted')
+    expect(text).toContain('Resultado omitido')
     expect(text).toContain(small)
   })
 
@@ -134,7 +145,7 @@ describe('serializeConversation', () => {
     // Budget small enough that dropping the (tiny) output isn't sufficient,
     // forcing the large input to be dropped too.
     const { text } = serializeConversation(messages, { maxBytes: 1_000 })
-    expect(text).toContain('Input omitted')
+    expect(text).toContain('Entrada omitida')
     expect(text).not.toContain('I'.repeat(6_000))
   })
 
@@ -160,7 +171,7 @@ describe('serializeConversation', () => {
     ]
 
     const { text } = serializeConversation(messages)
-    expect(text).toContain('Subagent: Researcher')
+    expect(text).toContain('Subagente: Researcher')
     expect(text).toContain('Find the root cause')
     expect(text).toContain('I investigated the issue.')
     // Nested block + nested tool call surface in the output.
@@ -182,9 +193,13 @@ describe('serializeConversation', () => {
     expect(truncated).toBe(true)
     expect(omittedCount).toBe(0)
     expect(Buffer.byteLength(text, 'utf8')).toBeLessThanOrEqual(maxBytes)
-    expect(text).toContain('truncated to fit clipboard')
+    expect(text).toContain(
+      'se truncó parte de la conversación anterior para ajustarla al portapapeles',
+    )
     // The most recent tail of the content is what survives.
-    expect(text.endsWith('word \n') || text.trimEnd().endsWith('word')).toBe(true)
+    expect(text.endsWith('word \n') || text.trimEnd().endsWith('word')).toBe(
+      true,
+    )
   })
 
   test('tool call with no input or output renders a compact one-liner', () => {
@@ -202,7 +217,7 @@ describe('serializeConversation', () => {
       }),
     ]
     const { text } = serializeConversation(messages)
-    expect(text).toContain('(no input or output)')
+    expect(text).toContain('(sin entrada ni salida)')
   })
 
   test('notes attachments on user messages', () => {
@@ -215,12 +230,12 @@ describe('serializeConversation', () => {
       },
     ]
     const { text } = serializeConversation(messages)
-    expect(text).toContain('Attached files: b.ts')
+    expect(text).toContain('Archivos adjuntos: b.ts')
   })
 
   test('empty conversation still produces a header', () => {
     const { text, omittedCount } = serializeConversation([])
-    expect(text).toMatch(/# (Freebuff|Codewolf) conversation/)
+    expect(text).toMatch(/# Conversación de Codewolf/)
     expect(omittedCount).toBe(0)
   })
 })

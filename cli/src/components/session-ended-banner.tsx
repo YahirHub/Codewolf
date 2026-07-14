@@ -48,12 +48,12 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const accessTier = useFreebuffSessionStore((s) =>
     s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
   )
-  const quotaLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const quotaLabel = accessTier === 'limited' ? 'sesiones' : 'sesiones premium'
   const bannerTitle = premiumQuota
-    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
-    : 'Session ended'
-  const landingButtonLabel = 'Change model'
-  const landingPendingLabel = 'Opening model selection…'
+    ? `Sesión finalizada · ${formatSessionUnits(premiumQuota.recentCount)} de ${premiumQuota.limit} ${quotaLabel} usadas hoy`
+    : 'Sesión finalizada'
+  const landingButtonLabel = 'Cambiar modelo'
+  const landingPendingLabel = 'Abriendo selección de modelos…'
 
   // While a request is still streaming, restart is disabled: it would
   // unmount <Chat> and abort the in-flight agent run. The promise is "we
@@ -121,7 +121,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     >
       {isStreaming ? (
         <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-          Agent is wrapping up. Rejoin the wait room after it's finished.
+          El agente está terminando. Podrás iniciar otra sesión cuando finalice.
         </text>
       ) : (
         <box
@@ -143,8 +143,8 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
               attributes={TextAttributes.BOLD}
             >
               {pendingAction === 'same-chat'
-                ? 'Starting…'
-                : 'Press Enter to continue in a new session'}
+                ? 'Iniciando…'
+                : 'Pulsa Enter para continuar en una sesión nueva'}
             </text>
           </Button>
           <box style={{ flexGrow: 1 }} />
@@ -163,9 +163,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             <text
               style={{
                 fg:
-                  pendingAction === 'landing'
-                    ? theme.muted
-                    : theme.foreground,
+                  pendingAction === 'landing' ? theme.muted : theme.foreground,
               }}
             >
               {pendingAction === 'landing' ? (

@@ -7,6 +7,45 @@ import { getCliEnv } from './utils/env'
 
 const require = createRequire(import.meta.url)
 
+const COMMANDER_HELP_TITLES: Record<string, string> = {
+  'Usage:': 'Uso:',
+  'Arguments:': 'Argumentos:',
+  'Options:': 'Opciones:',
+  'Commands:': 'Comandos:',
+}
+
+function localizeCommanderError(message: string): string {
+  return message
+    .replace(/^error: unknown option /m, 'error: opción desconocida ')
+    .replace(/^error: too many arguments\./m, 'error: demasiados argumentos.')
+    .replace(
+      /^error: missing required argument /m,
+      'error: falta el argumento obligatorio ',
+    )
+    .replace(
+      /^error: required option (.+) not specified$/m,
+      'error: no se indicó la opción obligatoria $1',
+    )
+    .replace(
+      /^error: option (.+) argument missing$/m,
+      'error: falta el argumento de la opción $1',
+    )
+    .replace(
+      /^error: command (.+) not found$/m,
+      'error: no se encontró el comando $1',
+    )
+    .replace(/Did you mean (.+)\?/g, '¿Quisiste decir $1?')
+}
+
+function configureSpanishCommanderOutput(program: Command): void {
+  program.configureHelp({
+    styleTitle: (title) => COMMANDER_HELP_TITLES[title] ?? title,
+  })
+  program.configureOutput({
+    outputError: (message, write) => write(localizeCommanderError(message)),
+  })
+}
+
 export type ParsedArgs = {
   initialPrompt: string | null
   command?: string
@@ -47,57 +86,60 @@ export function parseArgs({
   version?: string
 } = {}): ParsedArgs {
   const program = new Command()
+  configureSpanishCommanderOutput(program)
 
   if (isFreebuff) {
     // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
     program
       .name('freebuff')
-      .description('Freebuff - Free AI coding assistant')
-      .version(version, '-v, --version', 'Print the CLI version')
+      .description('Freebuff - Asistente gratuito de programación con IA')
+      .version(version, '-v, --version', 'Mostrar la versión del CLI')
       .option(
         '--continue [conversation-id]',
-        'Continue from a previous conversation (optionally specify a conversation id)',
+        'Continuar una conversación anterior (opcionalmente indica su identificador)',
       )
       .option(
         '--cwd <directory>',
-        'Set the working directory (default: current directory)',
+        'Establecer el directorio de trabajo (predeterminado: directorio actual)',
       )
       .addArgument(
-        new Argument('[command]', 'Command to run').choices(['login']),
+        new Argument('[command]', 'Comando que se ejecutará').choices([
+          'login',
+        ]),
       )
-      .helpOption('-h, --help', 'Show this help message')
+      .helpOption('-h, --help', 'Mostrar este mensaje de ayuda')
   } else {
     // Codewolf: full CLI with all options
     program
       .name('codewolf')
-      .description('Codewolf CLI - AI-powered coding assistant')
-      .version(version, '-v, --version', 'Print the CLI version')
+      .description('Codewolf CLI - Asistente de programación con IA')
+      .version(version, '-v, --version', 'Mostrar la versión del CLI')
       .option(
         '--agent <agent-id>',
-        'Run a specific agent id (skips loading local .agents overrides)',
+        'Ejecutar un agente específico (omite las personalizaciones locales de .agents)',
       )
       .option(
         '--clear-logs',
-        'Remove any existing CLI log files before starting',
+        'Eliminar los registros existentes del CLI antes de iniciar',
       )
       .option(
         '--continue [conversation-id]',
-        'Continue from a previous conversation (optionally specify a conversation id)',
+        'Continuar una conversación anterior (opcionalmente indica su identificador)',
       )
       .option(
         '--cwd <directory>',
-        'Set the working directory (default: current directory)',
+        'Establecer el directorio de trabajo (predeterminado: directorio actual)',
       )
-      .option('--lite', 'Start in LITE mode')
-      .option('--free', 'Start in LITE mode (deprecated alias)')
-      .option('--max', 'Start in MAX mode')
-      .option('--plan', 'Start in PLAN mode')
+      .option('--lite', 'Iniciar en modo LITE')
+      .option('--free', 'Iniciar en modo LITE (alias obsoleto)')
+      .option('--max', 'Iniciar en modo MAX')
+      .option('--plan', 'Iniciar en modo PLAN')
       .addHelpText(
         'after',
-        '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry',
+        '\nComandos:\n  login                          Iniciar sesión en tu cuenta\n  publish                        Publicar agentes en el registro',
       )
-      .helpOption('-h, --help', 'Show this help message')
-      .argument('[prompt...]', 'Initial prompt to send to the agent')
+      .helpOption('-h, --help', 'Mostrar este mensaje de ayuda')
+      .argument('[prompt...]', 'Solicitud inicial que se enviará al agente')
       .allowExcessArguments(true)
   }
 
@@ -120,8 +162,7 @@ export function parseArgs({
   }
 
   const standaloneCommand =
-    !isFreebuff &&
-    ['login', 'publish'].includes(args[0] ?? '')
+    !isFreebuff && ['login', 'publish'].includes(args[0] ?? '')
 
   return {
     initialPrompt:

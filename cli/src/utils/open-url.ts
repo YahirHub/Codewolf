@@ -32,7 +32,7 @@ export async function safeOpen(url: string): Promise<boolean> {
     if (!fs.existsSync(powershellPath)) {
       logger.warn(
         { powershellPath },
-        'WSL detected but powershell.exe is not accessible (Windows interop disabled?). Skipping browser open.',
+        'Se detectó WSL, pero powershell.exe no está disponible (¿interoperabilidad con Windows desactivada?). No se abrirá el navegador.',
       )
       return false
     }
@@ -41,7 +41,7 @@ export async function safeOpen(url: string): Promise<boolean> {
     const hasDisplay = Boolean(env.DISPLAY || env.WAYLAND_DISPLAY)
     if (!hasDisplay) {
       logger.warn(
-        'No display server detected (DISPLAY / WAYLAND_DISPLAY unset). Skipping browser open.',
+        'No se detectó un servidor gráfico (DISPLAY o WAYLAND_DISPLAY no definidos). No se abrirá el navegador.',
       )
       return false
     }
@@ -53,11 +53,11 @@ export async function safeOpen(url: string): Promise<boolean> {
     // child's 'error' event after the promise resolves; without a listener
     // they become uncaught exceptions that kill the process.
     subprocess.once('error', (err) => {
-      logger.error(err, 'Failed to open browser')
+      logger.error(err, 'No se pudo abrir el navegador')
     })
     return true
   } catch (err) {
-    logger.error(err, 'Failed to open browser')
+    logger.error(err, 'No se pudo abrir el navegador')
     return false
   }
 }

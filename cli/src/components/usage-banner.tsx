@@ -21,7 +21,6 @@ import {
   generateLoadingBannerText,
 } from '../utils/usage-banner-state'
 
-
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
 
@@ -34,14 +33,14 @@ const formatRenewalDate = (dateStr: string | null): string => {
   const today = new Date()
   const isToday = resetDate.toDateString() === today.toDateString()
   return isToday
-    ? resetDate.toLocaleString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-    : resetDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })
+    ? resetDate.toLocaleString('es-MX', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : resetDate.toLocaleDateString('es-MX', {
+        month: 'short',
+        day: 'numeric',
+      })
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
@@ -54,9 +53,10 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const isChatGptConnected = CHATGPT_OAUTH_ENABLED && isChatGptOAuthValid()
 
   // Fetch subscription data
-  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionQuery({
-    refetchInterval: 30 * 1000,
-  })
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } =
+    useSubscriptionQuery({
+      refetchInterval: 30 * 1000,
+    })
 
   const {
     data: apiData,
@@ -101,10 +101,18 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   }
 
   const colorLevel = getBannerColorLevel(activeData.remainingBalance)
-  const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
+  const renewalDate = activeData.next_quota_reset
+    ? formatRenewalDate(activeData.next_quota_reset)
+    : null
 
-  const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
-  const { rateLimit, subscription: subscriptionInfo, displayName } = activeSubscription ?? {}
+  const activeSubscription = subscriptionData?.hasSubscription
+    ? subscriptionData
+    : null
+  const {
+    rateLimit,
+    subscription: subscriptionInfo,
+    displayName,
+  } = activeSubscription ?? {}
 
   return (
     <BottomBanner
@@ -131,35 +139,38 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
           <box style={{ flexDirection: 'column', gap: 0 }}>
             {/* Main stats row */}
             <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 1 }}>
-              <text style={{ fg: theme.muted }}>Session:</text>
-              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()} credits</text>
+              <text style={{ fg: theme.muted }}>Sesión:</text>
+              <text style={{ fg: theme.foreground }}>
+                {sessionCreditsUsed.toLocaleString()} créditos
+              </text>
               <text style={{ fg: theme.muted }}>·</text>
-              <text style={{ fg: theme.muted }}>Remaining:</text>
+              <text style={{ fg: theme.muted }}>Restantes:</text>
               {isLoadingData ? (
                 <text style={{ fg: theme.muted }}>...</text>
               ) : (
                 <text style={{ fg: theme.foreground }}>
-                  {activeData.remainingBalance?.toLocaleString() ?? '?'} credits
+                  {activeData.remainingBalance?.toLocaleString() ?? '?'}{' '}
+                  créditos
                 </text>
               )}
 
               {!activeSubscription && renewalDate && (
                 <>
-                  <text style={{ fg: theme.muted }}>· Cycle:</text>
+                  <text style={{ fg: theme.muted }}>· Ciclo:</text>
                   <text style={{ fg: theme.foreground }}>{renewalDate}</text>
                 </>
               )}
             </box>
             {/* See more link */}
-            <text style={{ fg: theme.muted }}>See more on {WEBSITE_URL} ↗</text>
+            <text style={{ fg: theme.muted }}>Ver más en {WEBSITE_URL} ↗</text>
           </box>
         </Button>
 
         {isChatGptConnected && (
           <box style={{ flexDirection: 'column', marginTop: 1 }}>
-            <text style={{ fg: theme.muted }}>ChatGPT subscription</text>
+            <text style={{ fg: theme.muted }}>Suscripción de ChatGPT</text>
             <text style={{ fg: theme.muted }}>
-              Connected for supported OpenAI streaming models
+              Conectada para modelos compatibles con streaming de OpenAI
             </text>
           </box>
         )}
@@ -198,7 +209,10 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
 
   const blockPercent = useMemo(() => {
     if (rateLimit?.blockLimit == null || rateLimit.blockUsed == null) return 100
-    return Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))
+    return Math.max(
+      0,
+      100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100),
+    )
   }, [rateLimit?.blockLimit, rateLimit?.blockUsed])
 
   const weeklyPercent = rateLimit ? 100 - rateLimit.weeklyPercentUsed : 100
@@ -214,43 +228,68 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
         )}
       </box>
       {isLoading ? (
-        <text style={{ fg: theme.muted }}>Loading subscription data...</text>
+        <text style={{ fg: theme.muted }}>
+          Cargando datos de la suscripción...
+        </text>
       ) : rateLimit ? (
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-            <text style={{ fg: theme.muted }}>{`5-hour limit ${`${blockPercent}%`.padStart(4)} `}</text>
-            <ProgressBar value={blockPercent} width={12} showPercentage={false} />
+            <text
+              style={{ fg: theme.muted }}
+            >{`Límite de 5 horas ${`${blockPercent}%`.padStart(4)} `}</text>
+            <ProgressBar
+              value={blockPercent}
+              width={12}
+              showPercentage={false}
+            />
             <text style={{ fg: theme.muted }}>
               {rateLimit.blockResetsAt
-                ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
+                ? ` se restablece en ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
                 : ''}
             </text>
           </box>
           <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-            <text style={{ fg: theme.muted }}>{`Weekly limit ${`${weeklyPercent}%`.padStart(4)} `}</text>
-            <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
+            <text
+              style={{ fg: theme.muted }}
+            >{`Límite semanal ${`${weeklyPercent}%`.padStart(4)} `}</text>
+            <ProgressBar
+              value={weeklyPercent}
+              width={12}
+              showPercentage={false}
+            />
             <text style={{ fg: theme.muted }}>
-              {` resets in ${formatResetTimeLong(rateLimit.weeklyResetsAt)}`}
+              {` se restablece en ${formatResetTimeLong(rateLimit.weeklyResetsAt)}`}
             </text>
           </box>
         </box>
       ) : null}
       <box style={{ flexDirection: 'column', gap: 0, marginTop: 1 }}>
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-          <text style={{ fg: theme.muted }}>Credit spending:</text>
-          <text style={{ fg: fallbackToALaCarte ? theme.foreground : theme.warning }}>
-            {fallbackToALaCarte ? 'enabled' : 'disabled'}
+          <text style={{ fg: theme.muted }}>Uso de créditos:</text>
+          <text
+            style={{
+              fg: fallbackToALaCarte ? theme.foreground : theme.warning,
+            }}
+          >
+            {fallbackToALaCarte ? 'activado' : 'desactivado'}
           </text>
-          <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
-            <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
-              {updatePreference.isPending ? '[updating...]' : `[${fallbackToALaCarte ? 'disable' : 'enable'}]`}
+          <Button
+            onClick={handleToggleFallbackToALaCarte}
+            disabled={updatePreference.isPending}
+          >
+            <text
+              style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}
+            >
+              {updatePreference.isPending
+                ? '[actualizando...]'
+                : `[${fallbackToALaCarte ? 'desactivar' : 'activar'}]`}
             </text>
           </Button>
         </box>
         <text style={{ fg: theme.muted }}>
           {fallbackToALaCarte
-            ? 'Your credits will be used when subscription limits are reached.'
-            : 'Credits will NOT be spent when subscription limits are reached. Enable to use credits.'}
+            ? 'Tus créditos se usarán cuando se alcancen los límites de la suscripción.'
+            : 'Los créditos NO se gastarán al alcanzar los límites de la suscripción. Activa esta opción para usarlos.'}
         </text>
       </box>
     </box>

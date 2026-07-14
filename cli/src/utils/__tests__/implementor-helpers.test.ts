@@ -391,7 +391,8 @@ describe('shouldShowEditDiff', () => {
       input: {
         replacements: [{ oldString: 'const x = 1', newString: 'const x = 2' }],
       },
-      output: 'file: src/existing.ts\nmessage: String replace applied successfully.',
+      output:
+        'file: src/existing.ts\nmessage: String replace applied successfully.',
     }
 
     expect(shouldShowEditDiff(block)).toBe(true)
@@ -1238,7 +1239,7 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'running'),
       createImplementorAgent('impl-3', 'running'),
     ]
-    expect(getMultiPromptPreview(blocks)).toBe('Generating 3 proposals...')
+    expect(getMultiPromptPreview(blocks)).toBe('Generando 3 propuestas...')
   })
 
   test('shows progress when some implementors complete', () => {
@@ -1247,7 +1248,7 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'running'),
       createImplementorAgent('impl-3', 'complete'),
     ]
-    expect(getMultiPromptPreview(blocks)).toBe('2/3 proposals complete...')
+    expect(getMultiPromptPreview(blocks)).toBe('2/3 propuestas completadas...')
   })
 
   test('shows selecting message when selector is running', () => {
@@ -1258,7 +1259,7 @@ describe('getMultiPromptPreview', () => {
       createSelectorAgent('running'),
     ]
     expect(getMultiPromptPreview(blocks)).toBe(
-      '3 proposals complete • Selecting best...',
+      '3 propuestas completadas • Seleccionando la mejor...',
     )
   })
 
@@ -1269,7 +1270,7 @@ describe('getMultiPromptPreview', () => {
       createSelectorAgent('complete'),
     ]
     expect(getMultiPromptPreview(blocks, false)).toBe(
-      'Applying selected changes...',
+      'Aplicando los cambios seleccionados...',
     )
   })
 
@@ -1279,7 +1280,7 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'complete'),
       createImplementorAgent('impl-3', 'complete'),
     ]
-    expect(getMultiPromptPreview(blocks, true)).toBe('3 proposals evaluated')
+    expect(getMultiPromptPreview(blocks, true)).toBe('3 propuestas evaluadas')
   })
 
   test('shows evaluation count with reason when agent is complete', () => {
@@ -1290,7 +1291,7 @@ describe('getMultiPromptPreview', () => {
     ]
     const preview = getMultiPromptPreview(blocks, true)
     expect(preview).toBe(
-      '2 proposals evaluated\nBest implementation with proper error handling',
+      '2 propuestas evaluadas\nBest implementation with proper error handling',
     )
   })
 
@@ -1309,7 +1310,7 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-2', 'failed'),
       createImplementorAgent('impl-3', 'running'),
     ]
-    expect(getMultiPromptPreview(blocks)).toBe('1/3 complete, 1 failed...')
+    expect(getMultiPromptPreview(blocks)).toBe('1/3 completadas, 1 fallidas...')
   })
 
   test('shows all finished with failures when all done but some failed', () => {
@@ -1319,7 +1320,7 @@ describe('getMultiPromptPreview', () => {
       createImplementorAgent('impl-3', 'failed'),
     ]
     expect(getMultiPromptPreview(blocks)).toBe(
-      '2/3 proposals complete (1 failed)',
+      '2/3 propuestas completadas (1 fallidas)',
     )
   })
 
@@ -1331,7 +1332,7 @@ describe('getMultiPromptPreview', () => {
     ]
     // All 3 are finished (1 complete + 2 failed/cancelled), so should show completion message
     expect(getMultiPromptPreview(blocks)).toBe(
-      '1/3 proposals complete (2 failed)',
+      '1/3 propuestas completadas (2 fallidas)',
     )
   })
 })

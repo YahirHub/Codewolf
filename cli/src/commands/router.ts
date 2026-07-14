@@ -2,18 +2,18 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { runTerminalCommand } from '@codebuff/sdk'
 
-
 import {
   findCommand,
   type RouterParams,
   type CommandResult,
 } from './command-registry'
-import {
-  isSlashCommand,
-  parseCommandInput,
-} from './router-utils'
+import { isSlashCommand, parseCommandInput } from './router-utils'
 import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
+import {
+  buildInterviewPrompt,
+  buildPlanPrompt,
+  buildReviewPrompt,
+} from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
@@ -84,7 +84,7 @@ export function runBashCommand(command: string) {
     .then(([{ value }]) => {
       const stdout = 'stdout' in value ? value.stdout || '' : ''
       const stderr = 'stderr' in value ? value.stderr || '' : ''
-      const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
+      const exitCode = 'exitCode' in value ? (value.exitCode ?? 0) : 0
 
       // Track terminal command completion
       const durationMs = Date.now() - startTime
@@ -460,7 +460,7 @@ export async function routeUserPrompt(
 
   // Block sending if attachments are still processing
   if (hasProcessingImages() || hasProcessingFiles()) {
-    showClipboardMessage('processing attachments...', {
+    showClipboardMessage('procesando archivos adjuntos...', {
       durationMs: 2000,
     })
     return
@@ -496,7 +496,7 @@ export async function routeUserPrompt(
     setMessages((prev) => [
       ...prev,
       getUserMessage(trimmed),
-      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
+      getSystemMessage(`Comando no encontrado: ${JSON.stringify(trimmed)}`),
     ])
     return
   }

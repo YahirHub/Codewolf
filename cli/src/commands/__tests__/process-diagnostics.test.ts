@@ -33,14 +33,14 @@ describe('process diagnostics', () => {
   test('formats owned process IDs without sensitive command data', () => {
     const output = formatProcessDiagnostics(snapshot)
 
-    expect(output).toContain('### Freebuff process diagnostics')
-    expect(output).toContain('CLI uptime: 01:01:01')
-    expect(output).toContain('parent/wrapper: PID 100')
-    expect(output).toContain('CLI binary: PID 200')
-    expect(output).toContain('terminal watchdog: PID 250')
+    expect(output).toContain('### Diagnóstico de procesos de Freebuff')
+    expect(output).toContain('Tiempo activo del CLI: 01:01:01')
+    expect(output).toContain('proceso padre/contenedor: PID 100')
+    expect(output).toContain('binario del CLI: PID 200')
+    expect(output).toContain('supervisor de terminal: PID 250')
     expect(output).toContain('PID 300, PGID 300')
     expect(output).toContain(
-      'Command lines and environment variables are omitted',
+      'Las líneas de comandos y las variables de entorno se omiten',
     )
   })
 

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { defineToolComponent } from './types'
 import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 import { useTheme } from '../../hooks/use-theme'
-import { getLatestFollowupToolCallId, useChatStore } from '../../state/chat-store'
+import {
+  getLatestFollowupToolCallId,
+  useChatStore,
+} from '../../state/chat-store'
 import { useFreebuffSessionStore } from '../../state/freebuff-session-store'
 import { IS_FREEBUFF } from '../../utils/constants'
 import { Button } from '../button'
@@ -123,7 +126,8 @@ const FollowupLine = ({
           <box style={{ flexGrow: 1 }}>
             <text style={{ wrapMode: 'none' }}>
               <span fg={theme.muted} attributes={TextAttributes.ITALIC}>
-                {paddingSpaces}{truncatedPrompt}
+                {paddingSpaces}
+                {truncatedPrompt}
               </span>
             </text>
           </box>
@@ -299,7 +303,7 @@ const SuggestFollowupsItem = ({
 
   return (
     <box style={{ flexDirection: 'column' }}>
-      <text style={{ fg: theme.muted }}>Suggested followups:</text>
+      <text style={{ fg: theme.muted }}>Sugerencias para continuar:</text>
       <box style={{ flexDirection: 'column' }}>
         {followups.map((followup, index) => (
           <FollowupLine

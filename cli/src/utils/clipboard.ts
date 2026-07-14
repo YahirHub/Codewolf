@@ -10,7 +10,9 @@ import { logger } from './logger'
 // OSC 52 without threading the renderer through every call site.
 let registeredRenderer: Record<string, unknown> | null = null
 
-export function registerClipboardRenderer(renderer: Record<string, unknown>): void {
+export function registerClipboardRenderer(
+  renderer: Record<string, unknown>,
+): void {
   registeredRenderer = renderer
 }
 
@@ -113,7 +115,7 @@ export async function copyTextToClipboard(
     }
 
     if (!copied) {
-      throw new Error('No clipboard method available')
+      throw new Error('No hay un método de portapapeles disponible')
     }
 
     if (!suppressGlobalMessage) {
@@ -126,7 +128,7 @@ export async function copyTextToClipboard(
       }
     }
   } catch (error) {
-    logger.error(error, 'Failed to copy to clipboard')
+    logger.error(error, 'No se pudo copiar al portapapeles')
     // When the terminal drops OSC 52 and no platform tool exists (e.g.
     // Codespaces), the Shift+drag guidance is the only way the user can copy,
     // so show it even for callers that suppress routine messages.
@@ -134,7 +136,7 @@ export async function copyTextToClipboard(
       showClipboardMessage(
         osc52Blocked
           ? OSC52_BLOCKED_MESSAGE
-          : (errorMessage ?? 'Failed to copy to clipboard'),
+          : (errorMessage ?? 'No se pudo copiar al portapapeles'),
         // Give the longer guidance message extra time to be read
         { durationMs: durationMs ?? (osc52Blocked ? 6000 : undefined) },
       )
@@ -151,7 +153,6 @@ export function clearClipboardMessage() {
   emitClipboardMessage(null)
 }
 
-
 // =============================================================================
 // OSC52 Clipboard Support
 // =============================================================================
@@ -165,7 +166,7 @@ export function isRemoteSession(): boolean {
 }
 
 export const OSC52_BLOCKED_MESSAGE =
-  'Copy is blocked by this terminal — hold Shift and drag to select, then copy normally'
+  'Esta terminal bloquea la copia automática: mantén Shift, arrastra para seleccionar y copia normalmente'
 
 // GitHub Codespaces and VS Code remote (SSH/tunnel) terminals silently drop
 // OSC 52 sequences, so a "successful" write never reaches the user's
@@ -180,8 +181,12 @@ export function isOsc52Blocked(): boolean {
 }
 
 function tryCopyViaPlatformTool(text: string): boolean {
-  const { execSync } = require('child_process') as typeof import('child_process')
-  const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+  const { execSync } =
+    require('child_process') as typeof import('child_process')
+  const opts = {
+    input: text,
+    stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[],
+  }
 
   try {
     if (process.platform === 'darwin') {

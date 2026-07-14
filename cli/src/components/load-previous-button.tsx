@@ -39,7 +39,7 @@ export const LoadPreviousButton = memo(
           }}
         >
           <text style={{ fg: isHovered ? theme.foreground : theme.muted }}>
-            ↑ Load previous messages
+            ↑ Cargar mensajes anteriores
           </text>
         </Button>
       </box>

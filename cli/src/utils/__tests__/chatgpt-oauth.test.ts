@@ -24,10 +24,12 @@ describe('chatgpt-oauth utility', () => {
       } as unknown as Response
     }) as unknown as typeof fetch
 
-    const error = await exchangeChatGptCodeForTokens('auth-code').catch((e) => e)
+    const error = await exchangeChatGptCodeForTokens('auth-code').catch(
+      (e) => e,
+    )
 
     expect(error).toBeInstanceOf(Error)
-    expect(error.message).toContain('status 401')
+    expect(error.message).toContain('estado 401')
     expect(error.message).not.toContain('secret-token')
     expect(error.message).not.toContain('secret-refresh')
     expect(error.message).not.toContain('invalid_grant')

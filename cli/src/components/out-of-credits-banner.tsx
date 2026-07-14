@@ -62,7 +62,7 @@ export const OutOfCreditsBanner = () => {
     if (!confirmedZeroBalance || remainingBalance <= 0 || creditsRestored) {
       return
     }
-    
+
     // Credits restored! Show the success state
     setCreditsRestored(true)
     creditsRestoredGlobal = true
@@ -70,8 +70,8 @@ export const OutOfCreditsBanner = () => {
 
   // Build stats text
   const statsText = activeData
-    ? `Session: ${sessionCreditsUsed.toLocaleString()} credits used · Balance: ${remainingBalance.toLocaleString()} credits`
-    : `Session: ${sessionCreditsUsed.toLocaleString()} credits used`
+    ? `Sesión: ${sessionCreditsUsed.toLocaleString()} créditos usados · Saldo: ${remainingBalance.toLocaleString()} créditos`
+    : `Sesión: ${sessionCreditsUsed.toLocaleString()} créditos usados`
 
   // Show celebratory success state when credits are restored
   if (creditsRestored) {
@@ -99,17 +99,17 @@ export const OutOfCreditsBanner = () => {
           }}
         >
           <text style={{ fg: theme.success }}>
-            <ShimmerText 
-              text="✨ Credits acquired! ✨" 
+            <ShimmerText
+              text="✨ ¡Créditos adquiridos! ✨"
               primaryColor={theme.success}
               interval={120}
             />
           </text>
           <text style={{ fg: theme.muted }}>
-            Balance: {remainingBalance.toLocaleString()} credits
+            Saldo: {remainingBalance.toLocaleString()} créditos
           </text>
           <text style={{ fg: theme.foreground }}>
-            Press Enter to continue
+            Pulsa Enter para continuar
           </text>
         </box>
       </box>
@@ -139,17 +139,14 @@ export const OutOfCreditsBanner = () => {
           gap: 0,
         }}
       >
-        <text style={{ fg: theme.warning }}>
-          Out of credits
-        </text>
+        <text style={{ fg: theme.warning }}>Sin créditos</text>
+        <text style={{ fg: theme.muted }}>{statsText}</text>
         <text style={{ fg: theme.muted }}>
-          {statsText}
-        </text>
-        <text style={{ fg: theme.muted }}>
-          Note: Some credits are needed even with a Claude subscription for other model usage.
+          Nota: se necesitan algunos créditos incluso con una suscripción de
+          Claude para usar otros modelos.
         </text>
         <text style={{ fg: theme.foreground }}>
-          Press Enter to buy more credits
+          Pulsa Enter para comprar más créditos
         </text>
       </box>
     </box>

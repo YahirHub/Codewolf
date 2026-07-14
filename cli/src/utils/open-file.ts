@@ -12,8 +12,7 @@ const isMac = os.platform() === 'darwin'
 const escapeForShell = (value: string): string =>
   `'${value.replace(/'/g, `'\\''`)}'`
 
-const escapeForCmd = (value: string): string =>
-  `"${value.replace(/"/g, '""')}"`
+const escapeForCmd = (value: string): string => `"${value.replace(/"/g, '""')}"`
 
 const replaceFilePlaceholder = (command: string, filePath: string): string => {
   if (command.includes('%f')) {
@@ -30,7 +29,9 @@ const buildEditorCommands = (
   env: CliEnv = getCliEnv(),
 ): string[] => {
   const commands: string[] = []
-  const shellPath = isWindows ? escapeForCmd(filePath) : escapeForShell(filePath)
+  const shellPath = isWindows
+    ? escapeForCmd(filePath)
+    : escapeForShell(filePath)
   const rawPath = filePath
 
   // Check custom editor env vars
@@ -68,9 +69,7 @@ const buildEditorCommands = (
       command: `cursor --goto ${shellPath}`,
     },
     {
-      detect:
-        termProgram.includes('zed') ||
-        env.ZED_NODE_ENV !== undefined,
+      detect: termProgram.includes('zed') || env.ZED_NODE_ENV !== undefined,
       command: `zed --add ${shellPath}`,
     },
     {
@@ -140,7 +139,7 @@ export const openFileAtPath = async (
 
   logger.warn(
     { filePath, commands },
-    'Failed to open file with any configured editor command',
+    'No se pudo abrir el archivo con ningún editor configurado',
   )
   return false
 }

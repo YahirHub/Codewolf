@@ -1,11 +1,5 @@
 import { useRenderer } from '@opentui/react'
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { useLoginMutation } from '../hooks/use-auth-query'
@@ -93,14 +87,14 @@ export const LoginModal = ({
         })
 
         setJustCopied(true)
-        setCopyMessage('✓ URL copied to clipboard!')
+        setCopyMessage('✓ URL copiada al portapapeles')
         setTimeout(() => {
           setCopyMessage(null)
           setJustCopied(false)
         }, 3000)
       } catch (err) {
         // Silently fail - the URL is visible for manual copying
-        logger.error(err, 'Failed to copy to clipboard')
+        logger.error(err, 'No se pudo copiar al portapapeles')
       }
     },
     [setHasClickedLink, setJustCopied, setCopyMessage],
@@ -155,7 +149,7 @@ export const LoginModal = ({
           {
             error: error instanceof Error ? error.message : String(error),
           },
-          '❌ Login validation failed, proceeding with raw user',
+          '❌ Falló la validación del inicio de sesión; se continuará con los datos recibidos',
         )
         onLoginSuccessRef.current(user)
       },
@@ -164,7 +158,9 @@ export const LoginModal = ({
 
   // Handle polling timeout
   const handleTimeout = useCallback(() => {
-    setError('Login timed out. Please try again.')
+    setError(
+      'El inicio de sesión agotó el tiempo de espera. Inténtalo de nuevo.',
+    )
     setIsWaitingForEnter(false)
   }, [setError, setIsWaitingForEnter])
 
@@ -197,7 +193,6 @@ export const LoginModal = ({
     onFetchLoginUrl: fetchLoginUrlAndOpenBrowser,
     onCopyUrl: copyToClipboard,
   })
-
 
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
@@ -270,8 +265,8 @@ export const LoginModal = ({
           <text style={{ wrapMode: 'word' }}>
             <span fg={theme.secondary}>
               {isNarrow
-                ? "⚠ Found API key but it's invalid. Please log in again."
-                : '⚠ We found an API key but it appears to be invalid. Please log in again to continue.'}
+                ? '⚠ Se encontró una API key, pero no es válida. Inicia sesión de nuevo.'
+                : '⚠ Se encontró una API key que parece no ser válida. Inicia sesión de nuevo para continuar.'}
             </span>
           </text>
         </box>
@@ -312,7 +307,7 @@ export const LoginModal = ({
             }}
           >
             <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.secondary}>Loading...</span>
+              <span fg={theme.secondary}>Cargando...</span>
             </text>
           </box>
         )}
@@ -335,8 +330,8 @@ export const LoginModal = ({
               <text style={{ wrapMode: 'word' }}>
                 <span fg={theme.secondary}>
                   {isNarrow
-                    ? 'Please try again'
-                    : 'Please restart the CLI and try again'}
+                    ? 'Inténtalo de nuevo'
+                    : 'Reinicia el CLI e inténtalo de nuevo'}
                 </span>
               </text>
             )}
@@ -355,9 +350,7 @@ export const LoginModal = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={'#00cc00'}>
-                Press ENTER to login...
-              </span>
+              <span fg={'#00cc00'}>Pulsa ENTER para iniciar sesión...</span>
             </text>
           </box>
         )}
@@ -377,8 +370,8 @@ export const LoginModal = ({
             <text style={{ wrapMode: 'word' }}>
               <span fg={theme.foreground}>
                 {isNarrow
-                  ? 'Open this URL to login:'
-                  : 'Open this URL in your browser to login:'}
+                  ? 'Abre esta URL para iniciar sesión:'
+                  : 'Abre esta URL en el navegador para iniciar sesión:'}
               </span>
             </text>
             <box
@@ -408,8 +401,8 @@ export const LoginModal = ({
             {loginUrlWrapped && (
               <text style={{ wrapMode: 'word' }}>
                 <span fg={theme.warning}>
-                  ⚠ The link wraps across lines — clicking it will cut it off.
-                  Press c to copy the full link instead.
+                  ⚠ El enlace ocupa varias líneas; si haces clic se abrirá
+                  incompleto. Pulsa c para copiar el enlace completo.
                 </span>
               </text>
             )}
@@ -436,7 +429,7 @@ export const LoginModal = ({
                           : theme.primary
                     }
                   >
-                    {justCopied ? '[ ✓ Copied! ]' : '[ Copy link (c) ]'}
+                    {justCopied ? '[ ✓ ¡Copiado! ]' : '[ Copiar enlace (c) ]'}
                   </span>
                 </text>
               </Button>
@@ -452,18 +445,18 @@ export const LoginModal = ({
             >
               <text style={{ wrapMode: 'none' }}>
                 <span fg={theme.secondary}>
-                  Waiting for login...
+                  Esperando el inicio de sesión...
                 </span>
               </text>
               {isRemoteSession() && !isVerySmall && (
                 <text style={{ wrapMode: 'word' }}>
                   <span fg={theme.secondary}>
-                    Tip: Can't copy? Exit and run{' '}
+                    Consejo: si no puedes copiar, sal y ejecuta{' '}
                   </span>
-                  <span fg={theme.primary}>{IS_FREEBUFF ? 'freebuff' : 'codebuff'} login</span>
-                  <span fg={theme.secondary}>
-                    {' '}instead.
+                  <span fg={theme.primary}>
+                    {IS_FREEBUFF ? 'freebuff' : 'codewolf'} login
                   </span>
+                  <span fg={theme.secondary}> instead.</span>
                 </text>
               )}
             </box>

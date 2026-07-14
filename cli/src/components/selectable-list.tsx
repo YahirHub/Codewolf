@@ -63,7 +63,7 @@ export const SelectableList = forwardRef<
       actionLabel,
       onAction,
       onFocusChange,
-      emptyMessage = 'No items',
+      emptyMessage = 'Sin elementos',
     },
     ref,
   ) => {

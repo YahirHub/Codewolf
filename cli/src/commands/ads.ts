@@ -16,7 +16,9 @@ export const handleAdsEnable = (): {
   return {
     postUserMessage: (messages) => [
       ...messages,
-      getSystemMessage('Ads enabled. You will see contextual ads above the input and in the chat.'),
+      getSystemMessage(
+        'Anuncios activados. Verás anuncios contextuales sobre el campo de entrada y dentro del chat.',
+      ),
     ],
   }
 }
@@ -30,7 +32,7 @@ export const handleAdsDisable = (): {
   return {
     postUserMessage: (messages) => [
       ...messages,
-      getSystemMessage('Ads disabled.'),
+      getSystemMessage('Anuncios desactivados.'),
     ],
   }
 }

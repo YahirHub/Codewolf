@@ -125,12 +125,15 @@ export const StatusBar = ({
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
-        return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
+        return (
+          <span fg={theme.secondary}>Pulsa Ctrl+C otra vez para salir</span>
+        )
 
       case 'clipboard':
         // Use green color for feedback success messages
-        const isFeedbackSuccess =
-          statusIndicatorState.message.includes('Feedback sent')
+        const isFeedbackSuccess = statusIndicatorState.message.includes(
+          'Comentarios enviados',
+        )
         return (
           <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
             {statusIndicatorState.message}
@@ -138,18 +141,20 @@ export const StatusBar = ({
         )
 
       case 'reconnected':
-        return <span fg={theme.success}>Reconnected</span>
+        return <span fg={theme.success}>Reconectado</span>
 
       case 'retrying':
-        return <ShimmerText text="retrying..." primaryColor={theme.warning} />
+        return (
+          <ShimmerText text="reintentando..." primaryColor={theme.warning} />
+        )
 
       case 'connecting':
-        return <ShimmerText text="connecting..." />
+        return <ShimmerText text="conectando..." />
 
       case 'waiting':
         return (
           <ShimmerText
-            text="thinking..."
+            text="pensando..."
             interval={SHIMMER_INTERVAL_MS}
             primaryColor={theme.secondary}
           />
@@ -158,7 +163,7 @@ export const StatusBar = ({
       case 'streaming':
         return (
           <ShimmerText
-            text="working..."
+            text="trabajando..."
             interval={SHIMMER_INTERVAL_MS}
             primaryColor={theme.secondary}
           />
@@ -187,7 +192,7 @@ export const StatusBar = ({
             >
               {modelName ? `${modelName} · ` : ''}
               {isUnlimited
-                ? 'unlimited'
+                ? 'sin límite'
                 : formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
             </span>
           )
@@ -282,7 +287,7 @@ export const StatusBar = ({
           statusIndicatorState.kind === 'idle' &&
           freebuffSession?.status === 'active' && (
             <StatusActionButton onClick={onEndSession}>
-              ✕ End session
+              ✕ Finalizar sesión
             </StatusActionButton>
           )}
         {sessionProgress !== null &&

@@ -28,19 +28,13 @@ export function detectTerminalImageSupport(
   }
 
   // Check for Kitty
-  if (
-    env.TERM === 'xterm-kitty' ||
-    env.KITTY_WINDOW_ID !== undefined
-  ) {
+  if (env.TERM === 'xterm-kitty' || env.KITTY_WINDOW_ID !== undefined) {
     cachedProtocol = 'kitty'
     return cachedProtocol
   }
 
   // Check for Sixel support (less common)
-  if (
-    env.TERM?.includes('sixel') ||
-    env.SIXEL_SUPPORT === 'true'
-  ) {
+  if (env.TERM?.includes('sixel') || env.SIXEL_SUPPORT === 'true') {
     cachedProtocol = 'sixel'
     return cachedProtocol
   }
@@ -224,6 +218,6 @@ export function getImageSupportDescription(): string {
     case 'sixel':
       return 'Sixel graphics'
     case 'none':
-      return 'No inline image support'
+      return 'La terminal no admite imágenes en línea'
   }
 }

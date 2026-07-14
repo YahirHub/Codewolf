@@ -126,13 +126,13 @@ export const ChatInputBar = ({
   // In the home directory (or an ancestor) the file tree is only scanned a few
   // levels deep, so tell the user why deeper files don't show up.
   const mentionMenuFooter = isShallowScanRoot(tryGetProjectRoot())
-    ? `Files shown up to ${SHALLOW_SCAN_MAX_DEPTH} levels deep — open a project folder for full results`
+    ? `Archivos mostrados hasta ${SHALLOW_SCAN_MAX_DEPTH} niveles de profundidad; abre una carpeta de proyecto para ver todos los resultados`
     : undefined
 
   // Increase menu size on larger screen heights
   const normalModeMaxVisible = terminalHeight > 35 ? 15 : 10
   const { submitAnswers, skip } = useAskUserBridge()
-  const [askUserTitle] = React.useState(' Some questions for you ')
+  const [askUserTitle] = React.useState(' Algunas preguntas para ti ')
 
   // Shared key intercept handler for suggestion menu navigation and history navigation
   const handleKeyIntercept = useEvent(

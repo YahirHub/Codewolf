@@ -31,7 +31,7 @@ export const getGravityIndexParts = (input: unknown): GravityIndexParts => {
   switch (action) {
     case 'search':
       return {
-        name: 'Search services',
+        name: 'Buscar servicios',
         description: asTrimmedString(params.query),
       }
     case 'browse': {
@@ -52,7 +52,7 @@ export const getGravityIndexParts = (input: unknown): GravityIndexParts => {
     case 'report_integration': {
       const slug = asTrimmedString(params.integrated_slug)
       return {
-        name: 'Report integration',
+        name: 'Reportar integración',
         description: slug ? `${slug} integration` : 'integration',
       }
     }

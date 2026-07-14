@@ -20,11 +20,15 @@ export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row +
 const MAX_DESC_LINES = 2
 const MIN_CARD_WIDTH = 60 // Minimum width per ad card to remain readable
 const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
-const INLINE_AD_DISCLOSURE = 'Ad'
+const INLINE_AD_DISCLOSURE = 'Anuncio'
 const INLINE_AD_GAP = 2
 const INLINE_AD_LINK_SUFFIX = ' ↗'
 
-function truncateToLines(text: string, lineWidth: number, maxLines: number): string {
+function truncateToLines(
+  text: string,
+  lineWidth: number,
+  maxLines: number,
+): string {
   if (lineWidth <= 0) return text
   const maxChars = lineWidth * maxLines
   if (text.length <= maxChars) return text
@@ -46,15 +50,16 @@ export const extractDomain = (url: string): string => {
   }
 }
 
-export function getAdDisplayLabel(
-  ad: Pick<AdResponse, 'title' | 'url'>,
-): { text: string; variant: 'domain' | 'title' } {
+export function getAdDisplayLabel(ad: Pick<AdResponse, 'title' | 'url'>): {
+  text: string
+  variant: 'domain' | 'title'
+} {
   const url = ad.url.trim()
   if (url) {
     return { text: extractDomain(url), variant: 'domain' }
   }
 
-  return { text: ad.title.trim() || 'Sponsored', variant: 'title' }
+  return { text: ad.title.trim() || 'Patrocinado', variant: 'title' }
 }
 
 export function getInlineAdLayout(
@@ -63,8 +68,7 @@ export function getInlineAdLayout(
 ): { title: string; description: string; label: string } {
   const contentWidth = Math.max(0, width - 4) // border + horizontal padding
   const displayLabel = getAdDisplayLabel(ad)
-  const headerTrailingWidth =
-    INLINE_AD_GAP + INLINE_AD_DISCLOSURE.length
+  const headerTrailingWidth = INLINE_AD_GAP + INLINE_AD_DISCLOSURE.length
   const titleWidth = Math.max(0, contentWidth - headerTrailingWidth)
   const destinationLabel =
     width >= MIN_INLINE_WIDTH_WITH_DESTINATION &&
@@ -199,7 +203,7 @@ export const AdCard: React.FC<{
   }
 
   const label = getAdDisplayLabel(ad)
-  const ctaText = ad.cta || ad.title || 'Learn more'
+  const ctaText = ad.cta || ad.title || 'Más información'
   const labelMaxWidth = Math.max(0, width - ctaText.length - 5)
   const labelText = truncateToWidth(label.text, labelMaxWidth)
 
@@ -217,15 +221,31 @@ export const AdCard: React.FC<{
         flexDirection: 'column',
       }}
     >
-      <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', height: MAX_DESC_LINES, overflow: 'hidden' }}>
+      <box
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          height: MAX_DESC_LINES,
+          overflow: 'hidden',
+        }}
+      >
         <text style={{ fg: theme.muted, flexShrink: 1 }}>
           {truncateToLines(ad.adText, width - 8, MAX_DESC_LINES)}
         </text>
-        <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+        <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Anuncio'}</text>
       </box>
       <box style={{ flexGrow: 1 }} />
       {/* Bottom: CTA + domain */}
-      <box style={{ flexDirection: 'row', columnGap: 1, alignItems: 'center', height: 1, overflow: 'hidden' }}>
+      <box
+        style={{
+          flexDirection: 'row',
+          columnGap: 1,
+          alignItems: 'center',
+          height: 1,
+          overflow: 'hidden',
+        }}
+      >
         <text
           style={{
             fg: theme.name === 'light' ? '#ffffff' : theme.background,
@@ -265,7 +285,12 @@ export const SingleAdBanner: React.FC<{
 
   return (
     <box style={{ marginLeft: 1, marginRight: 1 }}>
-      <AdCard ad={ad} width={terminalWidth - 2} onClick={onClick} onImpression={onImpression} />
+      <AdCard
+        ad={ad}
+        width={terminalWidth - 2}
+        onClick={onClick}
+        onImpression={onImpression}
+      />
     </box>
   )
 }
@@ -291,7 +316,10 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
     [ads, maxVisible],
   )
 
-  const widths = useMemo(() => columnWidths(visibleAds.length, colAvail), [visibleAds.length, colAvail])
+  const widths = useMemo(
+    () => columnWidths(visibleAds.length, colAvail),
+    [visibleAds.length, colAvail],
+  )
 
   return (
     <box

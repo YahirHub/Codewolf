@@ -36,7 +36,7 @@ describe('pending-attachments', () => {
       expect(pendingImages).toHaveLength(1)
       expect(pendingImages[0].path).toBe(placeholderPath)
       expect(pendingImages[0].status).toBe('processing')
-      expect(pendingImages[0].filename).toBe('clipboard image')
+      expect(pendingImages[0].filename).toBe('imagen del portapapeles')
     })
 
     test('generates unique placeholder paths', () => {

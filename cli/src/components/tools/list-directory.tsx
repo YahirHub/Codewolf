@@ -47,7 +47,7 @@ export const ListDirectoryComponent = defineToolComponent({
       const theme = useTheme()
       return (
         <SimpleToolCallItem
-          name="List"
+          name="Listar"
           description={description}
           descriptionColor={theme.directory}
         />

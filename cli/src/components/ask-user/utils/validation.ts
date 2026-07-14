@@ -27,13 +27,13 @@ export interface QuestionValidation {
 export function validateOtherText(
   text: string,
   validation?: QuestionValidation,
-  maxLength: number = 500
+  maxLength: number = 500,
 ): ValidationResult {
   // Default max length check
   if (text.length > maxLength) {
     return {
       isValid: false,
-      error: `Max ${maxLength} characters`,
+      error: `Máximo ${maxLength} caracteres`,
     }
   }
 
@@ -42,14 +42,14 @@ export function validateOtherText(
     if (validation.maxLength && text.length > validation.maxLength) {
       return {
         isValid: false,
-        error: `Max ${validation.maxLength} characters`,
+        error: `Máximo ${validation.maxLength} caracteres`,
       }
     }
 
     if (validation.minLength && text.length < validation.minLength) {
       return {
         isValid: false,
-        error: `Min ${validation.minLength} characters`,
+        error: `Mínimo ${validation.minLength} caracteres`,
       }
     }
 
@@ -58,7 +58,7 @@ export function validateOtherText(
       if (!regex.test(text)) {
         return {
           isValid: false,
-          error: validation.patternError || 'Invalid format',
+          error: validation.patternError || 'Formato no válido',
         }
       }
     }

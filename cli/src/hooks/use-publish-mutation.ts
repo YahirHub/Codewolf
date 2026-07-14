@@ -44,7 +44,7 @@ export function usePublishMutation(deps: UsePublishMutationDeps = {}) {
         })
       } else {
         setErrorResult({
-          error: result.error || 'Unknown error',
+          error: result.error || 'Error desconocido',
           details: result.details,
           hint: result.hint,
         })
@@ -52,7 +52,7 @@ export function usePublishMutation(deps: UsePublishMutationDeps = {}) {
     },
     onError: (error) => {
       setErrorResult({
-        error: 'Publish failed',
+        error: 'La publicación falló',
         details: error instanceof Error ? error.message : String(error),
       })
     },

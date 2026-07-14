@@ -68,7 +68,7 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = memo(
               fg={isAnswered ? theme.primary : theme.muted}
               attributes={TextAttributes.ITALIC}
             >
-              {isAnswered ? `"${truncatedAnswer}"` : '(click to answer)'}
+              {isAnswered ? `"${truncatedAnswer}"` : '(pulsa para responder)'}
             </span>
           </text>
         )}

@@ -23,7 +23,7 @@ export const WebSearchComponent = defineToolComponent({
     return {
       content: (
         <SimpleToolCallItem
-          name="Web Search"
+          name="Búsqueda web"
           description={query}
           descriptionColor={theme.muted}
         />

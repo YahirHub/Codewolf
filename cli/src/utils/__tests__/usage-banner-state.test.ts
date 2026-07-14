@@ -106,7 +106,7 @@ describe('usage-banner-state', () => {
 
     test('indicates loading state', () => {
       const text = generateLoadingBannerText(0)
-      expect(text.toLowerCase()).toContain('loading')
+      expect(text.toLowerCase()).toContain('cargando')
     })
   })
 

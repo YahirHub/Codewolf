@@ -205,7 +205,7 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
       >
         {sections.map((section) => (
           <box
-            key={section.providerId ?? 'codebuff'}
+            key={section.providerId ?? 'codewolf'}
             style={{ flexDirection: 'column' }}
           >
             <text
@@ -226,7 +226,7 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
 
               return (
                 <Button
-                  key={`${choice.providerId ?? 'codebuff'}:${choice.modelId}`}
+                  key={`${choice.providerId ?? 'codewolf'}:${choice.modelId}`}
                   onClick={() => selectChoice(choice)}
                   onMouseOver={() => setSelectedIndex(choiceIndex)}
                   style={{
@@ -258,7 +258,8 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
         ))}
       </scrollbox>
       <text style={{ fg: theme.muted }}>
-        ↑↓ navegar · Enter seleccionar · Esc cancelar · /login agrega proveedores
+        ↑↓ navegar · Enter seleccionar · Esc cancelar · /login agrega
+        proveedores
       </text>
     </box>
   )

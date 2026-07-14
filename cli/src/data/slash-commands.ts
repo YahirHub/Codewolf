@@ -26,7 +26,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
   : AGENT_MODES.map((mode) => ({
       id: `mode:${mode.toLowerCase()}`,
       label: `mode:${mode.toLowerCase()}`,
-      description: `Switch to ${mode} mode`,
+      description: `Cambiar al modo ${mode}`,
       aliases: [`model:${mode.toLowerCase()}`],
     }))
 
@@ -50,33 +50,35 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'login',
     label: 'login',
-    description: 'Configure an OpenAI-compatible provider interactively',
+    description:
+      'Configurar interactivamente un proveedor compatible con OpenAI',
     aliases: ['signin'],
   },
   {
     id: 'models',
     label: 'models',
-    description: 'Select a model grouped by provider',
+    description: 'Seleccionar un modelo agrupado por proveedor',
     aliases: ['model'],
   },
   {
     id: 'setup-search',
     label: 'setup-search',
     description:
-      'Configure search engines, default provider, fallbacks, and tests',
+      'Configurar motores de búsqueda, proveedor predeterminado, respaldos y pruebas',
     aliases: ['search-setup', 'search'],
   },
   {
     id: 'help',
     label: 'help',
-    description: 'Display keyboard shortcuts and tips',
+    description: 'Mostrar atajos de teclado y consejos',
     aliases: ['h', '?'],
     implicitCommand: true,
   },
   {
     id: 'diagnostics',
     label: 'diagnostics',
-    description: 'Show local CLI resource usage and terminal tool process IDs',
+    description:
+      'Mostrar el uso local de recursos del CLI y los procesos de herramientas de terminal',
     aliases: ['diag', 'processes'],
   },
   ...(CHATGPT_OAUTH_ENABLED
@@ -84,7 +86,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
         {
           id: 'connect',
           label: 'connect',
-          description: 'Connect your ChatGPT account',
+          description: 'Conectar tu cuenta de ChatGPT',
           aliases: ['connect:chatgpt', 'chatgpt'],
         },
       ]
@@ -93,17 +95,17 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:enable',
     label: 'ads:enable',
-    description: 'Enable contextual ads',
+    description: 'Activar anuncios contextuales',
   },
   {
     id: 'ads:disable',
     label: 'ads:disable',
-    description: 'Disable contextual ads',
+    description: 'Desactivar anuncios contextuales',
   },
   {
     id: 'init',
     label: 'init',
-    description: 'Create a starter knowledge.md file',
+    description: 'Crear un archivo knowledge.md inicial',
     implicitCommand: true,
   },
   // {
@@ -119,55 +121,57 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'usage',
     label: 'usage',
-    description: 'View credits and subscription quota',
+    description: 'Ver créditos y cuota de suscripción',
     aliases: ['credits'],
   },
   {
     id: 'subscribe',
     label: 'subscribe',
-    description: 'Subscribe to get more usage',
+    description: 'Suscribirse para obtener más uso',
     aliases: ['strong', 'sub', 'buy-credits'],
   },
   {
     id: 'interview',
     label: 'interview',
     description:
-      'AI asks a series of questions to flesh out request into a spec',
+      'La IA hace preguntas para convertir la solicitud en una especificación',
   },
   {
     id: 'plan',
     label: 'plan',
-    description: 'Create a plan for how to implement a request',
+    description: 'Crear un plan para implementar una solicitud',
   },
   {
     id: 'review',
     label: 'review',
-    description: 'Review code changes',
+    description: 'Revisar cambios de código',
   },
   {
     id: 'new',
     label: 'new',
-    description: 'Clear the conversation history and start a new chat',
+    description:
+      'Borrar el historial de la conversación e iniciar un chat nuevo',
     aliases: ['n', 'clear', 'c', 'reset'],
     implicitCommand: true,
   },
   {
     id: 'history',
     label: 'history',
-    description: 'Browse and resume past conversations',
+    description: 'Explorar y reanudar conversaciones anteriores',
     aliases: ['chats'],
   },
   {
     id: 'copy',
     label: 'copy',
     description:
-      'Copy the full conversation (messages + tool results) to the clipboard',
+      'Copiar la conversación completa (mensajes y resultados de herramientas) al portapapeles',
     aliases: ['copy-chat', 'export'],
   },
   {
     id: 'agent:gpt-5',
     label: 'agent:gpt-5',
-    description: 'Spawn the GPT-5 agent to help solve complex problems',
+    description:
+      'Iniciar el agente GPT-5 para ayudar a resolver problemas complejos',
     insertText: '@GPT-5 Agent ',
   },
   // {
@@ -180,19 +184,20 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'feedback',
     label: 'feedback',
     description: IS_FREEBUFF
-      ? 'Share general feedback about Freebuff'
-      : 'Share general feedback about Codewolf',
+      ? 'Enviar comentarios generales sobre Freebuff'
+      : 'Enviar comentarios generales sobre Codewolf',
   },
   {
     id: 'bash',
     label: 'bash',
-    description: 'Enter bash mode ("!" at beginning enters bash mode)',
+    description: 'Entrar al modo Bash ("!" al inicio activa este modo)',
     aliases: ['!'],
   },
   {
     id: 'image',
     label: 'image',
-    description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
+    description:
+      'Adjuntar una imagen (o usar Ctrl+V para pegarla desde el portapapeles)',
     aliases: ['img', 'attach'],
   },
   ...MODE_COMMANDS,
@@ -204,25 +209,25 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'theme:toggle',
     label: 'theme:toggle',
-    description: 'Toggle between light and dark mode',
+    description: 'Alternar entre modo claro y oscuro',
   },
   {
     id: 'end-session',
     label: 'end-session',
-    description: 'End your free session (lets you switch model)',
+    description: 'Finalizar la sesión gratuita (permite cambiar de modelo)',
     aliases: ['model'],
   },
   {
     id: 'logout',
     label: 'logout',
-    description: 'Sign out of your session',
+    description: 'Cerrar la sesión actual',
     aliases: ['signout'],
     implicitCommand: true,
   },
   {
     id: 'exit',
     label: 'exit',
-    description: 'Quit the CLI',
+    description: 'Salir del CLI',
     aliases: ['quit', 'q'],
     implicitCommand: true,
   },

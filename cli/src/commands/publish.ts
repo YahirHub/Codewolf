@@ -2,7 +2,10 @@ import { WEBSITE_URL } from '@codebuff/sdk'
 
 import { getUserCredentials } from '../utils/auth'
 import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
-import { loadAgentDefinitions, getLoadedAgentsData } from '../utils/local-agent-registry'
+import {
+  loadAgentDefinitions,
+  getLoadedAgentsData,
+} from '../utils/local-agent-registry'
 
 import type {
   PublishAgentsErrorResponse,
@@ -39,11 +42,10 @@ async function publishAgentTemplates(
     if (!response.ok) {
       // Try to use the full error data if available (includes details, hint, etc.)
       const errorData = response.errorData as
-        | Partial<PublishAgentsErrorResponse>
-        | undefined
+        Partial<PublishAgentsErrorResponse> | undefined
       return {
         success: false,
-        error: errorData?.error ?? response.error ?? 'Unknown error',
+        error: errorData?.error ?? response.error ?? 'Error desconocido',
         details: errorData?.details,
         hint: errorData?.hint,
         availablePublishers: errorData?.availablePublishers,
@@ -56,7 +58,8 @@ async function publishAgentTemplates(
     if (!response.data) {
       return {
         success: false,
-        error: 'Failed to parse server response - empty response body',
+        error:
+          'No se pudo interpretar la respuesta del servidor: el cuerpo está vacío',
         statusCode: response.status,
       }
     }
@@ -69,12 +72,12 @@ async function publishAgentTemplates(
     if (err instanceof TypeError && err.message.includes('fetch')) {
       return {
         success: false,
-        error: `Network error: Unable to connect to ${WEBSITE_URL}. Please check your internet connection and try again.`,
+        error: `Error de red: no se pudo conectar con ${WEBSITE_URL}. Comprueba tu conexión a internet y vuelve a intentarlo.`,
       }
     }
 
     const body = err?.responseBody || err?.body || err
-    const error = body?.error || body?.message || 'Failed to publish'
+    const error = body?.error || body?.message || 'No se pudo publicar'
     const details = body?.details
     const hint = body?.hint
 
@@ -92,14 +95,16 @@ async function publishAgentTemplates(
  * @param agentIds The ids or display names of the agents to publish
  * @returns PublishResult with success/error information
  */
-export async function handlePublish(agentIds: string[]): Promise<PublishResult> {
+export async function handlePublish(
+  agentIds: string[],
+): Promise<PublishResult> {
   const user = getUserCredentials()
 
   if (!user) {
     return {
       success: false,
-      error: 'Not logged in',
-      hint: 'Please log in first using "login" command or web UI.',
+      error: 'No has iniciado sesión',
+      hint: 'Primero inicia sesión mediante el comando "login" o la interfaz web.',
     }
   }
 
@@ -108,8 +113,8 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
   if (agentIds?.length === 0) {
     return {
       success: false,
-      error: 'No agents specified',
-      hint: 'Usage: publish <agent-id> [agent-id2] ...',
+      error: 'No se especificaron agentes',
+      hint: 'Uso: publish <id-agente> [id-agente2] ...',
     }
   }
 
@@ -119,7 +124,8 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
     if (loadedDefinitions.length === 0) {
       return {
         success: false,
-        error: 'No valid agent templates found in .agents directory.',
+        error:
+          'No se encontraron plantillas de agentes válidas en el directorio .agents.',
       }
     }
 
@@ -143,8 +149,8 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
           .join(', ')
         return {
           success: false,
-          error: `Agent "${agentId}" not found`,
-          details: `Available agents: ${availableList}`,
+          error: `No se encontró el agente "${agentId}"`,
+          details: `Agentes disponibles: ${availableList}`,
         }
       }
 
@@ -180,23 +186,28 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
     }
 
     // Build error result
+    let errorMessage = result.error
     let hint = result.hint
     if (result.error?.includes('Publisher field required')) {
-      hint = 'Add a "publisher" field to your agent templates.'
-    } else if (result.error?.includes('Publisher not found or not accessible')) {
-      hint = `Check that the publisher ID is correct and you have access to it. Visit ${WEBSITE_URL}/publishers to manage publishers.`
+      errorMessage = 'Las plantillas requieren el campo "publisher".'
+      hint = 'Agrega un campo "publisher" a las plantillas de tus agentes.'
+    } else if (
+      result.error?.includes('Publisher not found or not accessible')
+    ) {
+      errorMessage = 'No se encontró el publicador o no tienes acceso.'
+      hint = `Comprueba que el ID del publicador sea correcto y que tengas acceso. Visita ${WEBSITE_URL}/publishers para administrar publicadores.`
     }
 
     return {
       success: false,
-      error: result.error,
+      error: errorMessage,
       details: result.details,
       hint,
     }
   } catch (error) {
     return {
       success: false,
-      error: 'Publish failed',
+      error: 'La publicación falló',
       details: error instanceof Error ? error.message : String(error),
     }
   }

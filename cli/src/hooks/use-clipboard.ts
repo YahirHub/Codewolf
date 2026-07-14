@@ -15,7 +15,7 @@ function formatDefaultClipboardMessage(text: string): string | null {
     return null
   }
   const truncated = preview.length > 40 ? `${preview.slice(0, 37)}…` : preview
-  return `Copied: "${truncated}"`
+  return `Copiado: "${truncated}"`
 }
 
 export const useClipboard = () => {
@@ -54,7 +54,8 @@ export const useClipboard = () => {
           : null
 
       // Filter out cursor character from selected text
-      const cleanedText = rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
+      const cleanedText =
+        rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
 
       if (!cleanedText || cleanedText.trim().length === 0) {
         pendingSelectionRef.current = null

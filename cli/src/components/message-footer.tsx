@@ -1,6 +1,5 @@
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
 import { IS_FREEBUFF } from '../utils/constants'
-import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
 
@@ -218,7 +217,9 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   )
 }
 
-const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits }) => {
+const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({
+  credits,
+}) => {
   const theme = useTheme()
   const { data: subscriptionData } = useSubscriptionQuery({
     refetchInterval: false,
@@ -234,13 +235,19 @@ const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits
   const showSubscriptionIndicator = isCoveredBySubscription(subscriptionData)
 
   if (showSubscriptionIndicator) {
-    const label = (blockPercentRemaining ?? 0) < 20
-      ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% left)`
-      : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`
+    const label =
+      (blockPercentRemaining ?? 0) < 20
+        ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% restante)`
+        : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`
     return (
       <text
         attributes={TextAttributes.DIM}
-        style={{ wrapMode: 'none', fg: theme.success, marginTop: 0, marginBottom: 0 }}
+        style={{
+          wrapMode: 'none',
+          fg: theme.success,
+          marginTop: 0,
+          marginBottom: 0,
+        }}
       >
         {label}
       </text>
@@ -250,9 +257,14 @@ const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits
   return (
     <text
       attributes={TextAttributes.DIM}
-      style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
+      style={{
+        wrapMode: 'none',
+        fg: theme.secondary,
+        marginTop: 0,
+        marginBottom: 0,
+      }}
     >
-      {pluralize(credits, 'credit')}
+      {credits} {credits === 1 ? 'crédito' : 'créditos'}
     </text>
   )
 }

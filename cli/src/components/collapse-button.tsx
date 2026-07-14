@@ -11,24 +11,26 @@ interface CollapseButtonProps {
 }
 
 /**
- * Reusable collapse button with '▴ collapse' text
+ * Reusable collapse button with '▴ contraer' text
  * Styled with theme.secondary color, aligned to the right by default
  */
-export const CollapseButton = memo(({ onClick, style }: CollapseButtonProps) => {
-  const theme = useTheme()
+export const CollapseButton = memo(
+  ({ onClick, style }: CollapseButtonProps) => {
+    const theme = useTheme()
 
-  return (
-    <Button
-      style={{
-        alignSelf: 'flex-end',
-        marginTop: 0,
-        ...style,
-      }}
-      onClick={onClick}
-    >
-      <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
-        ▴ collapse
-      </text>
-    </Button>
-  )
-})
+    return (
+      <Button
+        style={{
+          alignSelf: 'flex-end',
+          marginTop: 0,
+          ...style,
+        }}
+        onClick={onClick}
+      >
+        <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
+          ▴ contraer
+        </text>
+      </Button>
+    )
+  },
+)

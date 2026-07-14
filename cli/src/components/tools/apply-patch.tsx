@@ -57,16 +57,16 @@ interface PatchOperationItemProps {
 
 const PatchOperationItem = ({ operation }: PatchOperationItemProps) => {
   if (operation.type === 'create_file') {
-    return <EditHeader name="Create" filePath={operation.path} />
+    return <EditHeader name="Crear" filePath={operation.path} />
   }
 
   if (operation.type === 'delete_file') {
-    return <EditHeader name="Delete" filePath={operation.path} />
+    return <EditHeader name="Eliminar" filePath={operation.path} />
   }
 
   return (
     <box style={{ flexDirection: 'column', width: '100%' }}>
-      <EditHeader name="Edit" filePath={operation.path} />
+      <EditHeader name="Editar" filePath={operation.path} />
       <box style={{ paddingLeft: 2, width: '100%' }}>
         <DiffViewer diffText={operation.diff} />
       </box>

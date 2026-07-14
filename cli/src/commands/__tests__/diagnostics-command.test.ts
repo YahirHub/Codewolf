@@ -26,9 +26,9 @@ describe('/diagnostics command', () => {
     )
 
     const output = messages.at(-1)?.content ?? ''
-    expect(output).toContain('process diagnostics')
-    expect(output).toContain(`Platform: ${process.platform} ${process.arch}`)
-    expect(output).toContain(`CLI binary: PID ${process.pid}`)
+    expect(output).toContain('Diagnóstico de procesos')
+    expect(output).toContain(`Plataforma: ${process.platform} ${process.arch}`)
+    expect(output).toContain(`binario del CLI: PID ${process.pid}`)
     expect(saveToHistory).toHaveBeenCalledWith('/diagnostics')
     expect(setInputValue).toHaveBeenCalled()
   })

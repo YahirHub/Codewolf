@@ -12,7 +12,6 @@ import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 
-
 interface ValidationErrorPopoverProps {
   errors: Array<{ id: string; message: string }>
   onOpenFeedback?: (options: {
@@ -56,7 +55,7 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
           }}
         >
           <text style={{ fg: theme.warning, wrapMode: 'word' }}>
-            {pluralize(errorCount, 'Error')}
+            {`${errorCount} error${errorCount === 1 ? '' : 'es'}`}
           </text>
           {onClose && (
             <Button
@@ -137,7 +136,7 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
                 style={{ flexDirection: 'column', paddingTop: 0.5 }}
               >
                 <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                  {`• ${agentId || 'Unknown'}`}
+                  {`• ${agentId || 'Desconocido'}`}
                 </text>
                 <text
                   style={{
@@ -156,7 +155,7 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
             <text
               style={{ fg: theme.muted, wrapMode: 'word', paddingTop: 0.5 }}
             >
-              {`+ ${errorCount - 3} more`}
+              {`+ ${errorCount - 3} más`}
             </text>
           )}
         </box>
@@ -167,7 +166,8 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
               onClick={() =>
                 onOpenFeedback({
                   category: 'app_bug',
-                  footerMessage: 'Validation errors are auto-attached',
+                  footerMessage:
+                    'Los errores de validación se adjuntan automáticamente',
                   errors,
                 })
               }
@@ -177,10 +177,10 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
               <text style={{ wrapMode: 'none' }}>
                 {isReportHovered ? (
                   <u>
-                    <span fg={theme.info}>Report issue</span>
+                    <span fg={theme.info}>Reportar problema</span>
                   </u>
                 ) : (
-                  <span fg={theme.info}>Report issue</span>
+                  <span fg={theme.info}>Reportar problema</span>
                 )}
               </text>
             </Button>

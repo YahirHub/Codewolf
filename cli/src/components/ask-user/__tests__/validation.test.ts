@@ -26,7 +26,7 @@ describe('validateOtherText', () => {
       const text = 'a'.repeat(501)
       const result = validateOtherText(text)
       expect(result.isValid).toBe(false)
-      expect(result.error).toBe('Max 500 characters')
+      expect(result.error).toBe('Máximo 500 caracteres')
     })
 
     it('accepts empty text', () => {
@@ -48,7 +48,7 @@ describe('validateOtherText', () => {
     it('rejects text exceeding custom limit', () => {
       const result = validateOtherText('hello world!', validation)
       expect(result.isValid).toBe(false)
-      expect(result.error).toBe('Max 10 characters')
+      expect(result.error).toBe('Máximo 10 caracteres')
     })
   })
 
@@ -65,7 +65,7 @@ describe('validateOtherText', () => {
     it('rejects text below minimum', () => {
       const result = validateOtherText('hi', validation)
       expect(result.isValid).toBe(false)
-      expect(result.error).toBe('Min 5 characters')
+      expect(result.error).toBe('Mínimo 5 caracteres')
     })
   })
 
@@ -101,7 +101,7 @@ describe('validateOtherText', () => {
 
       const result = validateOtherText('abc', validation)
       expect(result.isValid).toBe(false)
-      expect(result.error).toBe('Invalid format')
+      expect(result.error).toBe('Formato no válido')
     })
 
     it('accepts empty text when pattern provided', () => {

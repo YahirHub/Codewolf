@@ -55,31 +55,31 @@ interface FreebuffLandingScreenProps {
 /** Landing-screen heading. Referenced both as rendered text and by the
  *  picker's height-budget math (wrappedRows), so it lives in one place to keep
  *  the two from drifting. */
-const LANDING_HEADING = 'Start coding for free'
+const LANDING_HEADING = 'Empieza a programar gratis'
 
 /** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
  *  rate-limited screen so users know when they can try again. */
 const formatRetryAfter = (ms: number): string => {
-  if (!Number.isFinite(ms) || ms <= 0) return 'any moment now'
+  if (!Number.isFinite(ms) || ms <= 0) return 'en cualquier momento'
   const minutes = Math.round(ms / 60_000)
-  if (minutes < 1) return 'under a minute'
+  if (minutes < 1) return 'menos de un minuto'
   if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
   const rem = minutes % 60
-  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
+  return rem === 0 ? `${hours}h` : `${hours} h ${rem} min`
 }
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
-{
-  anonymous: 'anonymized network',
-  proxy: 'proxy',
-  relay: 'relay',
-  res_proxy: 'residential proxy',
-  tor: 'Tor',
-  vpn: 'VPN',
-  hosting: 'hosting network',
-  service: 'privacy service',
-}
+  {
+    anonymous: 'red anonimizada',
+    proxy: 'proxy',
+    relay: 'relay',
+    res_proxy: 'proxy residencial',
+    tor: 'Tor',
+    vpn: 'VPN',
+    hosting: 'red de alojamiento',
+    service: 'servicio de privacidad',
+  }
 
 const formatPrivacySignalList = (
   signals: FreebuffIpPrivacySignal[] | undefined,
@@ -93,11 +93,11 @@ const formatPrivacySignalList = (
   )
 
   if (labels.length === 0) {
-    return 'VPN, Tor, proxy, relay, or anonymized network'
+    return 'VPN, Tor, proxy, relay o red anonimizada'
   }
   if (labels.length === 1) return labels[0]
-  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`
-  return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
+  if (labels.length === 2) return `${labels[0]} o ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')} o ${labels[labels.length - 1]}`
 }
 
 /** "BR" → "Brazil". Falls back to the raw code when the runtime can't
@@ -105,7 +105,7 @@ const formatPrivacySignalList = (
 const formatCountryName = (countryCode: string): string => {
   try {
     return (
-      new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ??
+      new Intl.DisplayNames(['es'], { type: 'region' }).of(countryCode) ??
       countryCode
     )
   } catch {
@@ -124,33 +124,33 @@ const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
 ): string | null => {
   if (!session || !('countryBlockReason' in session)) {
-    return "Some models aren't available on this connection"
+    return 'Algunos modelos no están disponibles en esta conexión'
   }
 
   const countryCode =
     'countryCode' in session &&
-      session.countryCode &&
-      session.countryCode !== 'UNKNOWN'
+    session.countryCode &&
+    session.countryCode !== 'UNKNOWN'
       ? session.countryCode
       : null
 
   switch (session.countryBlockReason) {
     case 'anonymous_network':
-      return `Using a ${formatPrivacySignalList(
+      return `¿Estás usando ${formatPrivacySignalList(
         session.ipPrivacySignals ?? undefined,
-      )}? More models are available on a direct connection`
+      )}? Hay más modelos disponibles con una conexión directa`
     case 'country_not_allowed':
-      return `Some models aren't available in ${
-        countryCode ? formatCountryName(countryCode) : 'your region'
-      } yet`
+      return `Algunos modelos todavía no están disponibles en ${
+        countryCode ? formatCountryName(countryCode) : 'tu región'
+      }`
     case 'anonymized_or_unknown_country':
     case 'missing_client_ip':
     case 'unresolved_client_ip':
-      return "We couldn't confirm your region, so we're showing models available everywhere"
+      return 'No pudimos confirmar tu región, por lo que mostramos modelos disponibles en todas partes'
     case 'ip_privacy_lookup_failed':
-      return "We couldn't finish a network check, so we're showing models available everywhere"
+      return 'No pudimos completar la comprobación de red, por lo que mostramos modelos disponibles en todas partes'
     default:
-      return "Some models aren't available on this connection"
+      return 'Algunos modelos no están disponibles en esta conexión'
   }
 }
 
@@ -221,11 +221,11 @@ const TakeoverPrompt: React.FC = () => {
       }}
     >
       <text style={{ fg: theme.foreground }} attributes={TextAttributes.BOLD}>
-        Freebuff is already running
+        Freebuff ya está en ejecución
       </text>
 
       <text style={{ fg: theme.muted }}>
-        Only one freebuff instance is allowed at a time.
+        Solo puede ejecutarse una instancia de Freebuff a la vez.
       </text>
 
       <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
@@ -246,7 +246,7 @@ const TakeoverPrompt: React.FC = () => {
             }}
             attributes={TextAttributes.BOLD}
           >
-            {pending ? 'Taking over...' : 'Take over'}
+            {pending ? 'Tomando el control...' : 'Tomar el control'}
           </text>
         </Button>
         <Button
@@ -263,7 +263,7 @@ const TakeoverPrompt: React.FC = () => {
               isExitFocused ? TextAttributes.BOLD : TextAttributes.NONE
             }
           >
-            Exit
+            Salir
           </text>
         </Button>
       </box>
@@ -444,8 +444,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // need it when collapsed either — the collapsed recommended model is
   // unlimited, so a premium-session count there is irrelevant.
   const showSessionCounter = sharedSessionUsed > 0
-  const showBelowPickerCounter =
-    showSessionCounter && accessTier === 'limited'
+  const showBelowPickerCounter = showSessionCounter && accessTier === 'limited'
   const isSessionExhausted =
     sharedSessionUsed >=
     (accessTier === 'limited'
@@ -456,7 +455,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
-  const sessionLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
+  const sessionLabel =
+    accessTier === 'limited' ? 'sesiones' : 'sesiones premium'
   const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
   const sessionResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
@@ -482,8 +482,8 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   const wrappedRows = (text: string) =>
     Math.max(1, Math.ceil(text.length / contentMaxWidth))
   const counterText =
-    `${formattedSharedSessionUsed} of ${sessionLimit} ${sessionLabel} used, ` +
-    `resets in ${sessionResetCountdown}`
+    `${formattedSharedSessionUsed} de ${sessionLimit} ${sessionLabel} usadas, ` +
+    `se restablece en ${sessionResetCountdown}`
   const logoBlockRows =
     logoMode === 'none'
       ? 0
@@ -527,7 +527,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
     const delayMs = Math.max(0, sessionResetAtMs - Date.now() + 1_000)
     const timer = setTimeout(() => {
-      refreshFreebuffLandingMetadata().catch(() => { })
+      refreshFreebuffLandingMetadata().catch(() => {})
     }, delayMs)
 
     return () => clearTimeout(timer)
@@ -602,9 +602,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
         }}
       >
         {logoMode !== 'none' && (
-          <box style={{ marginBottom: 1, flexShrink: 0 }}>
-            {logoComponent}
-          </box>
+          <box style={{ marginBottom: 1, flexShrink: 0 }}>{logoComponent}</box>
         )}
 
         <box
@@ -623,7 +621,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
           {!session && !error && (
             <text style={{ fg: theme.muted }}>
-              <ShimmerText text="Connecting…" />
+              <ShimmerText text="Conectando…" />
             </text>
           )}
 
@@ -669,12 +667,12 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   }}
                 >
                   <span fg={sessionUsedColor}>
-                    {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
-                    used
+                    {formattedSharedSessionUsed} de {sessionLimit}{' '}
+                    {sessionLabel} usadas
                   </span>
                   <span fg={theme.muted}>
                     {', '}
-                    resets in {sessionResetCountdown}
+                    se restablece en {sessionResetCountdown}
                   </span>
                 </text>
               )}
@@ -703,40 +701,40 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'country_blocked' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Free mode isn't available in your region
+                ⚠ El modo gratuito no está disponible en tu región
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
                 {session.countryBlockReason === 'anonymous_network' ? (
                   <>
-                    We detected{' '}
+                    Detectamos tráfico de{' '}
                     {formatFreebuffHardBlockedPrivacySignals(
                       session.ipPrivacySignals,
-                    )}{' '}
-                    traffic
+                    )}
                     {session.countryCode === 'UNKNOWN' ? (
                       ''
                     ) : (
                       <>
                         {' '}
-                        from{' '}
+                        desde{' '}
                         <span fg={theme.foreground}>{session.countryCode}</span>
                       </>
                     )}
-                    . Freebuff can't be used from VPN, proxy, or Tor traffic.
-                    Disable it and restart Freebuff to try again.
+                    . Freebuff no puede utilizarse mediante VPN, proxy ni Tor.
+                    Desactívalo y reinicia Freebuff para volver a intentarlo.
                   </>
                 ) : session.countryCode === 'UNKNOWN' ? (
                   <>
-                    We couldn't verify an eligible location for this request.
-                    VPN, Tor, proxy, or unknown-location traffic can't use
-                    freebuff. Press Ctrl+C to exit.
+                    No pudimos verificar una ubicación admitida para esta
+                    solicitud. El tráfico mediante VPN, Tor, proxy o con
+                    ubicación desconocida no puede usar Freebuff. Pulsa Ctrl+C
+                    para salir.
                   </>
                 ) : (
                   <>
-                    We detected your location as{' '}
+                    Detectamos tu ubicación como{' '}
                     <span fg={theme.foreground}>{session.countryCode}</span>,
-                    which is outside the countries where freebuff is currently
-                    offered. Press Ctrl+C to exit.
+                    que no pertenece a los países donde Freebuff está disponible
+                    actualmente. Pulsa Ctrl+C para salir.
                   </>
                 )}
               </text>
@@ -748,12 +746,12 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'banned' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Account unavailable
+                ⚠ Cuenta no disponible
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                This account has been suspended and can't use freebuff. If you
-                think this is a mistake, contact support@codebuff.com. Press
-                Ctrl+C to exit.
+                Esta cuenta fue suspendida y no puede usar Freebuff. Si crees
+                que se trata de un error, contacta a support@codebuff.com. Pulsa
+                Ctrl+C para salir.
               </text>
             </>
           )}
@@ -764,19 +762,18 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'rate_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Session limit reached
+                ⚠ Límite de sesiones alcanzado
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                You've used{' '}
+                Has usado{' '}
                 <span fg={theme.foreground}>
-                  {formatSessionUnits(session.recentCount)} of {session.limit}
+                  {formatSessionUnits(session.recentCount)} de {session.limit}
                 </span>{' '}
-                sessions{' '}
-                today. Try again in{' '}
+                sesiones hoy. Vuelve a intentarlo en{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
-                . Press Ctrl+C to exit.
+                . Pulsa Ctrl+C para salir.
               </text>
             </>
           )}
@@ -802,9 +799,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               onImpression={recordImpression}
             />
           ) : (
-            <text style={{ fg: theme.muted }}>
-              {'─'.repeat(terminalWidth)}
-            </text>
+            <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
           )}
         </box>
       )}

@@ -15,13 +15,7 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => {
 }
 
 /** Keyboard shortcut item */
-const Shortcut = ({
-  keys,
-  action,
-}: {
-  keys: string
-  action: string
-}) => {
+const Shortcut = ({ keys, action }: { keys: string; action: string }) => {
   const theme = useTheme()
   return (
     <box style={{ flexDirection: 'row', gap: 1 }}>
@@ -47,51 +41,63 @@ export const HelpBanner = () => {
   }, [setInputMode])
 
   return (
-    <BottomBanner
-      borderColorKey="info"
-      onClose={() => setInputMode('default')}
-    >
+    <BottomBanner borderColorKey="info" onClose={() => setInputMode('default')}>
       <box style={{ flexDirection: 'column', gap: 1, flexGrow: 1 }}>
         {/* Shortcuts Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
-          <SectionHeader>Shortcuts</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
-            <Shortcut keys="Ctrl+C / Esc" action="stop" />
-            <Shortcut keys="Ctrl+J / Opt+Enter" action="newline" />
-            <Shortcut keys="↑↓" action="history" />
-            <Shortcut keys="Ctrl+T" action="collapse/expand agents" />
+          <SectionHeader>Atajos</SectionHeader>
+          <box
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              columnGap: 2,
+              paddingLeft: 2,
+            }}
+          >
+            <Shortcut keys="Ctrl+C / Esc" action="detener" />
+            <Shortcut keys="Ctrl+J / Opt+Enter" action="nueva línea" />
+            <Shortcut keys="↑↓" action="historial" />
+            <Shortcut keys="Ctrl+T" action="contraer/expandir agentes" />
           </box>
         </box>
 
         {/* Features Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
-          <SectionHeader>Features</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
-            <Shortcut keys="/" action="commands" />
-            <Shortcut keys="@files" action="mention" />
-            <Shortcut keys="@agents" action="use agent" />
-            <Shortcut keys="!bash" action="run command" />
+          <SectionHeader>Funciones</SectionHeader>
+          <box
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              columnGap: 2,
+              paddingLeft: 2,
+            }}
+          >
+            <Shortcut keys="/" action="comandos" />
+            <Shortcut keys="@files" action="mencionar" />
+            <Shortcut keys="@agents" action="usar agente" />
+            <Shortcut keys="!bash" action="ejecutar comando" />
           </box>
         </box>
 
         {/* Tips Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
-          <SectionHeader>Tips</SectionHeader>
+          <SectionHeader>Consejos</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
             {IS_FREEBUFF && (
               <text style={{ fg: theme.muted }}>
-                Try workflow: /interview → /plan → implement → /review
+                Flujo sugerido: /interview → /plan → implementar → /review
               </text>
             )}
             <text style={{ fg: theme.muted }}>
-              Use @ to reference agents to spawn or files to read
+              Usa @ para indicar agentes que se iniciarán o archivos que se
+              leerán
             </text>
             <text style={{ fg: theme.muted }}>
-              Drag to select text — it copies automatically (or click ⎘ on a
-              message)
+              Arrastra para seleccionar texto: se copiará automáticamente (o
+              pulsa ⎘ en un mensaje)
             </text>
             <text style={{ fg: theme.muted }}>
-              Esc to cancel the current response
+              Esc cancela la respuesta actual
             </text>
           </box>
         </box>
@@ -99,10 +105,14 @@ export const HelpBanner = () => {
         {/* Credits Section — hidden in Freebuff */}
         {!IS_FREEBUFF && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
-            <SectionHeader>Credits</SectionHeader>
+            <SectionHeader>Créditos</SectionHeader>
             <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-              <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 1 }}>
-                <text style={{ fg: theme.foreground }}>1 credit = 1 cent</text>
+              <box
+                style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 1 }}
+              >
+                <text style={{ fg: theme.foreground }}>
+                  1 crédito = 1 centavo
+                </text>
                 <text style={{ fg: theme.muted }}>·</text>
                 <text style={{ fg: theme.foreground }}>/subscribe</text>
                 <text style={{ fg: theme.muted }}>·</text>
@@ -115,7 +125,8 @@ export const HelpBanner = () => {
                 )}
               </box>
               <text style={{ fg: theme.muted }}>
-                Subscribe for the best credit rates — /subscribe
+                Suscríbete para obtener las mejores tarifas de créditos —
+                /subscribe
               </text>
             </box>
           </box>

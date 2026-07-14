@@ -61,10 +61,10 @@ export function handleInitializationFlowLocally(): {
   const messages: string[] = []
 
   if (existsSync(knowledgePath)) {
-    messages.push(`📋 \`${PRIMARY_KNOWLEDGE_FILE_NAME}\` already exists.`)
+    messages.push(`📋 \`${PRIMARY_KNOWLEDGE_FILE_NAME}\` ya existe.`)
   } else {
     writeFileSync(knowledgePath, INITIAL_KNOWLEDGE_FILE)
-    messages.push(`✅ Created \`${PRIMARY_KNOWLEDGE_FILE_NAME}\``)
+    messages.push(`✅ Se creó \`${PRIMARY_KNOWLEDGE_FILE_NAME}\``)
 
     // Track knowledge file creation
     trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, {
@@ -78,36 +78,38 @@ export function handleInitializationFlowLocally(): {
   const agentsTypesDir = path.join(agentsDir, 'types')
 
   if (existsSync(agentsDir)) {
-    messages.push('📋 `.agents/` already exists.')
+    messages.push('📋 `.agents/` ya existe.')
   } else {
     mkdirSync(agentsDir, { recursive: true })
-    messages.push('✅ Created `.agents/`')
+    messages.push('✅ Se creó `.agents/`')
   }
 
   if (existsSync(agentsTypesDir)) {
-    messages.push('📋 `.agents/types/` already exists.')
+    messages.push('📋 `.agents/types/` ya existe.')
   } else {
     mkdirSync(agentsTypesDir, { recursive: true })
-    messages.push('✅ Created `.agents/types/`')
+    messages.push('✅ Se creó `.agents/types/`')
   }
 
   for (const { fileName, source } of COMMON_TYPE_FILES) {
     const targetPath = path.join(agentsTypesDir, fileName)
     if (existsSync(targetPath)) {
-      messages.push(`📋 \`.agents/types/${fileName}\` already exists.`)
+      messages.push(`📋 \`.agents/types/${fileName}\` ya existe.`)
       continue
     }
 
     try {
       if (!source || source.trim().length === 0) {
-        throw new Error('Source content is empty')
+        throw new Error('El contenido de origen está vacío')
       }
       writeFileSync(targetPath, source)
-      messages.push(`✅ Copied \`.agents/types/${fileName}\``)
+      messages.push(`✅ Se copió \`.agents/types/${fileName}\``)
     } catch (error) {
       messages.push(
-        `⚠️ Failed to copy \`.agents/types/${fileName}\`: ${
-          error instanceof Error ? error.message : String(error ?? 'Unknown')
+        `⚠️ No se pudo copiar \`.agents/types/${fileName}\`: ${
+          error instanceof Error
+            ? error.message
+            : String(error ?? 'Desconocido')
         }`,
       )
     }

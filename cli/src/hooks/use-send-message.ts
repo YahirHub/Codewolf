@@ -16,10 +16,7 @@ import { createRunConfig } from '../utils/create-run-config'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
-import {
-  clearActiveRunAborter,
-  setActiveRunAborter,
-} from '../utils/active-run'
+import { clearActiveRunAborter, setActiveRunAborter } from '../utils/active-run'
 import {
   clearLiveChatStateProvider,
   loadMostRecentChatState,
@@ -116,7 +113,7 @@ const buildPromptWithContext = (
   }
 
   if (messageContent && messageContent.length > 0) {
-    return 'See attached image(s)'
+    return 'Consulta las imágenes adjuntas'
   }
 
   return ''
@@ -318,7 +315,7 @@ export const useSendMessage = ({
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            '⚠️ Failed to prepare message. Please try again.',
+            '⚠️ No se pudo preparar el mensaje. Inténtalo de nuevo.',
           ),
         ])
         resetEarlyReturnState({
@@ -346,7 +343,7 @@ export const useSendMessage = ({
                   // {
                   //   id: NETWORK_ERROR_ID,
                   //   message:
-                  //     'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
+                  //     'Falló la validación del agente. Puede deberse a un problema de red o a un fallo temporal del servidor. Inténtalo de nuevo.',
                   // },
                 ]
               : validationResult.errors
@@ -379,7 +376,7 @@ export const useSendMessage = ({
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            '⚠️ Agent validation failed unexpectedly. Please try again.',
+            '⚠️ La validación del agente falló inesperadamente. Inténtalo de nuevo.',
           ),
         ])
         await yieldToEventLoop()
@@ -405,14 +402,14 @@ export const useSendMessage = ({
       if (!client) {
         logger.error(
           {},
-          '[send-message] No Codewolf client available. Configure a provider with /login and select a model with /models.',
+          '[send-message] No hay un cliente de Codewolf disponible. Configura un proveedor con /login y selecciona un modelo con /models.',
         )
         // Show error to user instead of silently failing
         const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codewolf'
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            `⚠️ Unable to connect to ${brandName}. Please check your authentication and try again.`,
+            `⚠️ No se pudo conectar con ${brandName}. Revisa la autenticación e inténtalo de nuevo.`,
           ),
         ])
         await yieldToEventLoop()

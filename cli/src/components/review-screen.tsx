@@ -14,10 +14,10 @@ interface ReviewOption {
 }
 
 const REVIEW_OPTIONS: ReviewOption[] = [
-  { id: 'conversation', label: 'Changes this conversation' },
-  { id: 'uncommitted', label: 'Uncommitted changes' },
-  { id: 'branch', label: 'This branch vs main' },
-  { id: 'custom', label: 'Custom...' },
+  { id: 'conversation', label: 'Cambios de esta conversación' },
+  { id: 'uncommitted', label: 'Cambios sin commit' },
+  { id: 'branch', label: 'Esta rama frente a main' },
+  { id: 'custom', label: 'Personalizado...' },
 ]
 
 interface ReviewScreenProps {
@@ -56,7 +56,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
           return
         }
         if (key.name === 'down') {
-          setSelectedIndex((prev) => Math.min(REVIEW_OPTIONS.length - 1, prev + 1))
+          setSelectedIndex((prev) =>
+            Math.min(REVIEW_OPTIONS.length - 1, prev + 1),
+          )
           return
         }
         if (isPlainEnterKey(key)) {
@@ -77,7 +79,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
 
   return (
     <box
-      title=" Review "
+      title=" Revisar "
       titleAlignment="center"
       style={{
         width: '100%',
@@ -105,7 +107,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
         )
       })}
       <text style={{ fg: theme.muted }}>
-        ↑↓ navigate · Enter select · Esc cancel
+        ↑↓ navegar · Enter seleccionar · Esc cancelar
       </text>
     </box>
   )

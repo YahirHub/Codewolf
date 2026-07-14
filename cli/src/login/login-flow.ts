@@ -59,27 +59,27 @@ export async function generateLoginUrl(
         status: response.status,
         error: response.error,
       },
-      '❌ Failed to request login URL',
+      '❌ No se pudo solicitar la URL de inicio de sesión',
     )
     trackEvent?.(AnalyticsEvent.LOGIN_FAILED, {
       via,
       reason: 'url_request',
       status: response.status,
     })
-    throw new Error('Failed to get login URL')
+    throw new Error('No se pudo obtener la URL de inicio de sesión')
   }
 
   if (!response.data) {
     logger.error(
       { status: response.status },
-      '❌ Empty response from login URL',
+      '❌ La URL de inicio de sesión devolvió una respuesta vacía',
     )
     trackEvent?.(AnalyticsEvent.LOGIN_FAILED, {
       via,
       reason: 'url_empty',
       status: response.status,
     })
-    throw new Error('Failed to get login URL')
+    throw new Error('No se pudo obtener la URL de inicio de sesión')
   }
 
   return response.data
@@ -137,7 +137,7 @@ export async function pollLoginStatus(
 
   while (true) {
     if (shouldContinue && !shouldContinue()) {
-      logger.warn('🛑 Polling aborted by caller')
+      logger.warn('🛑 La comprobación fue cancelada por el solicitante')
       trackEvent?.(AnalyticsEvent.LOGIN_ABORTED, {
         via,
         attempts,
@@ -147,7 +147,7 @@ export async function pollLoginStatus(
     }
 
     if (now() - startTime >= timeoutMs) {
-      logger.warn('⌛️ Login polling timed out')
+      logger.warn('⌛️ Se agotó el tiempo de espera del inicio de sesión')
       trackEvent?.(AnalyticsEvent.LOGIN_TIMEOUT, {
         via,
         attempts,
@@ -173,7 +173,7 @@ export async function pollLoginStatus(
               status: response.status,
               error: response.error,
             },
-            '⚠️ Unexpected status while polling',
+            '⚠️ Estado inesperado durante la comprobación',
           )
         }
         await sleep(intervalMs)
@@ -195,7 +195,7 @@ export async function pollLoginStatus(
           attempts,
           error: error instanceof Error ? error.message : String(error),
         },
-        '💥 Network error during login status polling',
+        '💥 Error de red al comprobar el estado del inicio de sesión',
       )
       await sleep(intervalMs)
       continue

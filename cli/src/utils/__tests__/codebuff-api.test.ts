@@ -489,7 +489,7 @@ describe('createCodebuffApiClient', () => {
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'TLS certificate verification failed for https://freebuff.com.',
+        'Falló la verificación del certificado TLS de https://freebuff.com.',
       )
     })
 
@@ -512,7 +512,7 @@ describe('createCodebuffApiClient', () => {
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'TLS certificate verification failed for https://freebuff.com.',
+        'Falló la verificación del certificado TLS de https://freebuff.com.',
       )
       expect(mockTlsFetch).toHaveBeenCalledTimes(1)
     })

@@ -351,9 +351,7 @@ export function loadMostRecentChatState(
     // readable and fall back for the rest.
     let runState: RunState | null = null
     try {
-      runState = JSON.parse(
-        fs.readFileSync(runStatePath, 'utf8'),
-      ) as RunState
+      runState = JSON.parse(fs.readFileSync(runStatePath, 'utf8')) as RunState
     } catch (error) {
       logger.warn(
         {
@@ -390,7 +388,7 @@ export function loadMostRecentChatState(
     runState ??= {
       output: {
         type: 'error',
-        message: 'Previous run state could not be restored.',
+        message: 'No se pudo restaurar el estado de ejecución anterior.',
       },
     } as RunState
     runState.traceSessionId ??= randomUUID()

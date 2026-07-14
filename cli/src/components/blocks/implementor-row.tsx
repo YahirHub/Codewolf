@@ -10,10 +10,10 @@ const MIN_INNER_WIDTH = 10
 
 /** Labels for proposal cards when no file changes exist */
 const EMPTY_STATE_LABELS = {
-  running: 'generating...',
-  complete: 'no changes',
-  failed: 'failed',
-  cancelled: 'cancelled',
+  running: 'generando...',
+  complete: 'sin cambios',
+  failed: 'falló',
+  cancelled: 'cancelado',
 } as const
 
 import { useGridLayout } from '../../hooks/use-grid-layout'

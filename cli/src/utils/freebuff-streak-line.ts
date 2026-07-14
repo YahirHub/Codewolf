@@ -20,7 +20,9 @@ export interface FreebuffStreakLine {
  * the caller hides the row entirely — new / lapsed users should be nudged to
  * start using the product, not shown an empty streak.
  */
-export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null {
+export function getFreebuffStreakLine(
+  streak: number,
+): FreebuffStreakLine | null {
   if (streak <= 0) return null
 
   // Fill toward the 7-day milestone, then stay full — a 19-day streak should
@@ -34,7 +36,7 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
 
   // "day" stays singular — it's a compound modifier ("7 day streak"), not a
   // count of days on its own.
-  return { label: `${streak} day streak`, dots }
+  return { label: `Racha de ${streak} ${streak === 1 ? 'día' : 'días'}`, dots }
 }
 
 /**
@@ -60,6 +62,6 @@ export function getFreebuffStreakBonusNote(params: {
   const includesGlm =
     params.accessTier === 'full' && isFreebuffStreakGlmBonusActive()
   return includesGlm
-    ? '🎁 Streak perk: +1 bonus session every day + 1 GLM 5.2 session each week you keep it up'
-    : '🎁 Streak perk: +1 bonus session every day you keep it up'
+    ? '🎁 Beneficio de racha: +1 sesión adicional cada día y 1 sesión de GLM 5.2 por cada semana que la mantengas'
+    : '🎁 Beneficio de racha: +1 sesión adicional cada día que la mantengas'
 }

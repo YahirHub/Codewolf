@@ -84,7 +84,7 @@ const TOGGLE_ID = '__freebuff_toggle__'
 // reads as a button ("you can press Enter here") instead of just a selection.
 // Its width is reserved in the one-line width budget below so the cue never
 // overflows or wraps the row (a wrap would desync the focused-row scroll math).
-const FOCUS_CUE = 'Press Enter ↵'
+const FOCUS_CUE = 'Pulsa Enter ↵'
 const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
 
 /**
@@ -218,12 +218,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       [
         {
           key: 'premium',
-          label: 'PREMIUM',
+          label: 'PRÉMIUM',
           models: otherModels.filter((m) => isFreebuffPremiumModelId(m.id)),
         },
         {
           key: 'unlimited',
-          label: 'UNLIMITED',
+          label: 'SIN LÍMITE',
           models: otherModels.filter((m) => !isFreebuffPremiumModelId(m.id)),
         },
       ] satisfies readonly Section[]
@@ -344,7 +344,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       joinedLen(detailsParts(model))
 
     // The cue lives only on the recommended hero, so only its line needs to fit
-    // the "Press Enter ↵" gutter. Folding that into the max means longer rows
+    // the "Pulsa Enter ↵" gutter. Folding that into the max means longer rows
     // (e.g. DeepSeek Pro's data-collection warning) keep their natural width —
     // the buttons widen only if the recommended row + cue is the longest line.
     // Returned so the render path can right-align the cue against the same
@@ -606,7 +606,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       nameColumnWidth - model.displayName.length + NAME_GAP,
     )
 
-    // Right-aligned "Press Enter ↵" cue on the focused recommended row only.
+    // Right-aligned "Pulsa Enter ↵" cue on the focused recommended row only.
     // Right-align against recommendedOneLineLen — the exact length the gutter was
     // reserved against above — so reserve and consume can't drift. The reservation
     // guarantees cuePad >= CUE_GAP in one-line mode; the guard keeps it safe in
@@ -627,7 +627,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       <Button
         key={model.id}
         id={model.id}
-        title={recommended ? ' RECOMMENDED ' : undefined}
+        title={recommended ? ' RECOMENDADO ' : undefined}
         titleAlignment={recommended ? 'left' : undefined}
         onClick={() => {
           setFocusedId(model.id)
@@ -704,12 +704,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           {section.key === 'premium' && (
             <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
-              · {formatSessionUnits(premiumUsed)} of{' '}
-              {FREEBUFF_PREMIUM_SESSION_LIMIT} used
+              · {formatSessionUnits(premiumUsed)} de{' '}
+              {FREEBUFF_PREMIUM_SESSION_LIMIT} usadas
             </span>
           )}
           {section.key === 'premium' && premiumResetCountdown && (
-            <span fg={theme.muted}> · resets in {premiumResetCountdown}</span>
+            <span fg={theme.muted}>
+              {' '}
+              · se restablece en {premiumResetCountdown}
+            </span>
           )}
         </text>
       )}
@@ -728,8 +731,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       ? theme.foreground
       : theme.muted
   const toggleLabel = expanded
-    ? '↑  Show fewer'
-    : `↓  See all ${availableModels.length} models`
+    ? '↑  Mostrar menos'
+    : `↓  Ver los ${availableModels.length} modelos`
   const toggleContent = canCollapse ? (
     <Button
       id={TOGGLE_ID}

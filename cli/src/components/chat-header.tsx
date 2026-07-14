@@ -57,11 +57,11 @@ export const ChatHeader = memo(function ChatHeader({
         {logoComponent}
       </box>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
-        {IS_FREEBUFF ? 'Freebuff' : 'Codewolf'} will run commands on your behalf
-        to help you build.
+        {IS_FREEBUFF ? 'Freebuff' : 'Codewolf'} ejecutará comandos en tu nombre
+        para ayudarte a desarrollar.
       </text>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
-        Directory{' '}
+        Directorio{' '}
         <TerminalLink
           text={formatCwd(projectRoot)}
           color={theme.muted}

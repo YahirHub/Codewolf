@@ -108,7 +108,7 @@ cli/bin/tree-sitter.wasm
 
 `tree-sitter.wasm` debe permanecer en la misma carpeta que el ejecutable.
 
-## Compilar Windows y Linux con GitHub Actions
+## Publicar Windows y Linux con GitHub Actions
 
 El workflow está en:
 
@@ -116,20 +116,32 @@ El workflow está en:
 .github/workflows/build-binaries.yml
 ```
 
-Se ejecuta únicamente:
+Se ejecuta **únicamente de forma manual**. Después de confirmar y subir el
+workflow a la rama predeterminada del repositorio:
 
-- Manualmente desde la pestaña **Actions**.
-- Al publicar una etiqueta `v*`, por ejemplo `v1.0.0`.
+1. Abre la pestaña **Actions** en GitHub.
+2. Selecciona **Compilar binarios y publicar release**.
+3. Pulsa **Run workflow** y confirma la ejecución.
 
-Usa un solo runner Linux, compila Linux nativamente y genera Windows x64 mediante cross-compilation para evitar un segundo runner. El artefacto contiene:
+La primera ejecución crea la versión y etiqueta `1.0.0`. Cada ejecución
+posterior localiza la etiqueta numérica más reciente e incrementa el último
+segmento:
 
 ```text
-codewolf-linux-x64.tar
+1.0.0 → 1.0.1 → 1.0.2
+```
+
+Las etiquetas y releases no utilizan el prefijo `v`. El workflow usa un solo
+runner Linux, reutiliza la misma instalación para ambos sistemas y genera:
+
+```text
+codewolf-linux-x64.tar.gz
 codewolf-windows-x64.zip
 SHA256SUMS.txt
 ```
 
-Consulta [docs/build-binaries.md](docs/build-binaries.md) para conocer el flujo completo.
+Consulta [docs/build-binaries.md](docs/build-binaries.md) para conocer el flujo
+completo y los requisitos para que GitHub muestre el botón manual.
 
 ## Estructura del monorepo
 

@@ -25,7 +25,7 @@ function FilePathsDescription({ filePaths }: { filePaths: string[] }) {
               <span fg={theme.muted} attributes={TextAttributes.STRIKETHROUGH}>
                 {fp}
               </span>
-              <span fg={theme.muted}> (blocked)</span>
+              <span fg={theme.muted}> (bloqueado)</span>
               <span fg={theme.foreground}>{separator}</span>
             </span>
           )
@@ -35,7 +35,7 @@ function FilePathsDescription({ filePaths }: { filePaths: string[] }) {
           return (
             <span key={fp}>
               <span fg={theme.foreground}>{fp}</span>
-              <span fg={theme.muted}> (allowed - example only)</span>
+              <span fg={theme.muted}> (permitido: solo ejemplo)</span>
               <span fg={theme.foreground}>{separator}</span>
             </span>
           )
@@ -82,7 +82,7 @@ export const ReadFilesComponent = defineToolComponent({
     return {
       content: (
         <SimpleToolCallItem
-          name="Read"
+          name="Leer"
           description={
             hasSpecialFiles ? (
               <FilePathsDescription filePaths={filePaths} />

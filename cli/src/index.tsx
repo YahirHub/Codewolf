@@ -233,7 +233,7 @@ async function main(): Promise<void> {
     const result = await handlePublish(agentIds)
 
     if (result.success && result.publisherId && result.agents) {
-      logger.info(green('✅ Successfully published:'))
+      logger.info(green('✅ Publicado correctamente:'))
       for (const agent of result.agents) {
         logger.info(
           cyan(
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
       }
       process.exit(0)
     } else {
-      logger.error(red('❌ Publish failed'))
+      logger.error(red('❌ La publicación falló'))
       if (result.error) logger.error(red(`Error: ${result.error}`))
       if (result.details) logger.error(red(result.details))
       if (result.hint) logger.warn(yellow(`Hint: ${result.hint}`))
@@ -371,7 +371,7 @@ async function main(): Promise<void> {
       // stdout may be closed
     }
     try {
-      console.error('Fatal error during startup:', error)
+      console.error('Error fatal durante el inicio:', error)
     } catch {
       // stderr may be closed
     }

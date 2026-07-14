@@ -10,9 +10,7 @@ interface PendingBashMessageProps {
   message: PendingBashMessageType
 }
 
-export const PendingBashMessage = ({
-  message,
-}: PendingBashMessageProps) => {
+export const PendingBashMessage = ({ message }: PendingBashMessageProps) => {
   const theme = useTheme()
 
   return (
@@ -51,7 +49,7 @@ export const PendingBashMessage = ({
 
         {/* Note about pending status */}
         <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
-          Will be added to chat history when it completes
+          Se agregará al historial del chat cuando termine
         </text>
       </box>
     </box>

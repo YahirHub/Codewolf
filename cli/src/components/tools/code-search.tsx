@@ -27,7 +27,7 @@ export const CodeSearchComponent = defineToolComponent({
     summary += `${pattern}`
 
     if (cwd) {
-      summary += ` in ${cwd}`
+      summary += ` en ${cwd}`
     }
 
     // Disable showing flags since they are noisy.
@@ -35,11 +35,11 @@ export const CodeSearchComponent = defineToolComponent({
     //   summary += ` ${flags}`
     // }
 
-    summary += ` (${totalResults} result${totalResults === 1 ? '' : 's'})`
+    summary += ` (${totalResults} resultado${totalResults === 1 ? '' : 's'})`
 
     // Return as content using SimpleToolCallItem
     return {
-      content: <SimpleToolCallItem name="Search" description={summary} />,
+      content: <SimpleToolCallItem name="Buscar" description={summary} />,
     }
   },
 })

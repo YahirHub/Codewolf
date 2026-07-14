@@ -26,13 +26,17 @@ export async function fetchFreebuffStreak(params: {
   if (!response.ok) {
     logger.error(
       { status: response.status, error: response.error },
-      'Failed to fetch freebuff streak',
+      'No se pudo obtener la racha de Freebuff',
     )
-    throw new Error(`Failed to fetch freebuff streak (HTTP ${response.status})`)
+    throw new Error(
+      `No se pudo obtener la racha de Freebuff (HTTP ${response.status})`,
+    )
   }
 
   if (!response.data) {
-    throw new Error('Failed to fetch freebuff streak: empty response')
+    throw new Error(
+      'No se pudo obtener la racha de Freebuff: la respuesta está vacía',
+    )
   }
 
   return response.data

@@ -29,13 +29,17 @@ export const SubscriptionLimitBanner = () => {
     refetchInterval: 30 * 1000,
   })
 
-  const rateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
+  const rateLimit = subscriptionData?.hasSubscription
+    ? subscriptionData.rateLimit
+    : undefined
   const remainingBalance = usageData?.remainingBalance ?? 0
   const hasAlaCarteCredits = remainingBalance > 0
 
   // Determine if user can upgrade (not on highest tier)
   const maxTier = Math.max(...Object.keys(SUBSCRIPTION_TIERS).map(Number))
-  const currentTier = subscriptionData?.hasSubscription ? subscriptionData.subscription.tier : 0
+  const currentTier = subscriptionData?.hasSubscription
+    ? subscriptionData.subscription.tier
+    : 0
   const canUpgrade = currentTier < maxTier
 
   const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
@@ -49,7 +53,12 @@ export const SubscriptionLimitBanner = () => {
     return null
   }
 
-  const { reason, weeklyPercentUsed, weeklyResetsAt: weeklyResetsAtStr, blockResetsAt: blockResetsAtStr } = rateLimit
+  const {
+    reason,
+    weeklyPercentUsed,
+    weeklyResetsAt: weeklyResetsAtStr,
+    blockResetsAt: blockResetsAtStr,
+  } = rateLimit
   const isWeeklyLimit = reason === 'weekly_limit'
   const isBlockExhausted = reason === 'block_exhausted'
   const weeklyRemaining = 100 - weeklyPercentUsed
@@ -96,38 +105,51 @@ export const SubscriptionLimitBanner = () => {
         {isWeeklyLimit ? (
           <>
             <text style={{ fg: theme.error, marginBottom: 1 }}>
-              🛑 Weekly limit reached
+              🛑 Límite semanal alcanzado
             </text>
             <text style={{ fg: theme.muted }}>
-              You've used all {rateLimit.weeklyLimit.toLocaleString()} credits for this week.
+              Usaste los {rateLimit.weeklyLimit.toLocaleString()} créditos
+              disponibles para esta semana.
             </text>
             {weeklyResetsAt && (
               <text style={{ fg: theme.muted }}>
-                Weekly usage resets in {formatResetTime(weeklyResetsAt)}
+                El uso semanal se restablece en{' '}
+                {formatResetTime(weeklyResetsAt)}
               </text>
             )}
           </>
         ) : isBlockExhausted ? (
           <>
             <text style={{ fg: theme.warning, marginBottom: 1 }}>
-              5 hour limit reached
+              Límite de 5 horas alcanzado
             </text>
             {blockResetsAt && (
               <text style={{ fg: theme.muted }}>
-                New session starts in {formatResetTime(blockResetsAt)}
+                La nueva sesión comienza en {formatResetTime(blockResetsAt)}
               </text>
             )}
           </>
         ) : (
           <text style={{ fg: theme.warning }}>
-            Subscription limit reached
+            Límite de suscripción alcanzado
           </text>
         )}
 
-        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 0 }}>
-          <text style={{ fg: theme.muted }}>Weekly:</text>
-          <ProgressBar value={weeklyRemaining} width={12} showPercentage={false} />
-          <text style={{ fg: theme.muted }}>{weeklyPercentUsed}% used</text>
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 1,
+            marginTop: 0,
+          }}
+        >
+          <text style={{ fg: theme.muted }}>Semanal:</text>
+          <ProgressBar
+            value={weeklyRemaining}
+            width={12}
+            showPercentage={false}
+          />
+          <text style={{ fg: theme.muted }}>{weeklyPercentUsed}% usado</text>
         </box>
 
         {hasAlaCarteCredits ? (
@@ -135,67 +157,107 @@ export const SubscriptionLimitBanner = () => {
             {fallbackToALaCarte ? (
               <>
                 <text style={{ fg: theme.muted }}>
-                  ✓ Credit spending enabled. You can continue using your credits.
+                  ✓ El uso de créditos está activado. Puedes continuar usando
+                  tus créditos.
                 </text>
                 <box style={{ flexDirection: 'row', gap: 2 }}>
                   <Button onClick={handleContinueWithCredits}>
-                    <text style={{ fg: theme.background, bg: theme.foreground }}>
-                      {' '}Continue with credits ({remainingBalance.toLocaleString()}){' '}
+                    <text
+                      style={{ fg: theme.background, bg: theme.foreground }}
+                    >
+                      {' '}
+                      Continuar con créditos (
+                      {remainingBalance.toLocaleString()}){' '}
                     </text>
                   </Button>
                   {canUpgrade ? (
                     <Button onClick={handleUpgrade}>
-                      <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Upgrade Plan ↗{' '}</text>
+                      <text
+                        style={{ fg: theme.background, bg: theme.foreground }}
+                      >
+                        {' '}
+                        Mejorar plan ↗{' '}
+                      </text>
                     </Button>
                   ) : (
                     <Button onClick={handleBuyCredits}>
-                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>
+                        {' '}
+                        Comprar créditos ↗{' '}
+                      </text>
                     </Button>
                   )}
                 </box>
-                <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
+                <Button
+                  onClick={handleToggleFallbackToALaCarte}
+                  disabled={updatePreference.isPending}
+                >
                   <text style={{ fg: theme.muted }}>
-                    {updatePreference.isPending ? '[updating...]' : '[disable credit spending]'}
+                    {updatePreference.isPending
+                      ? '[actualizando...]'
+                      : '[desactivar uso de créditos]'}
                   </text>
                 </Button>
               </>
             ) : (
               <>
                 <text style={{ fg: theme.warning }}>
-                  Credit spending is disabled. Enable it to continue.
+                  El uso de créditos está desactivado. Actívalo para continuar.
                 </text>
                 <box style={{ flexDirection: 'row', gap: 2 }}>
-                  <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
-                    <text style={{ fg: theme.background, bg: theme.foreground }}>
-                      {updatePreference.isPending ? ' Enabling... ' : ' Enable Credit Spending '}
+                  <Button
+                    onClick={handleToggleFallbackToALaCarte}
+                    disabled={updatePreference.isPending}
+                  >
+                    <text
+                      style={{ fg: theme.background, bg: theme.foreground }}
+                    >
+                      {updatePreference.isPending
+                        ? ' Activando... '
+                        : ' Activar uso de créditos '}
                     </text>
                   </Button>
                   {canUpgrade ? (
                     <Button onClick={handleUpgrade}>
-                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>
+                        {' '}
+                        Mejorar plan ↗{' '}
+                      </text>
                     </Button>
                   ) : (
                     <Button onClick={handleBuyCredits}>
-                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>
+                        {' '}
+                        Comprar créditos ↗{' '}
+                      </text>
                     </Button>
                   )}
                 </box>
                 <text style={{ fg: theme.muted }}>
-                  You have {remainingBalance.toLocaleString()} credits available.
+                  Tienes {remainingBalance.toLocaleString()} créditos
+                  disponibles.
                 </text>
               </>
             )}
           </box>
         ) : (
           <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
-            <text style={{ fg: theme.muted }}>No a-la-carte credits available.</text>
+            <text style={{ fg: theme.muted }}>
+              No hay créditos adicionales disponibles.
+            </text>
             {canUpgrade ? (
               <Button onClick={handleUpgrade}>
-                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
+                <text style={{ fg: theme.background, bg: theme.muted }}>
+                  {' '}
+                  Mejorar plan ↗{' '}
+                </text>
               </Button>
             ) : (
               <Button onClick={handleBuyCredits}>
-                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                <text style={{ fg: theme.background, bg: theme.muted }}>
+                  {' '}
+                  Comprar créditos ↗{' '}
+                </text>
               </Button>
             )}
           </box>

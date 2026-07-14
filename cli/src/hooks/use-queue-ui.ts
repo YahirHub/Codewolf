@@ -1,7 +1,6 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { useMemo } from 'react'
 
-
 import { formatQueuedPreview } from '../utils/helpers'
 
 import type { QueuedMessage } from './use-message-queue'
@@ -30,17 +29,17 @@ export const useQueueUi = ({
 
   const pausedQueueText = useMemo(() => {
     if (!queuePaused || queuedCount === 0) return undefined
-    return `${pluralize(queuedCount, 'message')} queued — your next message sends first`
+    return `${queuedCount} mensaje${queuedCount === 1 ? '' : 's'} en cola — tu próximo mensaje se enviará primero`
   }, [queuePaused, queuedCount])
 
   const inputPlaceholder = useMemo(() => {
     const base =
       terminalWidth < 65
-        ? 'Enter a coding task'
-        : 'Enter a coding task or / for commands'
+        ? 'Escribe una tarea de programación'
+        : 'Escribe una tarea de programación o / para ver comandos'
 
     if (queuePaused && queuedCount > 0) {
-      return 'Ctrl-C to cancel queued messages'
+      return 'Ctrl+C cancela los mensajes en cola'
     }
 
     return base

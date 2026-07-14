@@ -626,7 +626,9 @@ export const Chat = ({
       })
       onSubmitPrompt(prompt, agentMode).catch((error) => {
         logger.error({ error }, '[suggested-prompt] Failed to submit prompt')
-        showClipboardMessage('Failed to send prompt', { durationMs: 3000 })
+        showClipboardMessage('No se pudo enviar la solicitud', {
+          durationMs: 3000,
+        })
       })
     },
   )
@@ -671,7 +673,9 @@ export const Chat = ({
             { error },
             '[followup-click] onSubmitPrompt failed with error',
           )
-          showClipboardMessage('Failed to send followup', { durationMs: 3000 })
+          showClipboardMessage('No se pudo enviar la continuación', {
+            durationMs: 3000,
+          })
         })
     }
 
@@ -968,7 +972,7 @@ export const Chat = ({
         .then((result) => handleCommandResult(result))
         .catch((error) => {
           logger.error({ error }, '[review] Failed to submit review prompt')
-          showClipboardMessage('Failed to send review request', {
+          showClipboardMessage('No se pudo enviar la solicitud de revisión', {
             durationMs: 3000,
           })
         })
@@ -1312,7 +1316,7 @@ export const Chat = ({
           const result = readClipboardImage()
           if (!result.success || !result.imagePath) {
             useChatStore.getState().removePendingImage(placeholderPath)
-            showClipboardMessage(result.error || 'Failed to paste image', {
+            showClipboardMessage(result.error || 'No se pudo pegar la imagen', {
               durationMs: 3000,
             })
             return
@@ -1322,7 +1326,9 @@ export const Chat = ({
           addPendingImageFromFile(result.imagePath, cwd, placeholderPath).catch(
             (error) => {
               logger.error({ error }, 'Failed to add pending image from file')
-              showClipboardMessage('Failed to add image', { durationMs: 3000 })
+              showClipboardMessage('No se pudo agregar la imagen', {
+                durationMs: 3000,
+              })
             },
           )
         }, 0)
@@ -1331,7 +1337,9 @@ export const Chat = ({
         const cwd = getProjectRoot() ?? process.cwd()
         validateAndAddImage(imagePath, cwd).catch((error) => {
           logger.error({ error, imagePath }, 'Failed to validate and add image')
-          showClipboardMessage('Failed to add image', { durationMs: 3000 })
+          showClipboardMessage('No se pudo agregar la imagen', {
+            durationMs: 3000,
+          })
         })
       },
       onPasteFilePath: (filePath: string, isDirectory: boolean) => {
@@ -1812,7 +1820,7 @@ export const Chat = ({
                   })
                   // Show temporary status message
                   showClipboardMessage(
-                    `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
+                    `📋 Texto pegado (${pastedText.length.toLocaleString()} caracteres)`,
                     { durationMs: 5000 },
                   )
                 },

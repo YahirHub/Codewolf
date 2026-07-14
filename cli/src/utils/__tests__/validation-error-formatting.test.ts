@@ -69,7 +69,7 @@ describe('formatValidationError', () => {
     const result = formatValidationError('')
 
     expect(result.fieldName).toBeUndefined()
-    expect(result.message).toBe('Unknown validation error')
+    expect(result.message).toBe('Error de validación desconocido')
   })
 
   test('handles JSON object (not array) with error', () => {

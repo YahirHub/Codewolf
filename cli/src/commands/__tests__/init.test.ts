@@ -68,25 +68,26 @@ describe('handleInitializationFlowLocally', () => {
       // Check message indicates creation
       const messages = postUserMessage([])
       expect(messages.length).toBeGreaterThan(0)
-      expect(getMessageText(messages)).toContain('✅ Created `knowledge.md`')
+      expect(getMessageText(messages)).toContain('✅ Se creó `knowledge.md`')
     })
 
     test('skips knowledge.md creation when it already exists', () => {
-      existsSyncSpy.mockImplementation((p: unknown) =>
-        p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+      existsSyncSpy.mockImplementation(
+        (p: unknown) => p === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
 
       const { postUserMessage } = handleInitializationFlowLocally()
 
       // writeFileSync should not be called for knowledge.md
       const knowledgeWriteCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
       expect(knowledgeWriteCalls.length).toBe(0)
 
       // Check message indicates file already exists
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `knowledge.md` already exists')
+      expect(getMessageText(messages)).toContain('📋 `knowledge.md` ya existe')
     })
   })
 
@@ -102,24 +103,25 @@ describe('handleInitializationFlowLocally', () => {
       )
 
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('✅ Created `.agents/`')
+      expect(getMessageText(messages)).toContain('✅ Se creó `.agents/`')
     })
 
     test('skips .agents directory creation when it already exists', () => {
-      existsSyncSpy.mockImplementation((p: unknown) =>
-        p === path.join(TEST_PROJECT_ROOT, '.agents'),
+      existsSyncSpy.mockImplementation(
+        (p: unknown) => p === path.join(TEST_PROJECT_ROOT, '.agents'),
       )
 
       const { postUserMessage } = handleInitializationFlowLocally()
 
       // mkdirSync should not be called for .agents directory
       const agentsDirCalls = mkdirSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, '.agents'),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, '.agents'),
       )
       expect(agentsDirCalls.length).toBe(0)
 
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `.agents/` already exists')
+      expect(getMessageText(messages)).toContain('📋 `.agents/` ya existe')
     })
   })
 
@@ -135,7 +137,7 @@ describe('handleInitializationFlowLocally', () => {
       )
 
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('✅ Created `.agents/types/`')
+      expect(getMessageText(messages)).toContain('✅ Se creó `.agents/types/`')
     })
 
     test('skips .agents/types directory creation when it already exists', () => {
@@ -151,12 +153,15 @@ describe('handleInitializationFlowLocally', () => {
 
       // mkdirSync should not be called for .agents/types directory
       const typesDirCalls = mkdirSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, '.agents', 'types'),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, '.agents', 'types'),
       )
       expect(typesDirCalls.length).toBe(0)
 
       const messages = postUserMessage([])
-      expect(getMessageText(messages)).toContain('📋 `.agents/types/` already exists')
+      expect(getMessageText(messages)).toContain(
+        '📋 `.agents/types/` ya existe',
+      )
     })
   })
 
@@ -169,8 +174,8 @@ describe('handleInitializationFlowLocally', () => {
       // Check that writeFileSync was called for type files
       const typeFiles = ['agent-definition.ts', 'tools.ts', 'util-types.ts']
       for (const fileName of typeFiles) {
-        const fileCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-          (call[0] as string).endsWith(fileName),
+        const fileCalls = writeFileSyncSpy.mock.calls.filter(
+          (call: unknown[]) => (call[0] as string).endsWith(fileName),
         )
         expect(fileCalls.length).toBe(1)
       }
@@ -195,7 +200,8 @@ describe('handleInitializationFlowLocally', () => {
 
       // agent-definition.ts should NOT be written
       const agentDefCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => (call[0] as string).endsWith('agent-definition.ts'),
+        (call: unknown[]) =>
+          (call[0] as string).endsWith('agent-definition.ts'),
       )
       expect(agentDefCalls.length).toBe(0)
 
@@ -205,14 +211,14 @@ describe('handleInitializationFlowLocally', () => {
       )
       expect(toolsCalls.length).toBe(1)
 
-      const utilTypesCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-        (call[0] as string).endsWith('util-types.ts'),
+      const utilTypesCalls = writeFileSyncSpy.mock.calls.filter(
+        (call: unknown[]) => (call[0] as string).endsWith('util-types.ts'),
       )
       expect(utilTypesCalls.length).toBe(1)
 
       const messages = postUserMessage([])
       expect(getMessageText(messages)).toContain(
-        '📋 `.agents/types/agent-definition.ts` already exists',
+        '📋 `.agents/types/agent-definition.ts` ya existe',
       )
     })
   })
@@ -272,7 +278,9 @@ describe('handleInitializationFlowLocally', () => {
       const messageContent = getMessageText(messages)
 
       // Should have error message for tools.ts
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/tools.ts`')
+      expect(messageContent).toContain(
+        '⚠️ No se pudo copiar `.agents/types/tools.ts`',
+      )
       expect(messageContent).toContain('Permission denied')
     })
 
@@ -300,7 +308,9 @@ describe('handleInitializationFlowLocally', () => {
 
       // The function should throw when .agents directory creation fails
       // since mkdirSync is not wrapped in try-catch
-      expect(() => handleInitializationFlowLocally()).toThrow('Cannot create directory')
+      expect(() => handleInitializationFlowLocally()).toThrow(
+        'Cannot create directory',
+      )
     })
 
     test('handles mkdirSync errors for .agents/types directory gracefully', () => {
@@ -316,7 +326,9 @@ describe('handleInitializationFlowLocally', () => {
       })
 
       // The function should throw when .agents/types directory creation fails
-      expect(() => handleInitializationFlowLocally()).toThrow('Permission denied for types dir')
+      expect(() => handleInitializationFlowLocally()).toThrow(
+        'Permission denied for types dir',
+      )
     })
 
     test('continues copying other files when one type file fails', () => {
@@ -333,12 +345,16 @@ describe('handleInitializationFlowLocally', () => {
       const messageContent = getMessageText(messages)
 
       // Should have error for agent-definition.ts
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/agent-definition.ts`')
+      expect(messageContent).toContain(
+        '⚠️ No se pudo copiar `.agents/types/agent-definition.ts`',
+      )
       expect(messageContent).toContain('File locked')
 
       // But should still succeed for tools.ts and util-types.ts
-      expect(messageContent).toContain('✅ Copied `.agents/types/tools.ts`')
-      expect(messageContent).toContain('✅ Copied `.agents/types/util-types.ts`')
+      expect(messageContent).toContain('✅ Se copió `.agents/types/tools.ts`')
+      expect(messageContent).toContain(
+        '✅ Se copió `.agents/types/util-types.ts`',
+      )
     })
 
     test('handles non-Error exceptions in type file copying', () => {
@@ -355,7 +371,9 @@ describe('handleInitializationFlowLocally', () => {
       const messageContent = getMessageText(messages)
 
       // Should handle non-Error exceptions gracefully
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/util-types.ts`')
+      expect(messageContent).toContain(
+        '⚠️ No se pudo copiar `.agents/types/util-types.ts`',
+      )
       expect(messageContent).toContain('string error')
     })
 
@@ -372,9 +390,11 @@ describe('handleInitializationFlowLocally', () => {
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      // Should handle null exceptions with 'Unknown' fallback
-      expect(messageContent).toContain('⚠️ Failed to copy `.agents/types/tools.ts`')
-      expect(messageContent).toContain('Unknown')
+      // Should handle null exceptions with 'Desconocido' fallback
+      expect(messageContent).toContain(
+        '⚠️ No se pudo copiar `.agents/types/tools.ts`',
+      )
+      expect(messageContent).toContain('Desconocido')
     })
   })
 
@@ -395,7 +415,8 @@ describe('handleInitializationFlowLocally', () => {
 
       // Should NOT create knowledge.md
       const knowledgeWriteCalls = writeFileSyncSpy.mock.calls.filter(
-        (call: unknown[]) => call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
+        (call: unknown[]) =>
+          call[0] === path.join(TEST_PROJECT_ROOT, KNOWLEDGE_FILE_NAME),
       )
       expect(knowledgeWriteCalls.length).toBe(0)
 
@@ -412,17 +433,17 @@ describe('handleInitializationFlowLocally', () => {
       expect(typesDirCalls.length).toBe(1)
 
       // Should copy type files
-      const typeFileCalls = writeFileSyncSpy.mock.calls.filter((call: unknown[]) =>
-        (call[0] as string).startsWith(typesDir),
+      const typeFileCalls = writeFileSyncSpy.mock.calls.filter(
+        (call: unknown[]) => (call[0] as string).startsWith(typesDir),
       )
       expect(typeFileCalls.length).toBe(3)
 
       const messages = postUserMessage([])
       const messageContent = getMessageText(messages)
 
-      expect(messageContent).toContain('📋 `knowledge.md` already exists')
-      expect(messageContent).toContain('📋 `.agents/` already exists')
-      expect(messageContent).toContain('✅ Created `.agents/types/`')
+      expect(messageContent).toContain('📋 `knowledge.md` ya existe')
+      expect(messageContent).toContain('📋 `.agents/` ya existe')
+      expect(messageContent).toContain('✅ Se creó `.agents/types/`')
     })
 
     test('handles fully initialized project correctly', () => {
@@ -439,17 +460,15 @@ describe('handleInitializationFlowLocally', () => {
       const messageContent = getMessageText(messages)
 
       // All messages should indicate existing files
-      expect(messageContent).toContain('📋 `knowledge.md` already exists')
-      expect(messageContent).toContain('📋 `.agents/` already exists')
-      expect(messageContent).toContain('📋 `.agents/types/` already exists')
+      expect(messageContent).toContain('📋 `knowledge.md` ya existe')
+      expect(messageContent).toContain('📋 `.agents/` ya existe')
+      expect(messageContent).toContain('📋 `.agents/types/` ya existe')
       expect(messageContent).toContain(
-        '📋 `.agents/types/agent-definition.ts` already exists',
+        '📋 `.agents/types/agent-definition.ts` ya existe',
       )
+      expect(messageContent).toContain('📋 `.agents/types/tools.ts` ya existe')
       expect(messageContent).toContain(
-        '📋 `.agents/types/tools.ts` already exists',
-      )
-      expect(messageContent).toContain(
-        '📋 `.agents/types/util-types.ts` already exists',
+        '📋 `.agents/types/util-types.ts` ya existe',
       )
     })
   })

@@ -50,9 +50,11 @@ export async function fetchUserDetails<T extends UserField>({
   if (!response.ok) {
     logger.error(
       { status: response.status, fields },
-      'Failed to fetch user details from /api/v1/me',
+      'No se pudieron obtener los datos del usuario desde /api/v1/me',
     )
-    throw new Error(`Failed to fetch user details (HTTP ${response.status})`)
+    throw new Error(
+      `No se pudieron obtener los datos del usuario (HTTP ${response.status})`,
+    )
   }
 
   return response.data ?? null
@@ -78,7 +80,7 @@ export function useUserDetailsQuery<T extends UserField>({
     queryKey: userDetailsQueryKeys.fields(fields),
     queryFn: async () => {
       if (!authToken) {
-        throw new Error('No auth token available')
+        throw new Error('No hay un token de autenticación disponible')
       }
       return fetchUserDetails({ authToken, fields, logger })
     },

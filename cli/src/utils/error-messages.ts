@@ -5,36 +5,39 @@ import { sanitizeErrorMessage, getErrorStatusCode } from '@codebuff/sdk'
  *
  * The goal is to provide clear, consistent messaging across the CLI.
  */
-export function formatErrorForDisplay(error: unknown, fallbackTitle: string): string {
+export function formatErrorForDisplay(
+  error: unknown,
+  fallbackTitle: string,
+): string {
   const statusCode = getErrorStatusCode(error)
 
   // Authentication-specific messaging based on statusCode
   if (statusCode === 401) {
-    return `${fallbackTitle}: Authentication failed. Please check your API key.`
+    return `${fallbackTitle}: Falló la autenticación. Revisa tu API key.`
   }
   if (statusCode === 403) {
-    return `${fallbackTitle}: Access forbidden. You do not have permission to access this resource.`
+    return `${fallbackTitle}: Acceso prohibido. No tienes permiso para acceder a este recurso.`
   }
 
   // Network/server error messaging based on statusCode
   if (statusCode !== undefined) {
     if (statusCode === 408) {
-      return `${fallbackTitle}: Request timed out. Please check your internet connection.`
+      return `${fallbackTitle}: La solicitud agotó el tiempo de espera. Revisa tu conexión a internet.`
     }
     if (statusCode === 503) {
-      return `${fallbackTitle}: Service unavailable. The server may be down.`
+      return `${fallbackTitle}: Servicio no disponible. Es posible que el servidor esté caído.`
     }
     if (statusCode >= 500) {
-      return `${fallbackTitle}: Server error. Please try again later.`
+      return `${fallbackTitle}: Error del servidor. Inténtalo más tarde.`
     }
     if (statusCode === 429) {
-      return `${fallbackTitle}: Rate limited. Please try again later.`
+      return `${fallbackTitle}: Límite de solicitudes alcanzado. Inténtalo más tarde.`
     }
   }
 
   // Generic Error instance
   if (error instanceof Error) {
-    const message = error.message || 'An unexpected error occurred.'
+    const message = error.message || 'Ocurrió un error inesperado.'
     return `${fallbackTitle}: ${message}`
   }
 
@@ -49,13 +52,16 @@ export function formatErrorForDisplay(error: unknown, fallbackTitle: string): st
  * Example output:
  *   "⚠️ Network error: Server error. Please try again later. • 3 messages will retry when connection is restored"
  */
-export function formatRetryBannerMessage(error: unknown, pendingCount: number): string {
-  const baseTitle = 'Network error'
+export function formatRetryBannerMessage(
+  error: unknown,
+  pendingCount: number,
+): string {
+  const baseTitle = 'Error de red'
   const formatted = formatErrorForDisplay(error, baseTitle)
 
   const suffix =
     pendingCount > 0
-      ? ` • ${pendingCount} message${pendingCount === 1 ? '' : 's'} will retry when connection is restored`
+      ? ` • ${pendingCount} mensaje${pendingCount === 1 ? '' : 's'} se reintentará${pendingCount === 1 ? '' : 'n'} cuando se restablezca la conexión`
       : ''
 
   return `⚠️ ${formatted}${suffix}`

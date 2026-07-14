@@ -29,7 +29,9 @@ export const ToolBranch = memo(
   }: ToolBranchProps) => {
     const theme = useTheme()
     // Derive streaming boolean for this specific tool to avoid re-renders when other tools/agents change
-    const isStreaming = useChatStore((state) => state.streamingAgents.has(toolBlock.toolCallId))
+    const isStreaming = useChatStore((state) =>
+      state.streamingAgents.has(toolBlock.toolCallId),
+    )
 
     const sanitizePreview = (value: string): string =>
       value.replace(/[#*_`~\[\]()]/g, '').trim()
@@ -45,7 +47,7 @@ export const ToolBranch = memo(
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    
+
     // Check if there's a registered custom component for this tool
     const toolRenderConfig = renderToolComponent(toolBlock, theme, {
       availableWidth,
@@ -53,17 +55,20 @@ export const ToolBranch = memo(
       previewPrefix: '',
       labelWidth: 0,
     })
-    
+
     // Tools without a registered component (fallback rendering) should be collapsed by default
     const hasRegisteredComponent = toolRenderConfig !== undefined
-    const isCollapsed = toolBlock.isCollapsed ?? 
-      (hasRegisteredComponent ? shouldCollapseToolByDefault(toolBlock.toolName) : true)
+    const isCollapsed =
+      toolBlock.isCollapsed ??
+      (hasRegisteredComponent
+        ? shouldCollapseToolByDefault(toolBlock.toolName)
+        : true)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
       toolBlock.toolName === 'run_terminal_command' ? '' : 'yaml'
     const resultContent = toolBlock.output
-      ? `\n\n**Result:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
+      ? `\n\n**Resultado:**\n\`\`\`${codeBlockLang}\n${toolBlock.output}\n\`\`\``
       : ''
     const fullContent = inputContent + resultContent
 
@@ -80,7 +85,7 @@ export const ToolBranch = memo(
         : null
 
     const streamingPreview = isStreaming
-      ? commandPreview ?? `${sanitizePreview(firstLine)}...`
+      ? (commandPreview ?? `${sanitizePreview(firstLine)}...`)
       : ''
 
     const getToolFinishedPreview = useCallback(
@@ -105,8 +110,8 @@ export const ToolBranch = memo(
     )
 
     const finishedPreview = !isStreaming
-      ? toolRenderConfig?.collapsedPreview ??
-        getToolFinishedPreview(commandPreview, lastLine)
+      ? (toolRenderConfig?.collapsedPreview ??
+        getToolFinishedPreview(commandPreview, lastLine))
       : ''
 
     const agentMarkdownOptions = {

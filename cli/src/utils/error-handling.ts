@@ -52,8 +52,7 @@ export const isOutOfCreditsError = (error: unknown): boolean => {
 export const isFreeModeUnavailableError = (error: unknown): boolean => {
   const details = getCliApiErrorDetails(error)
   return (
-    details.statusCode === 403 &&
-    details.errorCode === 'free_mode_unavailable'
+    details.statusCode === 403 && details.errorCode === 'free_mode_unavailable'
   )
 }
 
@@ -165,20 +164,17 @@ export const getCountryBlockFromFreeModeError = (
         ? (errorDetails.countryBlockReason as FreebuffCountryBlockReason)
         : undefined,
     ipPrivacySignals: errorDetails.ipPrivacySignals as
-      | FreebuffIpPrivacySignal[]
-      | undefined,
+      FreebuffIpPrivacySignal[] | undefined,
   }
 }
 
-export const getFreeModeUnavailableErrorMessage = (
-  error: unknown,
-): string => {
+export const getFreeModeUnavailableErrorMessage = (error: unknown): string => {
   const details = getCliApiErrorDetails(error)
   const block = getCountryBlockFromFreeModeError(error)
   if (block?.countryBlockReason === 'anonymous_network') {
-    return `${IS_FREEBUFF ? 'Freebuff' : 'Free mode'} cannot be used from ${formatFreebuffHardBlockedPrivacySignals(
+    return `${IS_FREEBUFF ? 'Freebuff' : 'El modo gratuito'} no puede usarse con tráfico de ${formatFreebuffHardBlockedPrivacySignals(
       block.ipPrivacySignals,
-    )} traffic. Please disable it and try again.`
+    )}. Desactívalo e inténtalo de nuevo.`
   }
   return details.message ?? FREE_MODE_UNAVAILABLE_MESSAGE
 }
@@ -225,20 +221,20 @@ export const getFreebuffGateErrorKind = (
   return errorCode as FreebuffGateErrorKind
 }
 
-export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
+export const OUT_OF_CREDITS_MESSAGE = `Sin créditos. Agrega créditos en ${defaultAppUrl}/usage`
 
 export const FREEBUFF_RATE_LIMIT_MESSAGE =
-  'Freebuff is temporarily busy. Please try again in a moment.'
+  'Freebuff está ocupado temporalmente. Inténtalo de nuevo en un momento.'
 
 export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_FREEBUFF
-  ? 'Freebuff is not available in your country.'
-  : 'Free mode is not available in your country. You can use another mode to continue.'
+  ? 'Freebuff no está disponible en tu país.'
+  : 'El modo gratuito no está disponible en tu país. Puedes usar otro modo para continuar.'
 
 export const createErrorMessage = (
   error: unknown,
   aiMessageId: string,
 ): Partial<ChatMessage> => {
-  const message = extractErrorMessage(error, 'Unknown error occurred')
+  const message = extractErrorMessage(error, 'Ocurrió un error desconocido')
 
   return {
     id: aiMessageId,

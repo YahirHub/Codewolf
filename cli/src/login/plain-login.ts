@@ -3,11 +3,7 @@ import { cyan, green, red, yellow, bold } from 'picocolors'
 
 import { LOGIN_WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
-import {
-  flushAnalytics,
-  identifyUser,
-  trackEvent,
-} from '../utils/analytics'
+import { flushAnalytics, identifyUser, trackEvent } from '../utils/analytics'
 import { saveUserCredentials } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
@@ -27,9 +23,15 @@ export async function runPlainLogin(): Promise<void> {
   const fingerprintId = await getFingerprintId()
 
   console.log()
-  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codewolf Login'))
+  console.log(
+    bold(
+      IS_FREEBUFF
+        ? 'Inicio de sesión de Freebuff'
+        : 'Inicio de sesión de Codewolf',
+    ),
+  )
   console.log()
-  console.log('Generating login URL...')
+  console.log('Generando URL de inicio de sesión...')
 
   let loginData
   try {
@@ -40,7 +42,7 @@ export async function runPlainLogin(): Promise<void> {
   } catch (error) {
     console.error(
       red(
-        `Failed to generate login URL: ${
+        `No se pudo generar la URL de inicio de sesión: ${
           error instanceof Error ? error.message : String(error)
         }`,
       ),
@@ -49,13 +51,17 @@ export async function runPlainLogin(): Promise<void> {
   }
 
   console.log()
-  console.log('Open this URL in your browser to log in:')
+  console.log('Abre esta URL en el navegador para iniciar sesión:')
   console.log()
   console.log(cyan(loginData.loginUrl))
   console.log()
-  console.log(yellow('Please open the URL above manually to complete login.'))
+  console.log(
+    yellow(
+      'Abre manualmente la URL anterior para completar el inicio de sesión.',
+    ),
+  )
   console.log()
-  console.log('Waiting for login...')
+  console.log('Esperando el inicio de sesión...')
 
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => {
@@ -93,16 +99,18 @@ export async function runPlainLogin(): Promise<void> {
     }
 
     console.log()
-    console.log(green(`✓ Logged in as ${user.name} (${user.email})`))
+    console.log(green(`✓ Sesión iniciada como ${user.name} (${user.email})`))
     console.log()
-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
-    console.log('You can now run ' + cyan(cliName) + ' to start.')
+    const cliName = IS_FREEBUFF ? 'freebuff' : 'codewolf'
+    console.log('Ahora puedes ejecutar ' + cyan(cliName) + ' para iniciar.')
     process.exit(0)
   } else if (result.status === 'timeout') {
-    console.error(red('Login timed out. Please try again.'))
+    console.error(
+      red('El inicio de sesión agotó el tiempo de espera. Inténtalo de nuevo.'),
+    )
     process.exit(1)
   } else {
-    console.error(red('Login was aborted.'))
+    console.error(red('El inicio de sesión fue cancelado.'))
     process.exit(1)
   }
 }

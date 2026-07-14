@@ -50,7 +50,8 @@ export interface FreebuffModelOption {
 /** Server-facing fallback copy for APIs and provider errors that can't know
  *  the caller's local timezone. The CLI should render
  *  `getFreebuffDeploymentAvailabilityLabel()` instead. */
-export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
+export const FREEBUFF_DEPLOYMENT_HOURS_LABEL =
+  '9 a. m. ET-5 p. m. PT todos los días'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
@@ -179,12 +180,13 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
  *  that carries this exact `warning` is both shown the caveat in the picker AND
  *  has its chat-completion traces stored in free mode (see
  *  FREEBUFF_TRACED_MODEL_IDS, which is derived from it) — the two can't drift. */
-export const FREEBUFF_DATA_COLLECTION_WARNING = 'Collects data for training'
+export const FREEBUFF_DATA_COLLECTION_WARNING =
+  'Recopila datos para entrenamiento'
 
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',
-  tagline: 'Smartest',
+  tagline: 'El más inteligente',
   availability: 'always',
   warning: FREEBUFF_DATA_COLLECTION_WARNING,
   premium: true,
@@ -194,7 +196,7 @@ const DEEPSEEK_V4_PRO_MODEL = {
 const MIMO_V25_PRO_MODEL = {
   id: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   displayName: 'MiMo 2.5 Pro',
-  tagline: 'Smartest & Slow',
+  tagline: 'Muy inteligente y lento',
   availability: 'always',
   premium: true,
   multimodal: true,
@@ -203,7 +205,7 @@ const MIMO_V25_PRO_MODEL = {
 const KIMI_MODEL = {
   id: FREEBUFF_KIMI_MODEL_ID,
   displayName: 'Kimi K2.7 Code',
-  tagline: 'Best for coding',
+  tagline: 'Ideal para programar',
   availability: 'always',
   premium: true,
   multimodal: true,
@@ -212,7 +214,7 @@ const KIMI_MODEL = {
 const HY3_MODEL = {
   id: FREEBUFF_HY3_MODEL_ID,
   displayName: 'HY3',
-  tagline: 'Trialing its performance',
+  tagline: 'Rendimiento en evaluación',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -222,7 +224,7 @@ const HY3_MODEL = {
 const HY3_ATLAS_MODEL = {
   id: FREEBUFF_HY3_ATLAS_MODEL_ID,
   displayName: 'HY3 Atlas',
-  tagline: 'Direct via Atlas Cloud',
+  tagline: 'Directo mediante Atlas Cloud',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -232,7 +234,7 @@ const HY3_ATLAS_MODEL = {
 const KAT_CODER_PRO_V2_MODEL = {
   id: FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   displayName: 'KAT Coder Pro V2',
-  tagline: 'Coding test model',
+  tagline: 'Modelo de prueba para código',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -251,7 +253,7 @@ const MIMO_V25_MODEL = {
 const DEEPSEEK_V4_FLASH_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   displayName: 'DeepSeek V4 Flash',
-  tagline: 'Smart & Fast',
+  tagline: 'Inteligente y rápido',
   availability: 'always',
   warning: FREEBUFF_DATA_COLLECTION_WARNING,
   premium: false,
@@ -261,7 +263,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
-  tagline: 'Smartest & Fastest',
+  tagline: 'Muy inteligente y rápido',
   availability: 'always',
   // No data-collection warning: M3 is served by Fireworks (no provider-side
   // training). Omitting the warning also keeps it out of FREEBUFF_TRACED_MODEL_IDS,
@@ -273,7 +275,7 @@ const MINIMAX_M3_MODEL = {
 const GLM_V52_MODEL = {
   id: FREEBUFF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
-  tagline: 'Unlock by referring friends',
+  tagline: 'Desbloquéalo invitando amigos',
   availability: 'always',
   // No data-collection warning: served by Fireworks (no provider-side
   // training), and omitting it keeps GLM out of FREEBUFF_TRACED_MODEL_IDS.
@@ -558,9 +560,12 @@ export function isFreebuffModelAllowedForAccessTier(
 export function isFreebuffSessionModelId(
   id: string | null | undefined,
 ): id is SupportedFreebuffModelId | FreebuffWebModelId {
-  return isSupportedFreebuffModelId(id) || isFreebuffWebModelId(id, {
-    includeGodOnly: true,
-  })
+  return (
+    isSupportedFreebuffModelId(id) ||
+    isFreebuffWebModelId(id, {
+      includeGodOnly: true,
+    })
+  )
 }
 
 export function isFreebuffSessionModelAllowedForAccessTier(
@@ -824,11 +829,11 @@ export function getFreebuffDeploymentAvailabilityLabel(
 ): string {
   if (isFreebuffDeploymentHours(now)) {
     const closesAt = getCurrentFreebuffDeploymentEnd(now)
-    return `until ${formatLocalTime(closesAt, now, options)}`
+    return `hasta ${formatLocalTime(closesAt, now, options)}`
   }
 
   const opensAt = getNextFreebuffDeploymentStart(now)
-  return `opens ${formatLocalTime(opensAt, now, options)}`
+  return `abre a las ${formatLocalTime(opensAt, now, options)}`
 }
 
 export function isFreebuffDeploymentHours(now: Date = new Date()): boolean {

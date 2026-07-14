@@ -44,17 +44,17 @@ export const FreebuffSupersededScreen: React.FC = () => {
         style={{ fg: theme.foreground, marginBottom: 1 }}
         attributes={TextAttributes.BOLD}
       >
-        Another freebuff instance took over this account.
+        Otra instancia de Freebuff tomó el control de esta cuenta.
       </text>
       <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-        Only one CLI per account can be active at a time.
+        Solo puede haber un CLI activo por cuenta a la vez.
       </text>
       <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-        Close the other instance, then restart freebuff here.
+        Cierra la otra instancia y después reinicia Freebuff aquí.
       </text>
       <box style={{ marginTop: 1 }}>
         <text style={{ fg: theme.muted }}>
-          Press <span fg={theme.primary}>Ctrl+C</span> to exit.
+          Pulsa <span fg={theme.primary}>Ctrl+C</span> para salir.
         </text>
       </box>
     </box>

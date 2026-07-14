@@ -76,8 +76,10 @@ export async function validateApiKey({
     })
 
     if (!authResult) {
-      logger.error('❌ API key validation failed - invalid credentials')
-      throw createAuthError('Invalid API key')
+      logger.error(
+        '❌ Falló la validación de la API key: credenciales no válidas',
+      )
+      throw createAuthError('API key no válida')
     }
 
     return authResult
@@ -85,7 +87,9 @@ export async function validateApiKey({
     const statusCode = getErrorStatusCode(error)
 
     if (isAuthenticationError(error)) {
-      logger.error('❌ API key validation failed - authentication error')
+      logger.error(
+        '❌ Falló la validación de la API key: error de autenticación',
+      )
       // Rethrow the original error to preserve statusCode for higher layers
       throw error
     }
@@ -96,7 +100,7 @@ export async function validateApiKey({
           error: error instanceof Error ? error.message : String(error),
           statusCode,
         },
-        '❌ API key validation failed - network error',
+        '❌ Falló la validación de la API key: error de red',
       )
       // Rethrow the original error to preserve statusCode for higher layers
       throw error
@@ -107,9 +111,9 @@ export async function validateApiKey({
       {
         error: error instanceof Error ? error.message : String(error),
       },
-      '❌ API key validation failed - unknown error',
+      '❌ Falló la validación de la API key: error desconocido',
     )
-    throw createServerError('Authentication failed')
+    throw createServerError('Falló la autenticación')
   }
 }
 
@@ -210,7 +214,7 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
           error: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
         },
-        '❌ Login mutation failed',
+        '❌ Falló el inicio de sesión',
       )
     },
   })
@@ -242,7 +246,7 @@ export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
       delete loggerContext.userEmail
     },
     onError: (error) => {
-      logger.error(error, 'Logout failed')
+      logger.error(error, 'No se pudo cerrar la sesión')
     },
   })
 }

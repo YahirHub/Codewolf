@@ -52,10 +52,10 @@ const formatWatchdog = (
   watchdog: ProcessDiagnosticsSnapshot['watchdog'],
 ): string => {
   if (watchdog.pid) return `PID ${watchdog.pid}`
-  if (!watchdog.armed) return 'not running'
+  if (!watchdog.armed) return 'sin ejecutar'
   return watchdog.external
-    ? 'armed externally (PID unavailable on Windows)'
-    : 'armed'
+    ? 'activado externamente (PID no disponible en Windows)'
+    : 'activado'
 }
 
 export function formatProcessDiagnostics(
@@ -64,25 +64,25 @@ export function formatProcessDiagnostics(
   const cpuSeconds =
     (snapshot.cpuUserMicros + snapshot.cpuSystemMicros) / 1_000_000
   const lines = [
-    `### ${snapshot.product} process diagnostics`,
+    `### Diagnóstico de procesos de ${snapshot.product}`,
     '',
-    `- Version: ${snapshot.version}`,
-    `- Runtime: ${snapshot.runtime}`,
-    `- Platform: ${snapshot.platform} ${snapshot.architecture}`,
-    `- CLI uptime: ${formatDuration(snapshot.uptimeSeconds)}`,
-    `- CLI CPU time: ${cpuSeconds.toFixed(1)}s`,
-    `- CLI memory: ${formatBytes(snapshot.memory.rss)} RSS, ${formatBytes(snapshot.memory.heapUsed)} heap used`,
+    `- Versión: ${snapshot.version}`,
+    `- Entorno de ejecución: ${snapshot.runtime}`,
+    `- Plataforma: ${snapshot.platform} ${snapshot.architecture}`,
+    `- Tiempo activo del CLI: ${formatDuration(snapshot.uptimeSeconds)}`,
+    `- Tiempo de CPU del CLI: ${cpuSeconds.toFixed(1)} s`,
+    `- Memoria del CLI: ${formatBytes(snapshot.memory.rss)} RSS, ${formatBytes(snapshot.memory.heapUsed)} de heap usada`,
     '',
-    'Processes:',
-    `- parent/wrapper: PID ${snapshot.parentPid}`,
-    `- CLI binary: PID ${snapshot.cliPid}`,
-    `- terminal watchdog: ${formatWatchdog(snapshot.watchdog)}`,
+    'Procesos:',
+    `- proceso padre/contenedor: PID ${snapshot.parentPid}`,
+    `- binario del CLI: PID ${snapshot.cliPid}`,
+    `- supervisor de terminal: ${formatWatchdog(snapshot.watchdog)}`,
     '',
-    'Active terminal tools:',
+    'Herramientas de terminal activas:',
   ]
 
   if (snapshot.activeTools.length === 0) {
-    lines.push('- none')
+    lines.push('- ninguno')
   } else {
     for (const child of snapshot.activeTools) {
       lines.push(
@@ -92,7 +92,7 @@ export function formatProcessDiagnostics(
   }
   lines.push(
     '',
-    'Command lines and environment variables are omitted for safety.',
+    'Las líneas de comandos y las variables de entorno se omiten por seguridad.',
   )
   return lines.join('\n')
 }

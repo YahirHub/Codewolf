@@ -66,7 +66,7 @@ export const StrReplaceComponent = defineToolComponent({
     return {
       content: (
         <EditBody
-          name={isCreate ? 'Create' : 'Edit'}
+          name={isCreate ? 'Create' : 'Editar'}
           filePath={filePath}
           diffText={showDiff ? (diff ?? '') : ''}
           isCreate={isCreate}

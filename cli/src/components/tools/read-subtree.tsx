@@ -30,7 +30,7 @@ export const ReadSubtreeComponent = defineToolComponent({
       const theme = useTheme()
       return (
         <SimpleToolCallItem
-          name="List deeply"
+          name="Listar en profundidad"
           description={finalPath}
           descriptionColor={theme.directory}
         />

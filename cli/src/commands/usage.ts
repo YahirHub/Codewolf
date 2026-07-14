@@ -12,7 +12,7 @@ export async function handleUsageCommand(): Promise<{
   if (!authToken) {
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      getSystemMessage('Please log in first to view your usage.'),
+      getSystemMessage('Inicia sesión para consultar tu uso.'),
     ]
     return { postUserMessage }
   }

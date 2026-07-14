@@ -45,22 +45,23 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
     textColorKey: 'foreground',
     relatedInputMode: 'homeDir',
     content:
-      'You are currently in your home directory.\nSelect a project folder to get started, or choose "Start here".',
+      'Actualmente estás en tu carpeta personal.\nSelecciona una carpeta de proyecto para comenzar o elige "Empezar aquí".',
   },
   gitRoot: {
     borderColorKey: 'warning',
     textColorKey: 'foreground',
     layout: 'custom',
     content: ({ gitRoot, onSwitchToGitRoot, textColor }) => {
-      const displayGitRoot = gitRoot ? formatCwd(gitRoot) : 'git root'
+      const displayGitRoot = gitRoot ? formatCwd(gitRoot) : 'raíz de Git'
       return (
         <>
           <text style={{ wrapMode: 'word', fg: textColor }}>
-            You started {IS_FREEBUFF ? 'Freebuff' : 'Codewolf'} in a subdirectory of a git repo.
+            Iniciaste {IS_FREEBUFF ? 'Freebuff' : 'Codewolf'} dentro de un
+            subdirectorio de un repositorio Git.
           </text>
           {gitRoot && onSwitchToGitRoot ? (
             <TerminalLink
-              text={`Switch to git root (${displayGitRoot})`}
+              text={`Cambiar a la raíz de Git (${displayGitRoot})`}
               onActivate={onSwitchToGitRoot}
               underlineOnHover={true}
               lineWrap={true}

@@ -391,12 +391,17 @@ export const announceLoadedAgents = (): void => {
   const agentsDir = findAgentsDirectory()
 
   if (!agentsDir) {
-    logger.debug('[agents] No .agents directory found in this project.')
+    logger.debug(
+      '[agentes] No se encontró un directorio .agents en este proyecto.',
+    )
     return
   }
 
   if (!agents.length) {
-    logger.debug({ agentsDir }, '[agents] No agent files found')
+    logger.debug(
+      { agentsDir },
+      '[agentes] No se encontraron archivos de agentes',
+    )
     return
   }
 

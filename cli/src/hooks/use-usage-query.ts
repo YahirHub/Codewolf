@@ -45,7 +45,7 @@ export async function fetchUsageData({
 }: FetchUsageParams): Promise<UsageResponse> {
   const appUrl = clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
   if (!appUrl) {
-    throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
+    throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL no está configurada')
   }
 
   const response = await fetch(`${appUrl}/api/v1/usage`, {
@@ -62,9 +62,11 @@ export async function fetchUsageData({
   if (!response.ok) {
     logger.error(
       { status: response.status },
-      'Failed to fetch usage data from API',
+      'No se pudieron obtener los datos de uso desde la API',
     )
-    throw new Error(`Failed to fetch usage: ${response.status}`)
+    throw new Error(
+      `No se pudieron obtener los datos de uso: ${response.status}`,
+    )
   }
 
   const responseBody = await response.json()

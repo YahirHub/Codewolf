@@ -20,9 +20,9 @@ export const BuildModeButtons = ({
 }) => {
   if (IS_FREEBUFF) return null
 
-  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | 'lite' | null>(
-    null,
-  )
+  const [hoveredButton, setHoveredButton] = useState<
+    'fast' | 'max' | 'lite' | null
+  >(null)
   const { width } = useTerminalLayout()
   const isNarrow = width.is('xs')
 
@@ -38,7 +38,9 @@ export const BuildModeButtons = ({
     >
       {isNarrow ? null : (
         <text style={{ wrapMode: 'none' }} selectable={false}>
-          <span fg={theme.secondary}>Choose an option to build this plan:</span>
+          <span fg={theme.secondary}>
+            Elige una opción para implementar este plan:
+          </span>
         </text>
       )}
       <box
@@ -63,7 +65,7 @@ export const BuildModeButtons = ({
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
-            <span fg={theme.foreground}>Build DEFAULT</span>
+            <span fg={theme.foreground}>Implementar PREDETERMINADO</span>
           </text>
         </Button>
         <Button
@@ -82,7 +84,7 @@ export const BuildModeButtons = ({
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
-            <span fg={theme.foreground}>Build MAX</span>
+            <span fg={theme.foreground}>Implementar MÁXIMO</span>
           </text>
         </Button>
         <Button
@@ -101,7 +103,7 @@ export const BuildModeButtons = ({
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
-            <span fg={theme.foreground}>Build LITE</span>
+            <span fg={theme.foreground}>Implementar LIGERO</span>
           </text>
         </Button>
       </box>

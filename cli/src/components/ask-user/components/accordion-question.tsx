@@ -66,7 +66,7 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
       answer.selectedIndex !== undefined)
 
   const getAnswerDisplay = (): string => {
-    if (!answer) return '(click to answer)'
+    if (!answer) return '(pulsa para responder)'
 
     if (answer.isCustom && answer.customText) {
       const hadNewlines = /\r?\n/.test(answer.customText)
@@ -74,7 +74,7 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
         .replace(/\r?\n/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-      return `Custom: ${flattenedText}${hadNewlines ? '…' : ''}`
+      return `Personalizada: ${flattenedText}${hadNewlines ? '…' : ''}`
     }
 
     if (isMultiSelect && answer.selectedIndices) {
@@ -83,15 +83,15 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
         .filter(Boolean)
       return selectedLabels.length > 0
         ? selectedLabels.join(', ')
-        : '(click to answer)'
+        : '(pulsa para responder)'
     }
 
     if (answer.selectedIndex !== undefined) {
       const label = getOptionLabel(question.options[answer.selectedIndex])
-      return label || '(click to answer)'
+      return label || '(pulsa para responder)'
     }
 
-    return '(click to answer)'
+    return '(pulsa para responder)'
   }
 
   const isCustomSelected = answer?.isCustom ?? false

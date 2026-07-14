@@ -465,7 +465,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         {},
         '[freebuff-session] No auth token; skipping free-session admission',
       )
-      setError('Not authenticated')
+      setError('No se encontró una sesión autenticada')
       return
     }
 
@@ -666,7 +666,8 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                     landingSession.rateLimitsByModel,
                   // Carry the referral block so the "change model" picker shows
                   // the GLM banner too (the server only attaches it to `none`).
-                  referral: getReferralInfo(response) ?? landingSession.referral,
+                  referral:
+                    getReferralInfo(response) ?? landingSession.referral,
                   countryCode:
                     response.countryCode ?? landingSession.countryCode,
                   countryBlockReason:

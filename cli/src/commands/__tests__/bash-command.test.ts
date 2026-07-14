@@ -424,7 +424,7 @@ describe('bash command', () => {
 
     test('bash mode has correct placeholder', () => {
       const config = getInputModeConfig('bash')
-      expect(config.placeholder).toBe('enter bash command...')
+      expect(config.placeholder).toBe('escribe un comando Bash...')
     })
 
     test('bash mode has width adjustment of 4', () => {

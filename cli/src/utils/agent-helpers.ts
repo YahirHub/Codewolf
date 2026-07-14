@@ -14,14 +14,34 @@ export function getAgentStatusInfo(
 ): StatusInfo {
   switch (status) {
     case 'running':
-      return { indicator: '●', label: 'running', color: theme.primary, text: '● running' }
+      return {
+        indicator: '●',
+        label: 'ejecutando',
+        color: theme.primary,
+        text: '● ejecutando',
+      }
     case 'failed':
-      return { indicator: '✗', label: 'failed', color: 'red', text: '✗ failed' }
+      return { indicator: '✗', label: 'falló', color: 'red', text: '✗ falló' }
     case 'complete':
-      return { indicator: '✓', label: 'completed', color: theme.foreground, text: 'completed ✓' }
+      return {
+        indicator: '✓',
+        label: 'completado',
+        color: theme.foreground,
+        text: 'completado ✓',
+      }
     case 'cancelled':
-      return { indicator: '⊘', label: 'cancelled', color: 'red', text: '⊘ cancelled' }
+      return {
+        indicator: '⊘',
+        label: 'cancelado',
+        color: 'red',
+        text: '⊘ cancelado',
+      }
     default:
-      return { indicator: '○', label: 'waiting', color: theme.muted, text: '○ waiting' }
+      return {
+        indicator: '○',
+        label: 'en espera',
+        color: theme.muted,
+        text: '○ en espera',
+      }
   }
 }

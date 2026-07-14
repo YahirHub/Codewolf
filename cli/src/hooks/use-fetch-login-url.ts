@@ -51,12 +51,16 @@ export function useFetchLoginUrl({
       await safeOpen(data.loginUrl)
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Failed to get login URL')
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo obtener la URL de inicio de sesión',
+      )
       logger.error(
         {
           error: err instanceof Error ? err.message : String(err),
         },
-        'Failed to get login URL',
+        'No se pudo obtener la URL de inicio de sesión',
       )
     },
   })

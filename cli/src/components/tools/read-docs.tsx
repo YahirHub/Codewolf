@@ -30,7 +30,10 @@ export const ReadDocsComponent = defineToolComponent({
 
     return {
       content: (
-        <SimpleToolCallItem name="Read Docs" description={description} />
+        <SimpleToolCallItem
+          name="Leer documentación"
+          description={description}
+        />
       ),
     }
   },

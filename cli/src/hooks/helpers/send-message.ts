@@ -107,7 +107,7 @@ export const finalizeQueueState = (params: FinalizeQueueStateParams): void => {
   updateChainInProgress(false)
 }
 
-const DEFAULT_RUN_OUTPUT_ERROR_MESSAGE = 'No output from agent run'
+const DEFAULT_RUN_OUTPUT_ERROR_MESSAGE = 'El agente no devolvió resultados'
 
 export type PrepareUserMessageDeps = {
   setMessages: (update: SetStateAction<ChatMessage[]>) => void
@@ -547,7 +547,7 @@ export const handleRunError = (params: {
   }
 
   // Use setError for all errors so they display in UserErrorBanner consistently
-  const errorMessage = errorInfo.message || 'An unexpected error occurred'
+  const errorMessage = errorInfo.message || 'Ocurrió un error inesperado'
   updater.setError(errorMessage)
 }
 
@@ -577,7 +577,7 @@ function handleFreebuffGateError(
       // looking sent. Runs that got partway keep the quieter banner-only UX.
       if (opts.messageWasDropped) {
         updater.setError(
-          'Your free session ended before this message was processed. Send it again after starting a new session.',
+          'Tu sesión gratuita terminó antes de procesar este mensaje. Envíalo de nuevo después de iniciar otra sesión.',
         )
       }
       // Flip to `ended` instead of auto re-queuing: the Chat surface stays
@@ -590,7 +590,7 @@ function handleFreebuffGateError(
       // Legacy error code: sessions are admitted immediately now, so this is
       // only reachable in a transient race with a concurrent session request.
       updater.setError(
-        'Your free session is still being set up. Try again in a moment.',
+        'Tu sesión gratuita todavía se está preparando. Inténtalo de nuevo en un momento.',
       )
       // Re-sync without resetting chat — this is a "we'll wait", not a
       // "let's start fresh".
@@ -598,7 +598,7 @@ function handleFreebuffGateError(
       return
     case 'session_superseded':
       updater.setError(
-        'Another freebuff CLI took over this account. Close the other instance, then restart.',
+        'Otra instancia del CLI de Freebuff tomó el control de esta cuenta. Cierra la otra instancia y reinicia.',
       )
       // Terminal state: stop polling and flip UI to a "please restart" screen
       // so we don't silently fight the other instance for the seat.

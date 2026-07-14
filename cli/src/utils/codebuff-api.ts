@@ -1,7 +1,5 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
-import type {
-  PublishAgentsResponse,
-} from '@codebuff/common/types/api/agents/publish'
+import type { PublishAgentsResponse } from '@codebuff/common/types/api/agents/publish'
 import type { FeedbackRequest } from '@codebuff/common/schemas/feedback'
 
 /**
@@ -12,7 +10,12 @@ import type { FeedbackRequest } from '@codebuff/common/schemas/feedback'
  */
 export type ApiResponse<T> =
   | { ok: true; status: number; data?: T }
-  | { ok: false; status: number; error?: string; errorData?: Record<string, unknown> }
+  | {
+      ok: false
+      status: number
+      error?: string
+      errorData?: Record<string, unknown>
+    }
 
 // ============================================================================
 // Type-safe endpoint request/response types
@@ -234,9 +237,9 @@ function formatNetworkErrorMessage(error: Error, method: string, url: string) {
 
   if (tlsCertificateError) {
     return [
-      `TLS certificate verification failed for ${requestUrl.origin}.`,
-      'If your network intercepts HTTPS traffic, install its root certificate into your system trust store or use a network path that does not intercept TLS.',
-      `Original error: ${tlsCertificateError.message} (${method} ${url})`,
+      `Falló la verificación del certificado TLS de ${requestUrl.origin}.`,
+      'Si tu red intercepta el tráfico HTTPS, instala su certificado raíz en el almacén de confianza del sistema o utiliza una conexión que no intercepte TLS.',
+      `Error original: ${tlsCertificateError.message} (${method} ${url})`,
     ].join(' ')
   }
 
@@ -419,7 +422,12 @@ export function createCodebuffApiClient(
           }
         }
 
-        return { ok: false, status: response.status, error: errorMessage, errorData: errorData as Record<string, unknown> | undefined }
+        return {
+          ok: false,
+          status: response.status,
+          error: errorMessage,
+          errorData: errorData as Record<string, unknown> | undefined,
+        }
       } catch (error) {
         clearTimeout(timeoutId)
         lastError = error
@@ -454,7 +462,10 @@ export function createCodebuffApiClient(
     }
 
     // Should not reach here, but just in case
-    throw lastError ?? new Error('Request failed after all retries')
+    throw (
+      lastError ??
+      new Error('La solicitud falló después de todos los reintentos')
+    )
   }
 
   return {
@@ -525,14 +536,19 @@ export function createCodebuffApiClient(
     loginStatus(
       req: LoginStatusRequest,
     ): Promise<ApiResponse<LoginStatusResponse>> {
-      return request<LoginStatusResponse>('GET', '/api/auth/cli/status', undefined, {
-        query: {
-          fingerprintId: req.fingerprintId,
-          fingerprintHash: req.fingerprintHash,
-          expiresAt: req.expiresAt,
+      return request<LoginStatusResponse>(
+        'GET',
+        '/api/auth/cli/status',
+        undefined,
+        {
+          query: {
+            fingerprintId: req.fingerprintId,
+            fingerprintHash: req.fingerprintHash,
+            expiresAt: req.expiresAt,
+          },
+          includeAuth: false,
         },
-        includeAuth: false,
-      })
+      )
     },
 
     publish(

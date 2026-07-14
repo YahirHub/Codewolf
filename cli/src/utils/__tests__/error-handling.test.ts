@@ -167,9 +167,7 @@ describe('error-handling', () => {
     })
 
     test('returns null for string statusCode', () => {
-      expect(getFreebuffRateLimitErrorMessage({ statusCode: '429' })).toBe(
-        null,
-      )
+      expect(getFreebuffRateLimitErrorMessage({ statusCode: '429' })).toBe(null)
     })
 
     test('preserves normalized free mode quota messages', () => {
@@ -331,7 +329,7 @@ describe('error-handling', () => {
   describe('FREE_MODE_UNAVAILABLE_MESSAGE', () => {
     test('mentions unavailability in country', () => {
       expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain(
-        'not available in your country',
+        'no está disponible en tu país',
       )
     })
   })
@@ -380,18 +378,18 @@ describe('error-handling', () => {
     })
 
     test('contains out of credits message', () => {
-      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('out of credits')
+      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('sin créditos')
     })
 
     test('contains add credits instruction', () => {
-      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('add credits')
+      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('agrega créditos')
     })
   })
 
   describe('FREEBUFF_RATE_LIMIT_MESSAGE', () => {
     test('encourages retry without mentioning credits or payment', () => {
       const message = FREEBUFF_RATE_LIMIT_MESSAGE.toLowerCase()
-      expect(message).toContain('try again')
+      expect(message).toContain('inténtalo de nuevo')
       expect(message).not.toContain('credit')
       expect(message).not.toContain('pay')
     })
@@ -426,7 +424,7 @@ describe('error-handling', () => {
     test('uses fallback for unknown error types', () => {
       const result = createErrorMessage(null, 'msg-null')
 
-      expect(result.content).toContain('Unknown error occurred')
+      expect(result.content).toContain('Ocurrió un error desconocido')
     })
 
     test('includes stack trace when available', () => {
@@ -442,21 +440,21 @@ describe('error-handling', () => {
       const error = { code: 'ERR_UNKNOWN' }
       const result = createErrorMessage(error, 'msg-no-msg')
 
-      expect(result.content).toContain('Unknown error occurred')
+      expect(result.content).toContain('Ocurrió un error desconocido')
     })
 
     test('handles error with empty message', () => {
       const error = { message: '' }
       const result = createErrorMessage(error, 'msg-empty')
 
-      expect(result.content).toContain('Unknown error occurred')
+      expect(result.content).toContain('Ocurrió un error desconocido')
     })
 
     test('handles error with numeric message', () => {
       const error = { message: 123 }
       const result = createErrorMessage(error, 'msg-num')
 
-      expect(result.content).toContain('Unknown error occurred')
+      expect(result.content).toContain('Ocurrió un error desconocido')
     })
 
     test('handles out of credits error', () => {

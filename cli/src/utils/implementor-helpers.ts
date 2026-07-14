@@ -367,7 +367,9 @@ function isSuccessfulEditMessage(message: unknown): boolean {
 
 function isErrorOutput(output: string): boolean {
   const trimmedOutput = output.trim()
-  return trimmedOutput.startsWith('Error:') || trimmedOutput.startsWith('Failed ')
+  return (
+    trimmedOutput.startsWith('Error:') || trimmedOutput.startsWith('Failed ')
+  )
 }
 
 /**
@@ -611,7 +613,7 @@ export function buildActivityTimeline(
 
       timeline.push({
         type: 'edit',
-        content: filePath || 'unknown file',
+        content: filePath || 'archivo desconocido',
         diff: diff || undefined,
         isCreate,
       })
@@ -755,33 +757,33 @@ export function getMultiPromptPreview(
         lines.length > 2
           ? lines.slice(0, 2).join('\n').trimEnd() + '...'
           : formattedReason
-      return `${total} proposals evaluated\n${truncatedReason}`
+      return `${total} propuestas evaluadas\n${truncatedReason}`
     }
-    return `${total} proposals evaluated`
+    return `${total} propuestas evaluadas`
   }
 
   // Selector completed but agent still running = applying phase
   if (isSelectorComplete) {
-    return 'Applying selected changes...'
+    return 'Aplicando los cambios seleccionados...'
   }
 
   if (isSelecting) {
-    return `${total} proposals complete • Selecting best...`
+    return `${total} propuestas completadas • Seleccionando la mejor...`
   }
 
   if (finished === total && total > 0) {
     if (failed > 0) {
-      return `${completed}/${total} proposals complete (${failed} failed)`
+      return `${completed}/${total} propuestas completadas (${failed} fallidas)`
     }
-    return `${total} proposals complete`
+    return `${total} propuestas completadas`
   }
 
   if (finished > 0) {
     if (failed > 0) {
-      return `${completed}/${total} complete, ${failed} failed...`
+      return `${completed}/${total} completadas, ${failed} fallidas...`
     }
-    return `${completed}/${total} proposals complete...`
+    return `${completed}/${total} propuestas completadas...`
   }
 
-  return `Generating ${total} proposals...`
+  return `Generando ${total} propuestas...`
 }

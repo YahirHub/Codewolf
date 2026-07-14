@@ -30,7 +30,7 @@ function setupExitMessageHandler() {
         // OpenTUI has already cleaned up by this point
         const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
         process.stdout.write(
-          `\nTo continue this session later, run:\n${cliName} --continue ${chatId}\n`,
+          `\nPara continuar esta sesión más tarde, ejecuta:\n${cliName} --continue ${chatId}\n`,
         )
       }
     } catch {

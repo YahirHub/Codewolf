@@ -100,7 +100,10 @@ function renderToolOutput(output: string): { body: string; lang: string } {
   const trimmed = output.trim()
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
-      return { body: JSON.stringify(JSON.parse(trimmed), null, 2), lang: 'json' }
+      return {
+        body: JSON.stringify(JSON.parse(trimmed), null, 2),
+        lang: 'json',
+      }
     } catch {
       // Not valid JSON — fall through to raw.
     }
@@ -111,11 +114,11 @@ function renderToolOutput(output: string): { body: string; lang: string } {
 function roleHeading(message: ChatMessage): string {
   switch (message.variant) {
     case 'user':
-      return '## User'
+      return '## Usuario'
     case 'error':
       return '## Error'
     default:
-      return '## Assistant'
+      return '## Asistente'
   }
 }
 
@@ -134,7 +137,7 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
           .split('\n')
           .map((line) => `> ${line}`)
           .join('\n')
-        out.push(`> _Reasoning_\n${quoted}`)
+        out.push(`> _Razonamiento_\n${quoted}`)
       } else {
         out.push(text)
       }
@@ -151,7 +154,7 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
       // A tool call with no input and no output (e.g. still running) gets a
       // compact one-liner rather than a header with nothing beneath it.
       if (!hasInput && !hasOutput) {
-        out.push(`**🛠 ${name}** _(no input or output)_`)
+        out.push(`**🛠 ${name}** _(sin entrada ni salida)_`)
         return
       }
 
@@ -160,7 +163,7 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
         out.push({
           kind: 'input',
           full: fence(inputText, 'json'),
-          note: `_Input omitted (${formatBytes(byteLen(inputText))}) to fit clipboard._`,
+          note: `_Entrada omitida (${formatBytes(byteLen(inputText))}) para ajustarse al portapapeles._`,
         })
       }
       if (hasOutput) {
@@ -168,7 +171,7 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
         out.push({
           kind: 'output',
           full: fence(rendered.body, rendered.lang),
-          note: `_Result omitted (${formatBytes(byteLen(rendered.body))}) to fit clipboard._`,
+          note: `_Resultado omitido (${formatBytes(byteLen(rendered.body))}) para ajustarse al portapapeles._`,
         })
       }
       return
@@ -176,9 +179,11 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
 
     case 'agent': {
       const label = block.agentName || block.agentType
-      out.push(`### ⤷ Subagent: ${label}${block.agentName ? ` (${block.agentType})` : ''}`)
+      out.push(
+        `### ⤷ Subagente: ${label}${block.agentName ? ` (${block.agentType})` : ''}`,
+      )
       if (block.initialPrompt?.trim()) {
-        out.push(`_Prompt:_ ${block.initialPrompt.trim()}`)
+        out.push(`_Solicitud:_ ${block.initialPrompt.trim()}`)
       }
       if (block.content?.trim()) {
         out.push(block.content.trim())
@@ -186,7 +191,7 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
       for (const child of block.blocks ?? []) {
         renderBlock(child, out)
       }
-      out.push('### ⤶ End subagent')
+      out.push('### ⤶ Fin del subagente')
       return
     }
 
@@ -204,20 +209,20 @@ function renderBlock(block: ContentBlock, out: Segment[]): void {
           answer?.selectedOptions?.join(', ') ??
           answer?.selectedOption ??
           answer?.otherText ??
-          (block.skipped ? '(skipped)' : '(no answer)')
-        out.push(`**Question:** ${q.question}\n_Answer:_ ${selected}`)
+          (block.skipped ? '(omitida)' : '(sin respuesta)')
+        out.push(`**Pregunta:** ${q.question}\n_Respuesta:_ ${selected}`)
       }
       return
     }
 
     case 'image': {
-      out.push(`_[image: ${block.filename ?? block.mediaType}]_`)
+      out.push(`_[imagen: ${block.filename ?? block.mediaType}]_`)
       return
     }
 
     case 'agent-list': {
       const names = block.agents.map((a) => a.displayName).join(', ')
-      if (names) out.push(`_[available agents: ${names}]_`)
+      if (names) out.push(`_[agentes disponibles: ${names}]_`)
       return
     }
 
@@ -242,9 +247,13 @@ function renderMessage(message: ChatMessage, out: Segment[]): void {
   const fileNames = message.fileAttachments?.map((f) => f.filename) ?? []
   const imageNames = message.attachments?.map((a) => a.filename) ?? []
   const textCount = message.textAttachments?.length ?? 0
-  if (fileNames.length) out.push(`> Attached files: ${fileNames.join(', ')}`)
-  if (imageNames.length) out.push(`> Attached images: ${imageNames.join(', ')}`)
-  if (textCount) out.push(`> Attached ${textCount} pasted text snippet(s)`)
+  if (fileNames.length) out.push(`> Archivos adjuntos: ${fileNames.join(', ')}`)
+  if (imageNames.length)
+    out.push(`> Imágenes adjuntas: ${imageNames.join(', ')}`)
+  if (textCount)
+    out.push(
+      `> ${textCount} fragmento${textCount === 1 ? '' : 's'} de texto pegado`,
+    )
 }
 
 export interface SerializedConversation {
@@ -255,7 +264,8 @@ export interface SerializedConversation {
   truncated: boolean
 }
 
-const TRUNCATION_MARKER = '_[…earlier conversation truncated to fit clipboard…]_'
+const TRUNCATION_MARKER =
+  '_[…se truncó parte de la conversación anterior para ajustarla al portapapeles…]_'
 
 /**
  * Serialize the conversation to Markdown. When `maxBytes` is provided and the
@@ -274,7 +284,7 @@ export function serializeConversation(
   }
 
   const product = IS_FREEBUFF ? 'Freebuff' : 'Codewolf'
-  const header = `# ${product} conversation\n_${messages.length} message${messages.length === 1 ? '' : 's'}_`
+  const header = `# Conversación de ${product}\n_${messages.length} mensaje${messages.length === 1 ? '' : 's'}_`
   const prefix = `${header}\n\n---\n\n`
 
   const assembleBody = (dropped: Set<Droppable>): string =>
@@ -337,9 +347,12 @@ export async function handleCopyConversationCommand(
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
   if (messages.length === 0) {
-    showClipboardMessage('Nothing to copy — the conversation is empty.', {
-      durationMs: 3000,
-    })
+    showClipboardMessage(
+      'No hay nada que copiar: la conversación está vacía.',
+      {
+        durationMs: 3000,
+      },
+    )
     return
   }
 
@@ -349,20 +362,20 @@ export async function handleCopyConversationCommand(
     maxBytes: isRemoteSession() ? OSC52_TEXT_BUDGET_BYTES : undefined,
   })
 
-  const count = `${messages.length} message${messages.length === 1 ? '' : 's'}`
+  const count = `${messages.length} mensaje${messages.length === 1 ? '' : 's'}`
   // omittedCount covers dropped tool outputs and/or inputs, so phrase it as
   // "tool call(s)" rather than specifically "results".
   const trimNotes: string[] = []
   if (omittedCount > 0) {
     trimNotes.push(
-      `${omittedCount} large tool call${omittedCount === 1 ? '' : 's'} trimmed`,
+      `${omittedCount} llamada${omittedCount === 1 ? '' : 's'} de herramienta grande${omittedCount === 1 ? '' : 's'} recortada${omittedCount === 1 ? '' : 's'}`,
     )
   }
-  if (truncated) trimNotes.push('older messages truncated')
+  if (truncated) trimNotes.push('mensajes anteriores truncados')
   const successMessage =
     trimNotes.length > 0
-      ? `Copied conversation · ${count} (${trimNotes.join(', ')} to fit clipboard)`
-      : `Copied conversation · ${count}`
+      ? `Conversación copiada · ${count} (${trimNotes.join(', ')} para ajustarse al portapapeles)`
+      : `Conversación copiada · ${count}`
 
   try {
     await copyTextToClipboard(text, { successMessage, durationMs: 4000 })

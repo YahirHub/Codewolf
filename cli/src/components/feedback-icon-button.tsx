@@ -58,7 +58,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
     bad_result: '△▼', // Bad selected - outlined up, filled down
   }
   const textCollapsed = symbolsByCategory[selectedCategory || ''] || '△▽'
-  const textExpanded = '[how was this?]'
+  const textExpanded = '[¿qué tal estuvo?]'
 
   return (
     <Button

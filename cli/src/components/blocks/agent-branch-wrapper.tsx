@@ -368,7 +368,7 @@ export const AgentBranchWrapper = memo(
       const { indicator: statusIndicator, color: statusColor } =
         getAgentStatusInfo(effectiveStatus, theme)
 
-      let statusText = 'Selecting best'
+      let statusText = 'Seleccionando la mejor'
       let reason: string | undefined
 
       const isComplete = agentBlock.status === 'complete'
@@ -384,8 +384,7 @@ export const AgentBranchWrapper = memo(
           setOutputBlock?.input as { data?: Record<string, unknown> }
         )?.data
         const implementationId = outputData?.implementationId as
-          | string
-          | undefined
+          string | undefined
         if (implementationId) {
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
@@ -400,8 +399,8 @@ export const AgentBranchWrapper = memo(
             const index = getImplementorIndex(selectedAgent, siblingBlocks)
             statusText =
               index !== undefined
-                ? `Selected Strategy #${index + 1}`
-                : 'Selected'
+                ? `Estrategia seleccionada #${index + 1}`
+                : 'Seleccionada'
           }
         }
       }

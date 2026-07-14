@@ -13,11 +13,7 @@ import {
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 type FlowState =
-  | 'checking'
-  | 'not-connected'
-  | 'waiting-for-code'
-  | 'connected'
-  | 'error'
+  'checking' | 'not-connected' | 'waiting-for-code' | 'connected' | 'error'
 
 export const ChatGptConnectBanner = () => {
   const theme = useTheme()
@@ -39,7 +35,7 @@ export const ChatGptConnectBanner = () => {
           setFlowState('connected')
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Failed to connect')
+          setError(err instanceof Error ? err.message : 'No se pudo conectar')
           setFlowState('error')
         })
     } else {
@@ -60,7 +56,7 @@ export const ChatGptConnectBanner = () => {
         setFlowState('connected')
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to connect')
+        setError(err instanceof Error ? err.message : 'No se pudo conectar')
         setFlowState('error')
       })
   }
@@ -99,16 +95,21 @@ export const ChatGptConnectBanner = () => {
       onMouseOver={() => setIsCloseHovered(true)}
       onMouseOut={() => setIsCloseHovered(false)}
     >
-      <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
-        x
-      </text>
+      <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>x</text>
     </Button>
   )
 
   if (flowState === 'connected') {
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <text style={{ fg: theme.foreground }}>✓ ChatGPT connected</text>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <text style={{ fg: theme.foreground }}>✓ ChatGPT conectado</text>
         <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
           <Button
             style={actionButtonStyle}
@@ -117,7 +118,7 @@ export const ChatGptConnectBanner = () => {
             onMouseOut={() => setHovered(false)}
           >
             <text wrapMode="none">
-              <span fg={theme.muted}>Disconnect</span>
+              <span fg={theme.muted}>Desconectar</span>
             </text>
           </Button>
           {closeButton}
@@ -128,9 +129,16 @@ export const ChatGptConnectBanner = () => {
 
   if (flowState === 'error') {
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <text style={{ fg: theme.error, flexShrink: 1 }}>
-          {error ?? 'Unknown error'}
+          {error ?? 'Error desconocido'}
         </text>
         <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
           <Button
@@ -140,7 +148,7 @@ export const ChatGptConnectBanner = () => {
             onMouseOut={() => setHovered(false)}
           >
             <text wrapMode="none">
-              <span fg={theme.foreground}>Retry</span>
+              <span fg={theme.foreground}>Reintentar</span>
             </text>
           </Button>
           {closeButton}
@@ -152,25 +160,36 @@ export const ChatGptConnectBanner = () => {
   if (flowState === 'waiting-for-code') {
     return (
       <box style={{ ...panelStyle, flexDirection: 'column' }}>
-        <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <text style={{ fg: theme.foreground }}>Connecting to ChatGPT...</text>
+        <box
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <text style={{ fg: theme.foreground }}>
+            Conectando con ChatGPT...
+          </text>
           {closeButton}
         </box>
         <text style={{ fg: theme.muted }}>
-          Sign in via your browser to connect.
+          Inicia sesión desde el navegador para conectarte.
         </text>
-        {authUrl ? (
-          <text style={{ fg: theme.muted }}>
-            {authUrl}
-          </text>
-        ) : null}
+        {authUrl ? <text style={{ fg: theme.muted }}>{authUrl}</text> : null}
       </box>
     )
   }
 
   if (flowState === 'not-connected') {
     return (
-      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <box
+        style={{
+          ...panelStyle,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Button
           style={actionButtonStyle}
           onClick={handleConnect}
@@ -178,7 +197,7 @@ export const ChatGptConnectBanner = () => {
           onMouseOut={() => setHovered(false)}
         >
           <text wrapMode="none">
-            <span fg={theme.link}>Connect to ChatGPT</span>
+            <span fg={theme.link}>Conectar con ChatGPT</span>
           </text>
         </Button>
         {closeButton}
@@ -199,7 +218,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     return {
       success: true,
       message:
-        'Successfully connected your ChatGPT subscription! Codewolf will use it for supported OpenAI streaming requests.',
+        'La suscripción de ChatGPT se conectó correctamente. Codewolf la usará para las solicitudes de streaming de OpenAI compatibles.',
     }
   } catch (err) {
     return {
@@ -207,7 +226,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
       message:
         err instanceof Error
           ? err.message
-          : 'Failed to exchange ChatGPT authorization code',
+          : 'No se pudo intercambiar el código de autorización de ChatGPT',
     }
   }
 }

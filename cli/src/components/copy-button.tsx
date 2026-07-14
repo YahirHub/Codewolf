@@ -51,9 +51,9 @@ export function useCopyToClipboard(text: string): {
 /** Icon shown in collapsed state */
 export const COPY_ICON_COLLAPSED = '⎘'
 /** Text shown when hovering */
-export const COPY_ICON_EXPANDED = '[⎘ copy]'
+export const COPY_ICON_EXPANDED = '[⎘ copiar]'
 /** Text shown after copying */
-export const COPY_ICON_COPIED = '[✔ copied]'
+export const COPY_ICON_COPIED = '[✔ copiado]'
 
 /**
  * Get the text to display for the copy icon based on state.

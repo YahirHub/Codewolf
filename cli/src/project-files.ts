@@ -17,7 +17,7 @@ export function setProjectRoot(dir: string) {
 
 export function getProjectRoot() {
   if (!projectRoot) {
-    throw new Error('Project root not set')
+    throw new Error('No se ha establecido la raíz del proyecto')
   }
   return projectRoot
 }
@@ -47,7 +47,7 @@ export function startNewChat() {
 export function getProjectDataDir(): string {
   const root = getProjectRoot()
   if (!root) {
-    throw new Error('Project root not set')
+    throw new Error('No se ha establecido la raíz del proyecto')
   }
 
   const baseName = path.basename(root)

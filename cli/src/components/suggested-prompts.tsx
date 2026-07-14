@@ -29,19 +29,19 @@ export interface SuggestedPromptSelection {
  */
 export const DEFAULT_SUGGESTED_PROMPTS: SuggestedPrompt[] = [
   {
-    label: 'Explain this codebase',
+    label: 'Explica este proyecto',
     prompt:
-      'Give me a high-level overview of how this codebase is structured and what the main parts do.',
+      'Dame una visión general de la estructura de este proyecto y explica qué hacen sus partes principales.',
   },
   {
-    label: 'Find opportunities to refactor',
+    label: 'Busca oportunidades de refactorización',
     prompt:
-      'Look through my codebase for opportunities to refactor and simplify, and suggest the highest-impact ones.',
+      'Revisa mi proyecto para encontrar oportunidades de refactorización y simplificación, y sugiere las de mayor impacto.',
   },
   {
-    label: 'Improve my test coverage',
+    label: 'Mejora mi cobertura de pruebas',
     prompt:
-      'Analyze my test coverage and tell me where adding tests would have the most impact.',
+      'Analiza la cobertura de pruebas y dime dónde tendría mayor impacto agregar nuevas pruebas.',
   },
 ]
 
@@ -167,7 +167,7 @@ export const SuggestedPrompts = ({
 
   return (
     <box style={{ flexDirection: 'column', paddingLeft: 1, paddingBottom: 1 }}>
-      <text style={{ fg: theme.muted }}>Try one of these:</text>
+      <text style={{ fg: theme.muted }}>Prueba una de estas opciones:</text>
       {items.map((prompt, index) => (
         <SuggestedPromptLine
           key={prompt.label}

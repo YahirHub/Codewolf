@@ -55,7 +55,7 @@ describe('freebuff model availability', () => {
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     )
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
-      'Collects data for training',
+      'Recopila datos para entrenamiento',
     )
   })
 
@@ -64,7 +64,7 @@ describe('freebuff model availability', () => {
       (m) => m.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
-      'Collects data for training',
+      'Recopila datos para entrenamiento',
     )
   })
 
@@ -189,7 +189,7 @@ describe('freebuff model availability', () => {
     )
     expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).displayName).toBe('HY3')
     expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).tagline).toBe(
-      'Trialing its performance',
+      'Rendimiento en evaluación',
     )
   })
 
@@ -395,7 +395,7 @@ describe('freebuff model availability', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('until 5:00 PM')
+    ).toBe('hasta 5:00 PM')
   })
 
   test('formats the next open time in the user local timezone while deployment is closed', () => {
@@ -404,7 +404,7 @@ describe('freebuff model availability', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('opens 6:00 AM')
+    ).toBe('abre a las 6:00 AM')
   })
 
   test('includes the weekday when the next opening is on a later local day', () => {
@@ -413,7 +413,7 @@ describe('freebuff model availability', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('opens Sun 6:00 AM')
+    ).toBe('abre a las Sun 6:00 AM')
   })
 
   test('tracks deployment hours correctly across the open and close boundaries', () => {

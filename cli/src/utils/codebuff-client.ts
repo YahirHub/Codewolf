@@ -68,7 +68,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
     if (!apiKey) {
       logger.warn(
         {},
-        `No authentication token found. Please run the login flow, set ${API_KEY_ENV_VAR}, or configure a provider with /login.`,
+        `No se encontró un token de autenticación. Inicia sesión, define ${API_KEY_ENV_VAR} o configura un proveedor con /login.`,
       )
       return null
     }

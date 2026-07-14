@@ -157,7 +157,7 @@ export const ImageCard = ({
             }}
           >
             {(image.status ?? 'ready') === 'processing'
-              ? 'processing…'
+              ? 'procesando…'
               : image.note}
           </text>
         )}

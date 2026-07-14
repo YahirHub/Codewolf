@@ -22,9 +22,9 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
   const { image, mediaType, filename, size, width, height } = block
 
   // Calculate display dimensions based on actual image dimensions
-  const displaySize = useMemo(() => 
-    calculateDisplaySize({ width, height, availableWidth }),
-    [width, height, availableWidth]
+  const displaySize = useMemo(
+    () => calculateDisplaySize({ width, height, availableWidth }),
+    [width, height, availableWidth],
   )
 
   // Try to render inline if supported
@@ -66,12 +66,12 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
         {/* Image caption/metadata */}
         <text style={{ wrapMode: 'none', fg: theme.muted }}>
           <span attributes={TextAttributes.DIM}>📷 </span>
-          <span>{filename || 'Image'}</span>
+          <span>{filename || 'Imagen'}</span>
           {formattedSize && (
             <span attributes={TextAttributes.DIM}> ({formattedSize})</span>
           )}
         </text>
-        
+
         {/* The actual inline image - rendered via escape sequence */}
         <text style={{ wrapMode: 'none' }}>{inlineSequence}</text>
       </box>
@@ -91,27 +91,27 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
     >
       {/* Header */}
       <text style={{ wrapMode: 'none', fg: theme.foreground }}>
-        <span attributes={TextAttributes.BOLD}>📷 Image Attachment</span>
+        <span attributes={TextAttributes.BOLD}>📷 Imagen adjunta</span>
       </text>
 
       {/* Filename */}
       {filename && (
         <text style={{ wrapMode: 'none', fg: theme.foreground }}>
-          <span attributes={TextAttributes.DIM}>Name: </span>
+          <span attributes={TextAttributes.DIM}>Nombre: </span>
           <span>{filename}</span>
         </text>
       )}
 
       {/* Type */}
       <text style={{ wrapMode: 'none', fg: theme.muted }}>
-        <span attributes={TextAttributes.DIM}>Type: </span>
+        <span attributes={TextAttributes.DIM}>Tipo: </span>
         <span>{fileExtension || mediaType}</span>
       </text>
 
       {/* Size */}
       {formattedSize && (
         <text style={{ wrapMode: 'none', fg: theme.muted }}>
-          <span attributes={TextAttributes.DIM}>Size: </span>
+          <span attributes={TextAttributes.DIM}>Tamaño: </span>
           <span>{formattedSize}</span>
         </text>
       )}
@@ -121,7 +121,7 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
         style={{ wrapMode: 'word', fg: theme.muted, marginTop: 1 }}
         attributes={TextAttributes.DIM}
       >
-        {`(${getImageSupportDescription()} - use iTerm2 or Kitty for inline display)`}
+        {`(${getImageSupportDescription()} - usa iTerm2 o Kitty para mostrarla en línea)`}
       </text>
     </box>
   )

@@ -26,35 +26,35 @@ type CategoryOption = {
 const CATEGORY_OPTIONS = [
   {
     id: 'good_result',
-    label: 'Good result',
+    label: 'Buen resultado',
     shortLabel: 'Good',
     highlightKey: 'success',
     placeholder:
-      'What did you like? (e.g., "Fast and accurate", "Great explanation")',
+      '¿Qué te gustó? (por ejemplo: "Rápido y preciso", "Buena explicación")',
   },
   {
     id: 'bad_result',
-    label: 'Bad result',
+    label: 'Mal resultado',
     shortLabel: 'Bad',
     highlightKey: 'error',
     placeholder:
-      'What went wrong? (e.g., "Incorrect changes", "Missed the requirement")',
+      '¿Qué salió mal? (por ejemplo: "Cambios incorrectos", "No cumplió el requisito")',
   },
   {
     id: 'app_bug',
-    label: 'App bug',
+    label: 'Error de la aplicación',
     shortLabel: 'Bug',
     highlightKey: 'warning',
     placeholder: IS_FREEBUFF
-      ? 'Report a problem with Freebuff (crashes, errors, UI issues, etc.)'
-      : 'Report a problem with Codewolf (crashes, errors, UI issues, etc.)',
+      ? 'Reportar un problema de Freebuff (cierres, errores, problemas de interfaz, etc.)'
+      : 'Reportar un problema de Codewolf (cierres, errores, problemas de interfaz, etc.)',
   },
   {
     id: 'other',
     label: 'Other',
     shortLabel: 'Other',
     highlightKey: 'info',
-    placeholder: 'Tell us more (what happened, what you expected)...',
+    placeholder: 'Cuéntanos más (qué ocurrió y qué esperabas)...',
   },
 ] as const satisfies readonly CategoryOption[]
 
@@ -62,7 +62,11 @@ const CATEGORY_OPTIONS = [
 // If a new category is added to FEEDBACK_CATEGORIES, TypeScript will error here until
 // a corresponding entry is added to CATEGORY_OPTIONS above.
 type CoveredCategories = (typeof CATEGORY_OPTIONS)[number]['id']
-type _AssertAllCategoriesCovered = [FeedbackCategory] extends [CoveredCategories] ? true : never
+type _AssertAllCategoriesCovered = [FeedbackCategory] extends [
+  CoveredCategories,
+]
+  ? true
+  : never
 const _exhaustiveCheck: _AssertAllCategoriesCovered = true
 void _exhaustiveCheck
 
@@ -128,10 +132,14 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
             onCursorChange(cursor + 1)
             return true
           }}
-          onPaste={createTextPasteHandler(value, cursor, ({ text, cursorPosition }) => {
-            onChange(text)
-            onCursorChange(cursorPosition)
-          })}
+          onPaste={createTextPasteHandler(
+            value,
+            cursor,
+            ({ text, cursorPosition }) => {
+              onChange(text)
+              onCursorChange(cursorPosition)
+            },
+          )}
           placeholder={placeholder}
           focused={inputFocused && !isSubmitting}
           maxHeight={5}
@@ -215,7 +223,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       >
         <text style={{ wrapMode: 'none', marginLeft: 1, marginRight: 1 }}>
           <span fg={theme.secondary}>
-            Share your feedback — thanks for helping us improve!
+            Comparte tus comentarios. ¡Gracias por ayudarnos a mejorar!
           </span>
         </text>
         <box
@@ -286,10 +294,10 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         onSubmit={onSubmit}
         placeholder={
           isSubmitting
-            ? 'Sending feedback...'
+            ? 'Enviando comentarios...'
             : CATEGORY_OPTIONS.find((opt) => opt.id === feedbackCategory)
                 ?.placeholder ||
-              'Tell us more (what happened, what you expected)...'
+              'Cuéntanos más (qué ocurrió y qué esperabas)...'
         }
         inputRef={inputRef}
         width={width}
@@ -309,7 +317,8 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       >
         <text style={{ wrapMode: 'none' }}>
           <span fg={theme.muted}>
-            {footerMessage || 'Session details are auto-attached'}
+            {footerMessage ||
+              'Los detalles de la sesión se adjuntan automáticamente'}
           </span>
         </text>
         <Button
@@ -334,7 +343,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
             }
           >
             <span fg={canSubmit ? theme.foreground : theme.muted}>
-              {isSubmitting ? 'SENDING...' : 'SUBMIT'}
+              {isSubmitting ? 'ENVIANDO...' : 'ENVIAR'}
             </span>
           </text>
         </Button>

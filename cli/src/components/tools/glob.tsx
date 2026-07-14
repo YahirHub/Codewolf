@@ -55,7 +55,7 @@ export const GlobComponent = defineToolComponent({
     // }
 
     return {
-      content: <SimpleToolCallItem name="Glob" description={summary} />,
+      content: <SimpleToolCallItem name="Buscar rutas" description={summary} />,
     }
   },
 })

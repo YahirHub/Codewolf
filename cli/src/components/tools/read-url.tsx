@@ -23,7 +23,7 @@ export const ReadURLComponent = defineToolComponent({
     return {
       content: (
         <SimpleToolCallItem
-          name="Read URL"
+          name="Leer URL"
           description={url}
           descriptionColor={theme.muted}
         />

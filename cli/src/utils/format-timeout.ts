@@ -10,19 +10,19 @@
 export function formatTimeout(timeoutSeconds: number): string {
   // Handle NaN, Infinity, -Infinity
   if (!Number.isFinite(timeoutSeconds)) {
-    return 'no timeout'
+    return 'sin límite de tiempo'
   }
   // Handle all negative values (including -1)
   if (timeoutSeconds < 0) {
-    return 'no timeout'
+    return 'sin límite de tiempo'
   }
   // Round floating point values
   const rounded = Math.round(timeoutSeconds)
   if (rounded >= 3600 && rounded % 3600 === 0) {
-    return `${rounded / 3600}h timeout`
+    return `${rounded / 3600} h de límite`
   }
   if (rounded >= 60 && rounded % 60 === 0) {
-    return `${rounded / 60}m timeout`
+    return `${rounded / 60} min de límite`
   }
-  return `${rounded}s timeout`
+  return `${rounded} s de límite`
 }

@@ -259,10 +259,12 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
         {loading ? 'Consultando /models y guardando proveedor...' : copy.help}
       </text>
       {error && (
-        <text style={{ fg: theme.error, wrapMode: 'word' }}>Error: {error}</text>
+        <text style={{ fg: theme.error, wrapMode: 'word' }}>
+          Error: {error}
+        </text>
       )}
       <text style={{ fg: theme.muted }}>
-        Enter continuar · Backspace volver · Esc cancelar
+        Enter: continuar · Retroceso: volver · Esc: cancelar
       </text>
     </box>
   )

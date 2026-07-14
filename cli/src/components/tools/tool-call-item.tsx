@@ -226,7 +226,7 @@ export const ToolCallItem = ({
             ) : null}
             {isStreaming ? (
               <span fg={theme.primary} attributes={TextAttributes.DIM}>
-                {' running'}
+                {' ejecutando'}
               </span>
             ) : null}
           </text>

@@ -26,7 +26,7 @@ export const ScrollToBottomButton = ({
           fg={theme.info}
           attributes={hovered ? TextAttributes.BOLD : TextAttributes.DIM}
         >
-          {hovered ? '↓ Scroll to bottom ↓' : '↓'}
+          {hovered ? '↓ Ir al final ↓' : '↓'}
         </span>
       </text>
     </Button>

@@ -74,11 +74,14 @@ function normalizeUserProvidedPath(filePath: string): string {
   let normalized = filePath
 
   // Handle unicode escape sequences (e.g., from terminal copy/paste)
-  normalized = normalized.replace(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/g, (_, bracedCode, shortCode) => {
-    const code = bracedCode || shortCode
-    const value = Number.parseInt(code, 16)
-    return Number.isNaN(value) ? _ : String.fromCodePoint(value)
-  })
+  normalized = normalized.replace(
+    /\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/g,
+    (_, bracedCode, shortCode) => {
+      const code = bracedCode || shortCode
+      const value = Number.parseInt(code, 16)
+      return Number.isNaN(value) ? _ : String.fromCodePoint(value)
+    },
+  )
 
   // Handle shell-escaped special characters (e.g., spaces in paths)
   normalized = normalized.replace(/\\([ \t"'(){}\[\]])/g, '$1')
@@ -112,7 +115,9 @@ export function resolveFilePath(filePath: string, cwd: string): string {
  * Attempts to compress an image to fit within the max base64 size.
  * Tries different dimension/quality combinations until one fits.
  */
-async function compressImageToFitSize(fileBuffer: Buffer): Promise<CompressionResult> {
+async function compressImageToFitSize(
+  fileBuffer: Buffer,
+): Promise<CompressionResult> {
   const image = await Jimp.read(fileBuffer)
   const originalWidth = image.bitmap.width
   const originalHeight = image.bitmap.height
@@ -123,7 +128,7 @@ async function compressImageToFitSize(fileBuffer: Buffer): Promise<CompressionRe
   for (const maxDimension of DIMENSION_LIMITS) {
     for (const quality of COMPRESSION_QUALITIES) {
       attemptCount++
-      
+
       const testImage = await Jimp.read(fileBuffer)
 
       // Resize if needed (preserve aspect ratio)
@@ -176,7 +181,7 @@ async function compressImageToFitSize(fileBuffer: Buffer): Promise<CompressionRe
 
   return {
     success: false,
-    error: `Image too large even after ${attemptCount} compression attempts. Original: ${originalKB}KB, best compressed: ${bestSizeKB}KB (max ${maxKB}KB). Try using a smaller image.`,
+    error: `La imagen sigue siendo demasiado grande después de ${attemptCount} intentos de compresión. Original: ${originalKB} KB; mejor resultado: ${bestSizeKB} KB (máximo ${maxKB} KB). Prueba con una imagen más pequeña.`,
   }
 }
 
@@ -196,32 +201,41 @@ export async function processImageFile(
     stats = statSync(resolvedPath)
   } catch (error) {
     logger.debug({ resolvedPath, error }, 'Image handler: File not found')
-    return { success: false, error: `File not found: ${filePath}` }
+    return { success: false, error: `No se encontró el archivo: ${filePath}` }
   }
 
   if (!stats.isFile()) {
-    return { success: false, error: `Path is not a file: ${filePath}` }
+    return {
+      success: false,
+      error: `La ruta no corresponde a un archivo: ${filePath}`,
+    }
   }
 
   // Validate file size
   if (stats.size > MAX_IMAGE_FILE_SIZE) {
     const sizeMB = (stats.size / (1024 * 1024)).toFixed(1)
     const maxMB = (MAX_IMAGE_FILE_SIZE / (1024 * 1024)).toFixed(1)
-    return { success: false, error: `File too large: ${sizeMB}MB (max ${maxMB}MB): ${filePath}` }
+    return {
+      success: false,
+      error: `El archivo es demasiado grande: ${sizeMB} MB (máximo ${maxMB} MB): ${filePath}`,
+    }
   }
 
   // Validate image format
   if (!isImageFile(resolvedPath)) {
     return {
       success: false,
-      error: `Unsupported image format: ${filePath}. Supported: ${Array.from(SUPPORTED_IMAGE_EXTENSIONS).join(', ')}`,
+      error: `Formato de imagen no compatible: ${filePath}. Compatibles: ${Array.from(SUPPORTED_IMAGE_EXTENSIONS).join(', ')}`,
     }
   }
 
   // Get MIME type
   const mediaType = getImageMimeType(path.extname(resolvedPath))
   if (!mediaType) {
-    return { success: false, error: `Could not determine image type for: ${filePath}` }
+    return {
+      success: false,
+      error: `No se pudo determinar el tipo de imagen de: ${filePath}`,
+    }
   }
 
   // Read file
@@ -230,7 +244,7 @@ export async function processImageFile(
     fileBuffer = readFileSync(resolvedPath)
   } catch (error) {
     logger.debug({ resolvedPath, error }, 'Image handler: Failed to read file')
-    return { success: false, error: `Could not read file: ${filePath}` }
+    return { success: false, error: `No se pudo leer el archivo: ${filePath}` }
   }
 
   // Get initial dimensions
@@ -252,7 +266,7 @@ export async function processImageFile(
 
   if (base64Data.length > MAX_IMAGE_BASE64_SIZE) {
     const compressionResult = await compressImageToFitSize(fileBuffer)
-    
+
     if (!compressionResult.success) {
       return { success: false, error: compressionResult.error }
     }

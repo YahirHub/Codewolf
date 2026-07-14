@@ -44,7 +44,8 @@ export function useUpdatePreference() {
       )
 
       if (!response.ok) {
-        const errorMessage = response.error || 'Failed to update preference'
+        const errorMessage =
+          response.error || 'No se pudo actualizar la preferencia'
         throw new Error(errorMessage)
       }
 
@@ -55,8 +56,10 @@ export function useUpdatePreference() {
       if (previousData) {
         setActivityQueryData(queryKey, previousData)
       }
-      logger.error({ err }, 'Failed to update preference')
-      showClipboardMessage('Failed to update preference', { durationMs: 3000 })
+      logger.error({ err }, 'No se pudo actualizar la preferencia')
+      showClipboardMessage('No se pudo actualizar la preferencia', {
+        durationMs: 3000,
+      })
     } finally {
       setIsPending(false)
     }

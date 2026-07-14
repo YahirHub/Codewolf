@@ -311,7 +311,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
           resetLoginState()
           params.setMessages((prev) => [
             ...prev,
-            getSystemMessage('Logged out.'),
+            getSystemMessage('Sesión cerrada.'),
           ])
           clearInput(params)
           setTimeout(() => {
@@ -449,7 +449,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
         params.setMessages((prev) => [
           ...prev,
           getUserMessage(params.inputValue.trim()),
-          getSystemMessage(`Switched to ${mode} mode.`),
+          getSystemMessage(`Se cambió al modo ${mode}.`),
         ])
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)
@@ -605,7 +605,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.setMessages((prev) => [
         ...prev,
         getUserMessage(params.inputValue.trim()),
-        getSystemMessage(`Switched to ${newTheme} theme.`),
+        getSystemMessage(
+          `Se cambió al tema ${newTheme === 'dark' ? 'oscuro' : 'claro'}.`,
+        ),
       ])
       clearInput(params)
     },
@@ -673,7 +675,7 @@ function createSkillCommand(skillName: string): CommandDefinition {
         params.setMessages((prev) => [
           ...prev,
           getUserMessage(params.inputValue.trim()),
-          getSystemMessage(`Skill not found: ${skillName}`),
+          getSystemMessage(`Skill no encontrada: ${skillName}`),
         ])
         params.saveToHistory(params.inputValue.trim())
         params.setInputValue({

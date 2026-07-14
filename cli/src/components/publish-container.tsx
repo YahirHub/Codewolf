@@ -1,23 +1,26 @@
-import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-
 import { AgentChecklist } from './agent-checklist'
 import { Button } from './button'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
-import { PublishConfirmation, getAllPublishAgentIds } from './publish-confirmation'
+import {
+  PublishConfirmation,
+  getAllPublishAgentIds,
+} from './publish-confirmation'
 import { SelectedChips } from './selected-chips'
 import { Separator } from './separator'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
-import { loadLocalAgents, loadAgentDefinitions } from '../utils/local-agent-registry'
+import {
+  loadLocalAgents,
+  loadAgentDefinitions,
+} from '../utils/local-agent-registry'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
-
 
 interface PublishContainerProps {
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -81,7 +84,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   const inputFocused = useChatStore((state) => state.inputFocused)
 
   // Load agents data - filter out bundled agents (they shouldn't be publishable by users)
-  const agents = useMemo(() => loadLocalAgents().filter(a => !a.isBundled), [])
+  const agents = useMemo(
+    () => loadLocalAgents().filter((a) => !a.isBundled),
+    [],
+  )
   const agentDefinitions = useMemo(() => {
     const defs = loadAgentDefinitions()
     const map = new Map<string, { spawnableAgents?: string[] }>()
@@ -185,8 +191,14 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
 
   // Compute the total count of agents to publish (for button label)
   const publishAgentIds = useMemo(
-    () => getAllPublishAgentIds(selectedAgents, agents, agentDefinitions, includeDependents),
-    [selectedAgents, agents, agentDefinitions, includeDependents]
+    () =>
+      getAllPublishAgentIds(
+        selectedAgents,
+        agents,
+        agentDefinitions,
+        includeDependents,
+      ),
+    [selectedAgents, agents, agentDefinitions, includeDependents],
   )
 
   const handlePublish = useCallback(async () => {
@@ -224,7 +236,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     return null
   }
 
-  // Terminal too small - show placeholder
+  // La terminal es demasiado pequeña - show placeholder
   if (isTooSmall) {
     return (
       <box
@@ -242,10 +254,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
         }}
       >
         <text style={{ fg: theme.warning, attributes: TextAttributes.BOLD }}>
-          Terminal too small
+          La terminal es demasiado pequeña
         </text>
         <text style={{ fg: theme.muted }}>
-          Please resize your terminal to use the publish menu.
+          Amplía la terminal para utilizar el menú de publicación.
         </text>
         <Button
           onClick={handleCancel}
@@ -258,7 +270,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
             customBorderChars: BORDER_CHARS,
           }}
         >
-          <text style={{ fg: theme.foreground }}>CLOSE</text>
+          <text style={{ fg: theme.foreground }}>CERRAR</text>
         </Button>
       </box>
     )
@@ -282,13 +294,13 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
         }}
       >
         <text style={{ fg: theme.warning, attributes: TextAttributes.BOLD }}>
-          No agents found
+          No se encontraron agentes
         </text>
         <text style={{ fg: theme.muted }}>
-          Create agents in the .agents/ directory to publish them.
+          Crea agentes en el directorio .agents/ para publicarlos.
         </text>
         <text style={{ fg: theme.muted }}>
-          See docs/agents-and-tools.md for guidance.
+          Consulta docs/agents-and-tools.md para obtener ayuda.
         </text>
         <Button
           onClick={handleCancel}
@@ -301,7 +313,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
             customBorderChars: BORDER_CHARS,
           }}
         >
-          <text style={{ fg: theme.foreground }}>CLOSE</text>
+          <text style={{ fg: theme.foreground }}>CERRAR</text>
         </Button>
       </box>
     )
@@ -333,12 +345,13 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       >
         <text style={{ wrapMode: 'none', marginLeft: 1, marginRight: 1 }}>
           <span fg={theme.secondary}>
-            {currentStep === 'selection' && (selectedAgents.length > 0
-              ? `Selected ${pluralize(selectedAgents.length, 'agent')} to publish`
-              : 'Select agents to publish')}
-            {currentStep === 'confirmation' && 'Confirm publish'}
-            {currentStep === 'success' && 'Publish complete'}
-            {currentStep === 'error' && 'Publish failed'}
+            {currentStep === 'selection' &&
+              (selectedAgents.length > 0
+                ? `Se seleccionaron ${selectedAgents.length} agente${selectedAgents.length === 1 ? '' : 's'} para publicar`
+                : 'Seleccionar agentes para publicar')}
+            {currentStep === 'confirmation' && 'Confirmar publicación'}
+            {currentStep === 'success' && 'Publicación completada'}
+            {currentStep === 'error' && 'La publicación falló'}
           </span>
         </text>
         <box
@@ -367,7 +380,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               onSubmit={handleNext}
               onPaste={() => {}}
               onKeyIntercept={handleSearchKeyIntercept}
-              placeholder="Type to search agents..."
+              placeholder="Escribe para buscar agentes..."
               focused={inputFocused}
               maxHeight={1}
               minHeight={1}
@@ -415,7 +428,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
             }}
           >
             <text style={{ fg: theme.muted }}>
-              ↑↓ navigate • Enter toggle • Tab next
+              ↑↓ navegar • Enter marcar • Tab siguiente
             </text>
             <Button
               onClick={handleNext}
@@ -449,7 +462,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
                       : theme.muted
                   }
                 >
-                  NEXT
+                  SIGUIENTE
                 </span>
               </text>
             </Button>
@@ -467,7 +480,9 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               allAgents={agents}
               agentDefinitions={agentDefinitions}
               includeDependents={includeDependents}
-              onToggleDependents={() => setIncludeDependents(!includeDependents)}
+              onToggleDependents={() =>
+                setIncludeDependents(!includeDependents)
+              }
             />
           </box>
 
@@ -502,7 +517,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
                 <span
                   fg={backButtonHovered ? theme.foreground : theme.secondary}
                 >
-                  BACK
+                  VOLVER
                 </span>
               </text>
             </Button>
@@ -534,7 +549,9 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
                         : theme.foreground
                   }
                 >
-                  {isPublishing ? 'PUBLISHING...' : `PUBLISH ${pluralize(publishAgentIds.length, 'AGENT')}`}
+                  {isPublishing
+                    ? 'PUBLICANDO...'
+                    : `PUBLICAR ${publishAgentIds.length} ${publishAgentIds.length === 1 ? 'AGENTE' : 'AGENTES'}`}
                 </span>
               </text>
             </Button>
@@ -546,11 +563,24 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       {currentStep === 'success' && successResult && (
         <>
           <Separator width={width} widthOffset={4} />
-          <box style={{ paddingTop: 1, paddingBottom: 1, flexDirection: 'column', gap: 1 }}>
+          <box
+            style={{
+              paddingTop: 1,
+              paddingBottom: 1,
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text style={{ fg: theme.success }}>✓</text>
-              <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
-                Successfully published {successResult.agents.length} agent{successResult.agents.length !== 1 ? 's' : ''}!
+              <text
+                style={{
+                  fg: theme.foreground,
+                  attributes: TextAttributes.BOLD,
+                }}
+              >
+                Se publicaron correctamente {successResult.agents.length}{' '}
+                {successResult.agents.length === 1 ? 'agente' : 'agentes'}.
               </text>
             </box>
 
@@ -594,8 +624,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               }}
             >
               <text style={{ wrapMode: 'none' }}>
-                <span fg={closeButtonHovered ? theme.success : theme.foreground}>
-                  DONE
+                <span
+                  fg={closeButtonHovered ? theme.success : theme.foreground}
+                >
+                  LISTO
                 </span>
               </text>
             </Button>
@@ -607,23 +639,36 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       {currentStep === 'error' && errorResult && (
         <>
           <Separator width={width} widthOffset={4} />
-          <box style={{ paddingTop: 1, paddingBottom: 1, flexDirection: 'column', gap: 1 }}>
+          <box
+            style={{
+              paddingTop: 1,
+              paddingBottom: 1,
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text style={{ fg: theme.error }}>✗</text>
-              <text style={{ fg: theme.error, attributes: TextAttributes.BOLD }}>
-                Publish failed
+              <text
+                style={{ fg: theme.error, attributes: TextAttributes.BOLD }}
+              >
+                La publicación falló
               </text>
             </box>
 
             <box style={{ flexDirection: 'column', gap: 0, paddingLeft: 2 }}>
               {errorResult.error && (
-                <text style={{ fg: theme.foreground }}>{errorResult.error}</text>
+                <text style={{ fg: theme.foreground }}>
+                  {errorResult.error}
+                </text>
               )}
               {errorResult.details && (
                 <text style={{ fg: theme.muted }}>{errorResult.details}</text>
               )}
               {errorResult.hint && (
-                <text style={{ fg: theme.warning, marginTop: 1 }}>💡 {errorResult.hint}</text>
+                <text style={{ fg: theme.warning, marginTop: 1 }}>
+                  💡 {errorResult.hint}
+                </text>
               )}
             </box>
           </box>
@@ -653,8 +698,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               }}
             >
               <text style={{ wrapMode: 'none' }}>
-                <span fg={backButtonHovered ? theme.foreground : theme.secondary}>
-                  TRY AGAIN
+                <span
+                  fg={backButtonHovered ? theme.foreground : theme.secondary}
+                >
+                  REINTENTAR
                 </span>
               </text>
             </Button>
@@ -674,8 +721,10 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               }}
             >
               <text style={{ wrapMode: 'none' }}>
-                <span fg={closeButtonHovered ? theme.foreground : theme.secondary}>
-                  CLOSE
+                <span
+                  fg={closeButtonHovered ? theme.foreground : theme.secondary}
+                >
+                  CERRAR
                 </span>
               </text>
             </Button>

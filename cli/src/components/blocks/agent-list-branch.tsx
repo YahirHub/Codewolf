@@ -39,7 +39,7 @@ export const AgentListBranch = memo(
       [],
     )
 
-    const headerText = pluralize(agentCount, 'local agent')
+    const headerText = pluralize(agentCount, 'agente local')
 
     const handleToggle = useCallback(() => {
       onToggleCollapsed(agentListBlock.id)

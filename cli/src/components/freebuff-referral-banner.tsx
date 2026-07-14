@@ -8,7 +8,6 @@ import {
   FREEBUFF_GLM_V52_REFERRAL_CAP,
 } from '@codebuff/common/constants/freebuff-models'
 import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants/freebuff-referral-tiers'
-import { pluralize } from '@codebuff/common/util/string'
 
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
@@ -26,7 +25,7 @@ import type { FreebuffReferralInfo } from '@codebuff/common/types/freebuff-sessi
  *  bare landing page; the `?ref=` code is still captured into the attribution
  *  cookie there via the root layout's ReferralCodeCapture. When we know the
  *  inviter's name we pass `?referrer=` too so the page greets the friend with
- *  "X invited you to try Freebuff!". */
+ *  "¡X te invitó a probar Freebuff!". */
 function referralLink(code: string, referrerName: string | null): string {
   const params = new URLSearchParams({ ref: code })
   if (referrerName) params.set('referrer', referrerName)
@@ -58,9 +57,9 @@ const firstLabelThatFits = (
   ) ?? labels.at(-1)!
 
 /**
- * A bordered, button-styled "copy invite link" control. Reads as clickable
+ * A bordered, button-styled "copiar enlace de invitación" control. Reads as clickable
  * (rounded border + hover/keyboard-focus highlight) and flips to an accent
- * "✔ Copied!" confirmation for a couple seconds after a successful copy.
+ * "✔ ¡Copiado!" confirmation for a couple seconds after a successful copy.
  * Presentational: the copy action and copied flag are owned by the banner so
  * the same action can be fired by keyboard navigation from the model picker.
  */
@@ -75,12 +74,12 @@ const CopyInviteLinkButton: React.FC<{
   focused,
   onCopy,
   availableWidth,
-  labels = ['⎘ Copy invite link', '⎘ Copy link', '⎘ Copy'],
+  labels = ['⎘ Copiar enlace de invitación', '⎘ Copiar enlace', '⎘ Copiar'],
 }) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
   const label = firstLabelThatFits(availableWidth, labels)
-  const copiedLabel = firstLabelThatFits(availableWidth, ['✔ Copied!', '✔'])
+  const copiedLabel = firstLabelThatFits(availableWidth, ['✔ ¡Copiado!', '✔'])
   // Keyboard focus and mouse hover share the highlighted look; a keyboard-
   // focused row gets the brighter accent border so it matches the picker's
   // focused-row treatment above it.
@@ -131,7 +130,7 @@ const CopyInviteLinkButton: React.FC<{
  *     quiet muted line ("refer friends → more sessions per day") + the copy
  *     button, so it advertises the perk without crowding the picker.
  *   - FULL tier, UNLOCKED (you have weekly GLM sessions): a flashy accent-
- *     bordered card with your remaining sessions and a prominent "Use GLM 5.2 ↵"
+ *     bordered card with your remaining sessions and a prominent "Usar GLM 5.2 ↵"
  *     launch button, so the reward feels earned and inviting.
  *   - FULL tier, LOCKED (no GLM sessions yet): a single quiet muted line
  *     inviting referrals.
@@ -177,7 +176,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // Register this banner's buttons as keyboard focus targets so the model
   // selector's arrow navigation flows from "see all models" into them (and
   // wraps back up). The limited variant and the full-tier locked state show
-  // just the copy button; the full-tier unlocked card leads with "Use GLM 5.2"
+  // just the copy button; the full-tier unlocked card leads with "Usar GLM 5.2"
   // then the invite button.
   const isLocked =
     accessTier === 'limited' || (referral.weeklySessionsRemaining ?? 0) <= 0
@@ -218,19 +217,20 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           {qualifiedCount > 0 ? (
             <>
               <span fg={theme.foreground}>
-                +{pluralize(qualifiedCount, 'session')}/day
+                +{qualifiedCount} {qualifiedCount === 1 ? 'sesión' : 'sesiones'}
+                /día
               </span>
               <span fg={theme.muted}>
                 {' '}
-                from referrals
+                por referidos
                 {atCap
                   ? ''
-                  : ` — refer more (${qualifiedCount}/${REFERRAL_CLI_DAILY_SESSION_BONUS_CAP}):`}
+                  : ` — invita a más personas (${qualifiedCount}/${REFERRAL_CLI_DAILY_SESSION_BONUS_CAP}):`}
               </span>
             </>
           ) : (
             <span fg={theme.muted}>
-              Refer friends to unlock more free sessions per day:
+              Invita amigos para desbloquear más sesiones gratuitas por día:
             </span>
           )}
         </text>
@@ -278,16 +278,17 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
                 {' '}
-                — weekly sessions used, resets in {resetsIn}. Refer more (
-                {qualifiedCount}/{FREEBUFF_GLM_V52_REFERRAL_CAP}):
+                — sesiones semanales usadas; se restablecen en {resetsIn}.
+                Invita a más personas ({qualifiedCount}/
+                {FREEBUFF_GLM_V52_REFERRAL_CAP}):
               </span>
             </>
           ) : (
             <>
-              <span fg={theme.muted}>Refer friends to access </span>
+              <span fg={theme.muted}>Invita amigos para acceder a </span>
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
-                , the most powerful open-source model:
+                , el modelo de código abierto más potente:
               </span>
             </>
           )}
@@ -309,27 +310,28 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const stackActions = shouldStackFreebuffReferralActions(width)
   const actionRowWidth = width - 4 // card border + horizontal padding
   const glmLabel = firstLabelThatFits(actionRowWidth, [
-    '▶ Use GLM 5.2 ↵',
+    '▶ Usar GLM 5.2 ↵',
     '▶ GLM 5.2',
     '▶ GLM',
   ])
   const inviteLabels =
     qualifiedCount >= FREEBUFF_GLM_V52_REFERRAL_CAP
       ? [
-          `✔ Max sessions earned (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
-          '✔ Max earned',
-          '✔ Invite',
+          `✔ Máximo de sesiones obtenido (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
+          '✔ Máximo obtenido',
+          '✔ Invitar',
         ]
       : [
-          `⎘ Invite for +1/wk (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
-          '⎘ Invite +1/wk',
-          '⎘ Invite',
+          `⎘ Invita para +1/sem (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`,
+          '⎘ Invitar +1/sem',
+          '⎘ Invitar',
         ]
   const githubLabel =
     actionRowWidth >=
-    'Signed up with Google? Connect GitHub to qualify ↗'.length
-      ? 'Signed up with Google? Connect GitHub to qualify ↗'
-      : 'Connect GitHub to qualify ↗'
+    '¿Te registraste con Google? Conecta GitHub para cumplir los requisitos ↗'
+      .length
+      ? '¿Te registraste con Google? Conecta GitHub para cumplir los requisitos ↗'
+      : 'Conecta GitHub para cumplir los requisitos ↗'
 
   return (
     <box
@@ -348,15 +350,15 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
         flexShrink: 0,
       }}
       border={['top', 'bottom', 'left', 'right']}
-      title=" ✦ GLM 5.2 unlocked "
+      title=" ✦ GLM 5.2 desbloqueado "
       titleAlignment="left"
     >
       <text style={{ wrapMode: 'word' }}>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-          {pluralize(sessionsLeft, 'session')}
+          {sessionsLeft} {sessionsLeft === 1 ? 'sesión' : 'sesiones'}
         </span>
-        <span fg={theme.foreground}> available this week</span>
-        <span fg={theme.muted}> · resets in {resetsIn}</span>
+        <span fg={theme.foreground}> disponible esta semana</span>
+        <span fg={theme.muted}> · se restablece en {resetsIn}</span>
       </text>
 
       <box
@@ -375,7 +377,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           borderStyle="rounded"
           // Standard button treatment: muted border at rest, green when
           // keyboard-focused, brighter on hover — same scheme as the
-          // "Copy invite link" button below it.
+          // "Copiar enlace de invitación" button below it.
           borderColor={
             glmFocused
               ? theme.primary
@@ -401,7 +403,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
               }
               attributes={TextAttributes.BOLD}
             >
-              {joining ? 'Starting…' : glmLabel}
+              {joining ? 'Iniciando…' : glmLabel}
             </span>
           </text>
         </Button>

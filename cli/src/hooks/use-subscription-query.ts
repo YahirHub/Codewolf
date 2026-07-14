@@ -26,9 +26,9 @@ export async function fetchSubscriptionData(
   if (!response.ok) {
     logger.debug(
       { status: response.status },
-      'Failed to fetch subscription data',
+      'No se pudieron obtener los datos de la suscripción',
     )
-    throw new Error(`Failed to fetch subscription: ${response.status}`)
+    throw new Error(`No se pudo obtener la suscripción: ${response.status}`)
   }
 
   return response.data!

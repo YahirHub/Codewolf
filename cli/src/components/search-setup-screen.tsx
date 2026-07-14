@@ -208,7 +208,7 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
         recordSearchProviderTest(provider, result)
         reload()
         setMessage(
-          `${SEARCH_PROVIDER_LABELS[provider]}: ${result.ok ? 'OK' : 'ERROR'} · ${result.message}`,
+          `${SEARCH_PROVIDER_LABELS[provider]}: ${result.ok ? 'CORRECTO' : 'ERROR'} · ${result.message}`,
         )
       } finally {
         setBusy(false)
@@ -246,7 +246,7 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
       const result = await testSearchProvider(provider, current)
       recordSearchProviderTest(provider, result)
       lines.push(
-        `${SEARCH_PROVIDER_LABELS[provider]}: ${result.ok ? 'OK' : 'ERROR'} · ${result.message}`,
+        `${SEARCH_PROVIDER_LABELS[provider]}: ${result.ok ? 'CORRECTO' : 'ERROR'} · ${result.message}`,
       )
       setTestLines([...lines])
     }
@@ -668,7 +668,7 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
       </text>
       {providerState.lastTest && (
         <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-          Última prueba: {providerState.lastTest.ok ? 'OK' : 'ERROR'} ·{' '}
+          Última prueba: {providerState.lastTest.ok ? 'CORRECTO' : 'ERROR'} ·{' '}
           {providerState.lastTest.message}
         </text>
       )}
@@ -748,7 +748,7 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
       <text style={{ fg: theme.muted }}>
         {busy
           ? 'Probando conexión...'
-          : 'Enter guardar y probar · Esc cancelar'}
+          : 'Enter: guardar y probar · Esc: cancelar'}
       </text>
     </>
   )
@@ -862,9 +862,7 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
         {busy && <text style={{ fg: theme.muted }}>Probando...</text>}
       </box>
       <text style={{ fg: theme.muted }}>
-        {busy
-          ? 'Espera a que terminen las pruebas.'
-          : 'Enter o Esc para volver'}
+        {busy ? 'Espera a que terminen las pruebas.' : 'Enter o Esc: volver'}
       </text>
     </>
   )

@@ -64,11 +64,11 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
     const deleted = deleteChatSession(chatId)
     if (deleted) {
       setChats((prev) => prev.filter((chat) => chat.chatId !== chatId))
-      setStatusMessage('Chat deleted')
+      setStatusMessage('Chat eliminado')
       return
     }
 
-    setStatusMessage('Could not delete chat')
+    setStatusMessage('No se pudo eliminar el chat')
   }, [])
 
   // Calculate available width for the prompt text (last column, variable width)
@@ -108,7 +108,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           LAYOUT.TIME_COL_WIDTH,
         )
         const msgs = padRight(
-          chat.unreadable ? '—' : `${chat.messageCount} msgs`,
+          chat.unreadable ? '—' : `${chat.messageCount} msjs.`,
           LAYOUT.MSGS_COL_WIDTH,
         )
         const prompt = padRight(
@@ -164,7 +164,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
   const selectChat = useCallback(
     (chatId: string) => {
       if (unreadableChatIds.has(chatId)) {
-        setStatusMessage("Chat file is corrupted and can't be opened")
+        setStatusMessage('El archivo del chat está dañado y no se puede abrir')
         return
       }
       onSelectChat(chatId)
@@ -278,7 +278,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             <text
               style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}
             >
-              Select a chat to resume
+              Selecciona un chat para reanudarlo
             </text>
           </box>
         )}
@@ -297,7 +297,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             onSubmit={() => {}}
             onPaste={() => {}}
             onKeyIntercept={handleKeyIntercept}
-            placeholder="Search chats..."
+            placeholder="Buscar chats..."
             focused={true}
             maxHeight={1}
             minHeight={1}
@@ -327,10 +327,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             onFocusChange={handleFocusChange}
             emptyMessage={
               chats.length === 0
-                ? 'No chat history yet'
+                ? 'Aún no hay historial de chats'
                 : searchQuery
-                  ? 'No matching chats'
-                  : 'No chats found'
+                  ? 'No hay chats coincidentes'
+                  : 'No se encontraron chats'
             }
           />
         </box>
@@ -363,7 +363,8 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           {/* Help text */}
           <box style={{ flexGrow: 1, flexShrink: 1 }}>
             <text style={{ fg: theme.muted }}>
-              ↑↓ navigate · Enter select · Click [×] to remove · Esc cancel
+              ↑↓ navegar · Enter seleccionar · Pulsa [×] para eliminar · Esc
+              cancelar
             </text>
             {statusMessage && (
               <text style={{ fg: theme.muted }}>
@@ -388,7 +389,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
                 }}
                 border={['top', 'bottom', 'left', 'right']}
               >
-                <text style={{ fg: theme.primary }}>New Chat</text>
+                <text style={{ fg: theme.primary }}>Chat nuevo</text>
               </Button>
               <Button
                 onClick={onCancel}
@@ -402,7 +403,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
                 }}
                 border={['top', 'bottom', 'left', 'right']}
               >
-                <text style={{ fg: theme.muted }}>Cancel</text>
+                <text style={{ fg: theme.muted }}>Cancelar</text>
               </Button>
             </box>
           )}

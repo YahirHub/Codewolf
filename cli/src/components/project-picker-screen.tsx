@@ -345,7 +345,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             }}
           >
             <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-              Navigate to your project folder and press Open.
+              Navega hasta la carpeta de tu proyecto y pulsa Abrir.
             </text>
           </box>
         )}
@@ -364,7 +364,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             onSubmit={() => {}} // Enter key handled by onKeyIntercept
             onPaste={() => {}} // Paste not needed for path input
             onKeyIntercept={handleSearchKeyIntercept}
-            placeholder="Select project directory..."
+            placeholder="Seleccionar directorio del proyecto..."
             focused={true}
             maxHeight={1}
             minHeight={1}
@@ -391,7 +391,9 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
               onSelect={handleDirectorySelect}
               onFocusChange={handleFocusChange}
               emptyMessage={
-                searchQuery ? 'No matching directories' : 'No subdirectories'
+                searchQuery
+                  ? 'No hay directorios coincidentes'
+                  : 'No hay subdirectorios'
               }
             />
           </box>
@@ -408,7 +410,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
               gap: 0,
             }}
           >
-            <text style={{ fg: theme.muted, height: 1 }}>Recent:</text>
+            <text style={{ fg: theme.muted, height: 1 }}>Recientes:</text>
             {recentProjects.slice(0, maxRecentsToShow).map((project, idx) => (
               <box
                 key={project.path}
@@ -475,7 +477,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             }}
             border={['top', 'bottom', 'left', 'right']}
           >
-            <text style={{ fg: '#1a1a1a' }}>Open</text>
+            <text style={{ fg: '#1a1a1a' }}>Abrir</text>
           </Button>
         </box>
       </box>

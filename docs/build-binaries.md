@@ -1,57 +1,101 @@
-# Building Codewolf binaries
+# Compilar y publicar binarios de Codewolf
 
-## Local build
+## Compilación local
 
-From the repository root:
+Desde la raíz del repositorio:
 
 ```bash
 bun install --frozen-lockfile
 bun run build:binary
 ```
 
-The current operating system determines the output:
+El sistema operativo actual determina la salida:
 
 - Windows: `cli/bin/codewolf.exe`
 - Linux/macOS: `cli/bin/codewolf`
-- Required companion asset: `cli/bin/tree-sitter.wasm`
+- Archivo complementario obligatorio: `cli/bin/tree-sitter.wasm`
 
-Keep `tree-sitter.wasm` in the same directory as the executable.
+Mantén `tree-sitter.wasm` en la misma carpeta que el ejecutable.
 
-## GitHub Actions
+## Ejecución manual en GitHub Actions
 
-The workflow is stored at:
+El workflow está ubicado en:
 
 ```text
 .github/workflows/build-binaries.yml
 ```
 
-It runs only in either of these cases:
+Solo utiliza `workflow_dispatch`; por tanto, no consume minutos con cada push,
+pull request o etiqueta.
 
-1. Manually from **Actions → Build Codewolf binaries → Run workflow**.
-2. When a tag whose name starts with `v` is pushed, such as `v1.0.0`.
+Para que aparezca el botón **Run workflow**:
 
-A manual run may provide a version. If it is left empty, the version from the root `package.json` is used. A tag run uses the tag without its leading `v`.
+1. Confirma y sube el archivo del workflow a la rama predeterminada del repositorio.
+2. Comprueba que GitHub Actions esté habilitado en **Settings → Actions → General**.
+3. Abre **Actions → Compilar binarios y publicar release**.
+4. Pulsa **Run workflow** y confirma la rama que quieres publicar.
 
-## Generated artifact
+GitHub solo muestra el botón manual cuando la definición del workflow ya existe
+en la rama predeterminada. Tener el archivo únicamente en tu computadora o en
+una rama todavía no fusionada no es suficiente.
 
-The workflow uploads a single artifact containing:
+## Versionado automático
+
+No se solicita una versión al usuario. El workflow revisa todas las etiquetas
+que cumplan exactamente este formato:
 
 ```text
-codewolf-linux-x64.tar
+<mayor>.<menor>.<parche>
+```
+
+Si no existe ninguna, crea:
+
+```text
+1.0.0
+```
+
+Después incrementa siempre el último segmento de la etiqueta numérica más
+reciente:
+
+```text
+1.0.0 → 1.0.1 → 1.0.2
+2.4.9 → 2.4.10
+```
+
+Las etiquetas como `v1.0.0`, nombres de ramas u otros textos se ignoran. Tanto
+la etiqueta como el título de la release contienen únicamente números y puntos.
+La etiqueta y la release se crean solo después de que las compilaciones y sus
+verificaciones terminan correctamente.
+
+## Archivos de cada release
+
+La release recibe estos archivos:
+
+```text
+codewolf-linux-x64.tar.gz
 codewolf-windows-x64.zip
 SHA256SUMS.txt
 ```
 
-The Linux TAR preserves the executable permission. The Windows ZIP stores `codewolf.exe` and `tree-sitter.wasm` without an additional compression pass.
+El TAR de Linux conserva el permiso ejecutable. El ZIP de Windows contiene
+`codewolf.exe` y `tree-sitter.wasm`.
 
-## Runner usage
+## Optimización de minutos
 
-The workflow intentionally uses one `ubuntu-latest` job:
+El workflow usa un solo job en `ubuntu-latest`:
 
-- Dependencies are installed once.
-- Bundled agents and SDK assets are generated once.
-- Linux is compiled natively.
-- Windows x64 is cross-compiled with Bun.
-- Repeated runs for the same ref are cancelled.
-- Artifacts are retained for seven days.
-- Binary artifacts are uploaded with compression disabled to reduce runner CPU time.
+- Instala Bun y las dependencias una sola vez.
+- Restaura la caché del gestor de paquetes.
+- Genera los agentes y compila el SDK una sola vez.
+- Compila Linux de forma nativa.
+- Compila Windows x64 mediante cross-compilation de Bun.
+- Publica directamente en GitHub Releases, sin un segundo job de subida.
+- Limita la ejecución completa a 20 minutos.
+- Serializa las publicaciones mediante el grupo de concurrencia
+  `codewolf-release`, evitando que dos ejecuciones calculen la misma versión.
+
+El workflow necesita permisos de escritura sobre el contenido del repositorio
+para crear la etiqueta y la release. La definición ya declara
+`permissions: contents: write`. Si una política del repositorio u organización
+lo impide, habilita **Read and write permissions** en
+**Settings → Actions → General → Workflow permissions**.

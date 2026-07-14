@@ -66,7 +66,7 @@ export function getBannerColorLevel(balance: number | null): BannerColorLevel {
  * Generates loading text for the usage banner while data is being fetched.
  */
 export function generateLoadingBannerText(sessionCreditsUsed: number): string {
-  return `Session usage: ${sessionCreditsUsed.toLocaleString()}. Loading credit balance...`
+  return `Uso de la sesión: ${sessionCreditsUsed.toLocaleString()}. Cargando saldo de créditos...`
 }
 
 /**
