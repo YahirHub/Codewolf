@@ -100,6 +100,9 @@ TypeScript con Bun, React y OpenTUI.
   90 % del contexto máximo configurado o descubierto para el modelo.
 - Las sesiones heredadas con `role`/`content` nulos se normalizan al reanudarse,
   y los metadatos del proveedor no pueden sobrescribir campos del protocolo.
+- `/history` abre el historial del proyecto actual y `Tab` cambia a una vista
+  global de rutas conocidas; al reanudar otra ruta cambia el proyecto, reinicia
+  el cliente y recarga agentes, MCP y skills antes de restaurar la sesión.
 
 # Persistencia
 
@@ -170,6 +173,9 @@ lista exacta y versiones bloqueadas.
 - `packages/llm-providers/src/openai-compatible/chat/convert-to-openai-compatible-chat-messages.ts`
 - `common/src/util/messages.ts`
 - `sdk/src/run-state.ts`
+- `cli/src/components/chat-history-screen.tsx`
+- `cli/src/utils/chat-history.ts`
+- `cli/src/utils/recent-projects.ts`
 
 # Problemas encontrados
 
@@ -190,6 +196,9 @@ lista exacta y versiones bloqueadas.
   de construir la salida final. Como la memoria compactada queda correctamente
   como un único mensaje `user`, el extractor genérico `last_message` no hallaba
   un mensaje `assistant` y mostraba el falso error `No response from agent`.
+- `/history` solo conocía sesiones de la ruta activa, el registro de proyectos
+  descartaba rutas antiguas y un cambio de proyecto en el mismo proceso podía
+  conservar agentes o skills del directorio anterior.
 
 # Soluciones implementadas
 
@@ -215,6 +224,10 @@ lista exacta y versiones bloqueadas.
   resumen generado como salida exitosa, independientemente de que el historial
   persistido ya no contenga un mensaje `assistant`. Si el resumen está vacío,
   restaura el historial exacto anterior y avisa sin bloquear el chat.
+- `/history` alterna con `Tab` entre el proyecto actual y todos los proyectos
+  conocidos, permite buscar por ruta y cambia de directorio de forma segura antes
+  de reanudar; el registro conserva todas las rutas existentes y las extensiones
+  específicas del proyecto se recargan al cambiar.
 
 # Pendientes
 
@@ -252,3 +265,4 @@ al terminar.
 - `017`: compactación al 90 % y recuperación de sesiones con mensajes nulos.
 - `018`: corrección del falso `No response from agent` después de `/compact`.
 - `019`: agente genérico `/agent` con herencia del modelo activo global.
+- `020`: historial global de proyectos y reanudación entre rutas con `Tab`.

@@ -128,6 +128,12 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `/rename` stores only a user-visible name in `chat-meta.json`; it must not
   change the chat ID. Later checkpoint writes must preserve that name and
   `/history` must search/display it.
+- `/history` opens the current-project history by default. `Tab` toggles a
+  global view over every existing path remembered in `recent-projects.json`.
+  Global rows must carry both `projectPath` and `chatId`; selecting one must
+  switch the working directory, reset the SDK client, reload project agents,
+  MCP configuration and skills, then resume the chat. Deletion must target the
+  selected project's exact data directory.
 - `/export` and `/import` use the versioned Codewolf JSONL archive defined in
   `cli/src/utils/chat-transfer.ts`. Exports contain session metadata, messages,
   and RunState, but never provider/search credentials or project files.

@@ -205,6 +205,13 @@ async function main(): Promise<void> {
   const startCwd = process.cwd()
   const showProjectPicker = shouldShowProjectPicker(startCwd, homeDir)
 
+  // Remember projects opened directly from their directory, not only those
+  // selected through the project picker. /history uses this complete list to
+  // discover sessions saved under other paths.
+  if (!showProjectPicker) {
+    saveRecentProject(projectRoot)
+  }
+
   // Requires analytics to be initialized, which is done in initializeApp
   trackEvent(AnalyticsEvent.APP_LAUNCHED, {
     version: loadPackageVersion(),
@@ -323,6 +330,13 @@ async function main(): Promise<void> {
         setProjectRoot(newProjectPath)
         // Reset client to ensure tools use the updated project root
         resetCodebuffClient()
+        // Reload project-scoped extensions before resuming a chat from the
+        // selected route. This keeps .agents, mcp.json and .codewolf/skills in
+        // sync with the project that is now active.
+        if (!hasAgentOverride) {
+          await initializeAgentRegistry()
+        }
+        await initializeSkillRegistry()
         // Save to recent projects list
         saveRecentProject(newProjectPath)
         // Update local state
@@ -332,7 +346,7 @@ async function main(): Promise<void> {
         // Hide the picker and show the chat
         setShowProjectPickerScreen(false)
       },
-      [],
+      [hasAgentOverride],
     )
 
     return (

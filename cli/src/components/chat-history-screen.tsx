@@ -10,30 +10,49 @@ import { useTheme } from '../hooks/use-theme'
 import {
   deleteChatSession,
   formatRelativeTime,
-  getAllChats,
+  getAllProjectChats,
+  getChatsForProjects,
 } from '../utils/chat-history'
+import { getProjectDataDirForRoot, getProjectRoot } from '../project-files'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
+import type { ProjectChatHistoryEntry } from '../utils/chat-history'
 import type { SelectableListItem } from './selectable-list'
 
 const LAYOUT = {
   CONTENT_PADDING: 4,
-  COMPACT_MODE_THRESHOLD: 20, // Hide header when terminal height is below this
-  NARROW_WIDTH_THRESHOLD: 70, // Hide buttons when terminal width is below this
-  MAIN_CONTENT_PADDING: 2,
-  INITIAL_CHATS: 25, // Load this many immediately for fast display
-  BACKGROUND_CHATS: 475, // Load this many more in the background for search
-  MAX_RENDERED_CHATS: 100, // Only render this many in the list
-  TIME_COL_WIDTH: 12, // e.g., "2 hours ago"
-  MSGS_COL_WIDTH: 8, // e.g., "99 msgs"
-  DELETE_COL_WIDTH: 6, // e.g., "[×]" + marginRight
-  GAP_WIDTH: 3, // gap between columns
+  COMPACT_MODE_THRESHOLD: 20,
+  NARROW_WIDTH_THRESHOLD: 70,
+  INITIAL_CHATS: 25,
+  BACKGROUND_CHATS: 475,
+  MAX_RENDERED_CHATS: 500,
+  TIME_COL_WIDTH: 12,
+  MSGS_COL_WIDTH: 8,
+  DELETE_COL_WIDTH: 6,
+  GAP_WIDTH: 3,
+  MIN_PROJECT_COL_WIDTH: 18,
+  MAX_PROJECT_COL_WIDTH: 42,
+  MIN_PROMPT_WIDTH: 16,
 } as const
 
+export interface ChatHistorySelection {
+  chatId: string
+  projectPath: string
+}
+
+type HistoryScope = 'current' | 'all'
+
 interface ChatHistoryScreenProps {
-  onSelectChat: (chatId: string) => void
+  onSelectChat: (selection: ChatHistorySelection) => void | Promise<void>
   onCancel: () => void
   onNewChat: () => void
+}
+
+export function createHistoryItemId(
+  projectPath: string,
+  chatId: string,
+): string {
+  return JSON.stringify([projectPath, chatId])
 }
 
 export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
@@ -43,63 +62,82 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
 }) => {
   const theme = useTheme()
   const { terminalWidth, terminalHeight } = useTerminalLayout()
+  const currentProjectPath = getProjectRoot()
+  const currentProjectSource = useMemo(
+    () => ({
+      projectPath: currentProjectPath,
+      dataDir: getProjectDataDirForRoot(currentProjectPath),
+    }),
+    [currentProjectPath],
+  )
 
-  // Layout calculations - use full width
-  const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
-
-  // Two-phase loading: load initial chats immediately, then more in background
-  const [chats, setChats] = useState(() => getAllChats(LAYOUT.INITIAL_CHATS))
+  const [historyScope, setHistoryScope] = useState<HistoryScope>('current')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
-  // Load more chats in the background after initial render
+  const loadChats = useCallback(
+    (maxChats: number) =>
+      historyScope === 'current'
+        ? getChatsForProjects([currentProjectSource], maxChats)
+        : getAllProjectChats(maxChats, currentProjectPath),
+    [currentProjectPath, currentProjectSource, historyScope],
+  )
+
+  const [chats, setChats] = useState<ProjectChatHistoryEntry[]>(() =>
+    getChatsForProjects([currentProjectSource], LAYOUT.INITIAL_CHATS),
+  )
+
   useEffect(() => {
-    // Use setTimeout to defer the expensive loading to after first paint
+    setChats(loadChats(LAYOUT.INITIAL_CHATS))
     const timer = setTimeout(() => {
-      setChats(getAllChats(LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS))
+      setChats(loadChats(LAYOUT.INITIAL_CHATS + LAYOUT.BACKGROUND_CHATS))
     }, 0)
     return () => clearTimeout(timer)
-  }, [])
+  }, [loadChats])
 
-  const handleDeleteChat = useCallback((chatId: string) => {
-    const deleted = deleteChatSession(chatId)
-    if (deleted) {
-      setChats((prev) => prev.filter((chat) => chat.chatId !== chatId))
-      setStatusMessage('Chat eliminado')
-      return
-    }
-
-    setStatusMessage('No se pudo eliminar el chat')
-  }, [])
-
-  // Calculate available width for the prompt text (last column, variable width)
-  // Format: "[time]   [msgs]   [prompt...] [×]"
-  // reservedWidth accounts for: time col, msgs col, delete button area,
-  // 2 gaps between columns, list border (2), scrollbar (1), and button padding (2)
+  const contentWidth = terminalWidth - LAYOUT.CONTENT_PADDING
+  const showProjectColumn = historyScope === 'all'
+  const projectColumnWidth = showProjectColumn
+    ? Math.max(
+        LAYOUT.MIN_PROJECT_COL_WIDTH,
+        Math.min(LAYOUT.MAX_PROJECT_COL_WIDTH, Math.floor(contentWidth * 0.3)),
+      )
+    : 0
+  const gapCount = showProjectColumn ? 3 : 2
   const reservedWidth =
     LAYOUT.TIME_COL_WIDTH +
     LAYOUT.MSGS_COL_WIDTH +
     LAYOUT.DELETE_COL_WIDTH +
-    LAYOUT.GAP_WIDTH * 2 +
-    5 // border + scrollbar + button padding
-  const maxPromptWidth = Math.max(20, contentWidth - reservedWidth)
+    LAYOUT.GAP_WIDTH * gapCount +
+    projectColumnWidth +
+    5
+  const maxPromptWidth = Math.max(
+    LAYOUT.MIN_PROMPT_WIDTH,
+    contentWidth - reservedWidth,
+  )
 
-  // Truncate text to fit single line
-  const truncateText = (text: string, maxLen: number): string => {
+  const truncateText = useCallback((text: string, maxLen: number): string => {
     const singleLine = text.replace(/\n/g, ' ').trim()
     if (singleLine.length <= maxLen) return singleLine
-    return singleLine.slice(0, maxLen - 1) + '…'
-  }
+    return singleLine.slice(0, Math.max(1, maxLen - 1)) + '…'
+  }, [])
 
-  // Pad text to fixed width (right-pad with spaces)
-  const padRight = (text: string, width: number): string => {
-    // Use Array.from to count code points so emoji/wide chars don't break padding
+  const padRight = useCallback((text: string, width: number): string => {
     const len = Array.from(text).length
     if (len >= width) return text
     return text + ' '.repeat(width - len)
-  }
+  }, [])
 
-  // Convert chats to SelectableListItem format with aligned columns
-  // Order: time | message count | prompt
+  const chatByItemId = useMemo(
+    () =>
+      new Map(
+        chats.map((chat) => [
+          createHistoryItemId(chat.projectPath, chat.chatId),
+          chat,
+        ]),
+      ),
+    [chats],
+  )
+
   const chatItems: SelectableListItem[] = useMemo(
     () =>
       chats.map((chat) => {
@@ -116,28 +154,49 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           truncateText(displayName, maxPromptWidth),
           maxPromptWidth,
         )
+        const project = showProjectColumn
+          ? padRight(
+              truncateText(chat.projectPath, projectColumnWidth),
+              projectColumnWidth,
+            )
+          : ''
+        const columns = showProjectColumn
+          ? [time, msgs, project, prompt]
+          : [time, msgs, prompt]
 
         return {
-          id: chat.chatId,
-          // Combine all columns into label for correct display order: time | msgs | prompt
-          // The full prompt is kept in secondary for search filtering
-          label: `${time}${' '.repeat(LAYOUT.GAP_WIDTH)}${msgs}${' '.repeat(LAYOUT.GAP_WIDTH)}${prompt}`,
+          id: createHistoryItemId(chat.projectPath, chat.chatId),
+          label: columns.join(' '.repeat(LAYOUT.GAP_WIDTH)),
           icon: undefined,
-          secondary: [chat.name, chat.lastPrompt].filter(Boolean).join(' '), // Search name and first prompt
-          hideSecondary: true, // Don't display secondary, only use for filtering
+          secondary: [
+            chat.name,
+            chat.lastPrompt,
+            chat.projectName,
+            chat.projectPath,
+          ]
+            .filter(Boolean)
+            .join(' '),
+          hideSecondary: true,
+          accent: chat.projectPath === currentProjectPath && showProjectColumn,
         }
       }),
-    [chats, maxPromptWidth],
+    [
+      chats,
+      currentProjectPath,
+      maxPromptWidth,
+      padRight,
+      projectColumnWidth,
+      showProjectColumn,
+      truncateText,
+    ],
   )
 
-  // Custom filter function that searches the original prompt (stored in secondary)
-  const filterByPrompt = useCallback(
+  const filterByPromptOrProject = useCallback(
     (item: SelectableListItem, query: string) =>
       (item.secondary ?? '').toLowerCase().includes(query.toLowerCase()),
     [],
   )
 
-  // Search filtering and focus management
   const {
     searchQuery,
     setSearchQuery,
@@ -147,30 +206,77 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
     handleFocusChange,
   } = useSearchableList({
     items: chatItems,
-    filterFn: filterByPrompt,
+    resetKey: historyScope,
+    filterFn: filterByPromptOrProject,
+    filterPathQueries: true,
   })
 
   const isCompactMode = terminalHeight < LAYOUT.COMPACT_MODE_THRESHOLD
   const isNarrowWidth = terminalWidth < LAYOUT.NARROW_WIDTH_THRESHOLD
 
-  // No need to calculate listHeight - let flexbox handle it naturally
-
-  // Unreadable chats (corrupt chat-messages.json) can be deleted but not resumed
-  const unreadableChatIds = useMemo(
-    () => new Set(chats.filter((chat) => chat.unreadable).map((c) => c.chatId)),
-    [chats],
+  const switchScope = useCallback(
+    (scope?: HistoryScope) => {
+      setHistoryScope(
+        (current) => scope ?? (current === 'current' ? 'all' : 'current'),
+      )
+      setSearchQuery('')
+      setFocusedIndex(0)
+      setStatusMessage(null)
+    },
+    [setFocusedIndex, setSearchQuery],
   )
 
-  // Handle chat selection
+  const handleDeleteChat = useCallback(
+    (itemId: string) => {
+      const chat = chatByItemId.get(itemId)
+      if (!chat) {
+        setStatusMessage('No se encontró el chat seleccionado')
+        return
+      }
+
+      const deleted = deleteChatSession(chat.chatId, chat.dataDir)
+      if (deleted) {
+        setChats((previous) =>
+          previous.filter(
+            (entry) =>
+              createHistoryItemId(entry.projectPath, entry.chatId) !== itemId,
+          ),
+        )
+        setStatusMessage('Chat eliminado')
+        return
+      }
+
+      setStatusMessage('No se pudo eliminar el chat')
+    },
+    [chatByItemId],
+  )
+
   const selectChat = useCallback(
-    (chatId: string) => {
-      if (unreadableChatIds.has(chatId)) {
+    (itemId: string) => {
+      const chat = chatByItemId.get(itemId)
+      if (!chat) {
+        setStatusMessage('No se encontró el chat seleccionado')
+        return
+      }
+      if (chat.unreadable) {
         setStatusMessage('El archivo del chat está dañado y no se puede abrir')
         return
       }
-      onSelectChat(chatId)
+
+      Promise.resolve(
+        onSelectChat({
+          chatId: chat.chatId,
+          projectPath: chat.projectPath,
+        }),
+      ).catch((error) => {
+        setStatusMessage(
+          error instanceof Error
+            ? `No se pudo abrir el proyecto: ${error.message}`
+            : 'No se pudo abrir el proyecto seleccionado',
+        )
+      })
     },
-    [onSelectChat, unreadableChatIds],
+    [chatByItemId, onSelectChat],
   )
 
   const handleChatSelect = useCallback(
@@ -187,7 +293,6 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
     [handleDeleteChat],
   )
 
-  // Handle keyboard input
   const handleKeyIntercept = useCallback(
     (key: {
       name?: string
@@ -197,6 +302,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
       meta?: boolean
       option?: boolean
     }) => {
+      if (key.name === 'tab' && !key.ctrl && !key.meta && !key.option) {
+        switchScope()
+        return true
+      }
       if (key.name === 'escape') {
         if (searchQuery.length > 0) {
           setSearchQuery('')
@@ -206,13 +315,13 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
         return true
       }
       if (key.name === 'up') {
-        setFocusedIndex((prev) => Math.max(0, prev - 1))
+        setFocusedIndex((previous) => Math.max(0, previous - 1))
         return true
       }
       if (key.name === 'down') {
         const maxIndex =
           Math.min(filteredItems.length, LAYOUT.MAX_RENDERED_CHATS) - 1
-        setFocusedIndex((prev) => Math.min(maxIndex, prev + 1))
+        setFocusedIndex((previous) => Math.min(maxIndex, previous + 1))
         return true
       }
       if (isPlainEnterKey(key)) {
@@ -229,15 +338,25 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
       return false
     },
     [
-      searchQuery,
-      setSearchQuery,
-      setFocusedIndex,
       filteredItems,
       focusedIndex,
-      selectChat,
       onCancel,
+      searchQuery.length,
+      selectChat,
+      setFocusedIndex,
+      setSearchQuery,
+      switchScope,
     ],
   )
+
+  const emptyMessage =
+    chats.length === 0
+      ? historyScope === 'current'
+        ? 'Aún no hay historial en este proyecto'
+        : 'No hay chats guardados en los proyectos conocidos'
+      : searchQuery
+        ? 'No hay chats coincidentes'
+        : 'No se encontraron chats'
 
   return (
     <box
@@ -249,7 +368,6 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
         flexDirection: 'column',
       }}
     >
-      {/* Main content area */}
       <box
         style={{
           flexDirection: 'column',
@@ -265,7 +383,6 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           flexShrink: 1,
         }}
       >
-        {/* Title */}
         {!isCompactMode && (
           <box
             style={{
@@ -281,10 +398,41 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             >
               Selecciona un chat para reanudarlo
             </text>
+            <box style={{ flexDirection: 'row', gap: 2 }}>
+              <Button onClick={() => switchScope('current')}>
+                <text
+                  style={{
+                    fg:
+                      historyScope === 'current' ? theme.primary : theme.muted,
+                    attributes:
+                      historyScope === 'current'
+                        ? TextAttributes.BOLD
+                        : undefined,
+                  }}
+                >
+                  {historyScope === 'current'
+                    ? '[Proyecto actual]'
+                    : 'Proyecto actual'}
+                </text>
+              </Button>
+              <Button onClick={() => switchScope('all')}>
+                <text
+                  style={{
+                    fg: historyScope === 'all' ? theme.primary : theme.muted,
+                    attributes:
+                      historyScope === 'all' ? TextAttributes.BOLD : undefined,
+                  }}
+                >
+                  {historyScope === 'all'
+                    ? '[Todos los proyectos]'
+                    : 'Todos los proyectos'}
+                </text>
+              </Button>
+              <text style={{ fg: theme.muted }}>Tab cambia la vista</text>
+            </box>
           </box>
         )}
 
-        {/* Search input */}
         <box
           style={{
             width: contentWidth,
@@ -298,7 +446,11 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             onSubmit={() => {}}
             onPaste={() => {}}
             onKeyIntercept={handleKeyIntercept}
-            placeholder="Buscar chats..."
+            placeholder={
+              historyScope === 'current'
+                ? 'Buscar chats...'
+                : 'Buscar chats, proyectos o rutas...'
+            }
             focused={true}
             maxHeight={1}
             minHeight={1}
@@ -306,7 +458,6 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           />
         </box>
 
-        {/* Chat list - grows to fill remaining space */}
         <box
           style={{
             flexDirection: 'column',
@@ -326,18 +477,11 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             actionLabel="[×]"
             onAction={handleChatDelete}
             onFocusChange={handleFocusChange}
-            emptyMessage={
-              chats.length === 0
-                ? 'Aún no hay historial de chats'
-                : searchQuery
-                  ? 'No hay chats coincidentes'
-                  : 'No se encontraron chats'
-            }
+            emptyMessage={emptyMessage}
           />
         </box>
       </box>
 
-      {/* Bottom bar */}
       <box
         style={{
           flexDirection: 'row',
@@ -361,11 +505,10 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             width: contentWidth,
           }}
         >
-          {/* Help text */}
           <box style={{ flexGrow: 1, flexShrink: 1 }}>
             <text style={{ fg: theme.muted }}>
-              ↑↓ navegar · Enter seleccionar · Pulsa [×] para eliminar · Esc
-              cancelar
+              ↑↓ navegar · Enter reanudar · Tab cambiar vista · [×] eliminar ·
+              Esc cancelar
             </text>
             {statusMessage && (
               <text style={{ fg: theme.muted }}>
@@ -375,7 +518,6 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
             )}
           </box>
 
-          {/* Buttons - hidden on narrow screens */}
           {!isNarrowWidth && (
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <Button

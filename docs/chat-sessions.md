@@ -23,6 +23,26 @@ El nombre se guarda en `chat-meta.json`, aparece en `/history` y no modifica el
 identificador técnico ni el contenido de la conversación. Los nombres se
 normalizan a una sola línea y tienen un máximo de 120 caracteres.
 
+## Historial global de proyectos
+
+`/history` abre inicialmente las sesiones del proyecto actual. La tecla `Tab`
+alterna con **Todos los proyectos**, una vista ordenada por fecha que reúne las
+conversaciones de todas las rutas existentes recordadas en
+`~/.codewolf/recent-projects.json`. La tabla global muestra la ruta del proyecto
+y el buscador acepta nombre de sesión, prompt, nombre de carpeta o ruta completa.
+
+Al reanudar un chat de otra ruta, Codewolf cancela cualquier ejecución activa,
+cambia el directorio de trabajo, reinicia el cliente del SDK y recarga los
+agentes, la configuración MCP y las skills del proyecto antes de restaurar la
+sesión. Si el cambio de directorio falla, el historial permanece abierto y el
+chat actual no se reemplaza.
+
+La eliminación desde la vista global se aplica al directorio de datos de la fila
+seleccionada. El historial carga primero las 25 sesiones más recientes y amplía
+la lista en segundo plano hasta 500 para mantener fluida la interfaz. Los
+proyectos que una versión anterior dejó fuera del antiguo límite de recientes
+deben abrirse una vez para volver a registrarse.
+
 ## Exportar
 
 `/export` abre una pantalla con una ruta sugerida. El formato predeterminado es

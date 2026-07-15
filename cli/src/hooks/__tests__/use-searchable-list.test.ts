@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 
+import { filterSearchableItems } from '../use-searchable-list'
+
 /**
  * Tests for useSearchableList hook logic.
  *
@@ -243,6 +245,28 @@ describe('useSearchableList - filterItems', () => {
   })
 })
 
+describe('useSearchableList - path queries', () => {
+  const items: TestItem[] = [
+    { id: '1', label: '/home/user/project-a' },
+    { id: '2', label: '/home/user/project-b' },
+  ]
+
+  test('keeps path queries unfiltered by default for directory navigation', () => {
+    const result = filterSearchableItems(items, '/project-b', defaultFilterFn)
+    expect(result).toEqual(items)
+  })
+
+  test('filters full paths when filterPathQueries is enabled', () => {
+    const result = filterSearchableItems(
+      items,
+      '/home/user/project-b',
+      defaultFilterFn,
+      true,
+    )
+    expect(result).toEqual([{ id: '2', label: '/home/user/project-b' }])
+  })
+})
+
 describe('useSearchableList - clampFocusIndex', () => {
   describe('when index is within bounds', () => {
     test('returns index unchanged when within bounds', () => {
@@ -312,11 +336,11 @@ describe('useSearchableList - integration scenarios', () => {
   test('scenario: filter reduces list and clamp adjusts index', () => {
     // Start with focusedIndex = 4 (epsilon)
     let focusedIndex = 4
-    
+
     // Filter to items containing 'a' -> [alpha, beta, gamma, delta] (beta contains 'a')
     const filtered = filterItems(items, 'a')
     expect(filtered).toHaveLength(4)
-    
+
     // Clamp the focus index
     focusedIndex = clampFocusIndex(focusedIndex, filtered.length)
     expect(focusedIndex).toBe(3) // Clamped to last index (4-1=3)
@@ -324,10 +348,10 @@ describe('useSearchableList - integration scenarios', () => {
 
   test('scenario: filter to empty list clamps to 0', () => {
     let focusedIndex = 2
-    
+
     const filtered = filterItems(items, 'xyz')
     expect(filtered).toHaveLength(0)
-    
+
     focusedIndex = clampFocusIndex(focusedIndex, filtered.length)
     expect(focusedIndex).toBe(0)
   })
@@ -336,7 +360,7 @@ describe('useSearchableList - integration scenarios', () => {
     // First filter - 'a' matches alpha, beta, gamma, delta
     let filtered = filterItems(items, 'a')
     expect(filtered).toHaveLength(4)
-    
+
     // Clear filter
     filtered = filterItems(items, '')
     expect(filtered).toHaveLength(5)
@@ -346,12 +370,17 @@ describe('useSearchableList - integration scenarios', () => {
   test('scenario: progressive filtering narrows results', () => {
     // 'a' matches alpha, beta, gamma, delta (all contain 'a')
     let filtered = filterItems(items, 'a')
-    expect(filtered.map((i) => i.label)).toEqual(['alpha', 'beta', 'gamma', 'delta'])
-    
+    expect(filtered.map((i) => i.label)).toEqual([
+      'alpha',
+      'beta',
+      'gamma',
+      'delta',
+    ])
+
     // 'al' only matches alpha
     filtered = filterItems(items, 'al')
     expect(filtered.map((i) => i.label)).toEqual(['alpha'])
-    
+
     // 'alp' still only matches alpha
     filtered = filterItems(items, 'alp')
     expect(filtered.map((i) => i.label)).toEqual(['alpha'])

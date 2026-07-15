@@ -4,11 +4,18 @@ import path from 'path'
 import { getConfigDir } from './auth'
 import { logger } from './logger'
 
-const MAX_RECENT_PROJECTS = 10
-
 export interface RecentProject {
   path: string
   lastOpened: number
+}
+
+function normalizeProjectPath(projectPath: string): string {
+  return path.resolve(projectPath)
+}
+
+function projectPathKey(projectPath: string): string {
+  const normalized = normalizeProjectPath(projectPath)
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
 }
 
 /**
@@ -19,8 +26,9 @@ export const getRecentProjectsPath = (): string => {
 }
 
 /**
- * Load recent projects from file system
- * @returns Array of recent projects, sorted by most recent first
+ * Load every known project from file system, sorted by most recent first.
+ * The project picker only renders a few entries, while /history uses the full
+ * list to discover conversations saved under other working directories.
  */
 export const loadRecentProjects = (): RecentProject[] => {
   const recentProjectsPath = getRecentProjectsPath()
@@ -37,26 +45,43 @@ export const loadRecentProjects = (): RecentProject[] => {
       return []
     }
 
-    // Validate and filter entries
-    const validProjects = parsed.filter(
-      (item): item is RecentProject =>
-        typeof item === 'object' &&
-        item !== null &&
-        typeof item.path === 'string' &&
-        typeof item.lastOpened === 'number',
-    )
+    const seen = new Set<string>()
+    const validProjects = parsed.filter((item): item is RecentProject => {
+      if (
+        typeof item !== 'object' ||
+        item === null ||
+        typeof item.path !== 'string' ||
+        typeof item.lastOpened !== 'number'
+      ) {
+        return false
+      }
 
-    // Filter out projects that no longer exist on disk
-    const existingProjects = validProjects.filter((project) => {
+      let normalizedPath: string
       try {
-        return fs.existsSync(project.path)
+        normalizedPath = normalizeProjectPath(item.path)
       } catch {
         return false
       }
+
+      const key = projectPathKey(normalizedPath)
+      if (seen.has(key)) {
+        return false
+      }
+
+      try {
+        if (!fs.existsSync(normalizedPath)) {
+          return false
+        }
+      } catch {
+        return false
+      }
+
+      seen.add(key)
+      item.path = normalizedPath
+      return true
     })
 
-    // Sort by most recent first
-    return existingProjects.sort((a, b) => b.lastOpened - a.lastOpened)
+    return validProjects.sort((a, b) => b.lastOpened - a.lastOpened)
   } catch (error) {
     logger.debug(
       { error: error instanceof Error ? error.message : String(error) },
@@ -89,11 +114,12 @@ export const clearRecentProjects = (): void => {
  */
 export const removeRecentProject = (projectPath: string): void => {
   const recentProjectsPath = getRecentProjectsPath()
+  const targetKey = projectPathKey(projectPath)
 
   try {
     const existingProjects = loadRecentProjects()
     const filteredProjects = existingProjects.filter(
-      (p) => p.path !== projectPath,
+      (project) => projectPathKey(project.path) !== targetKey,
     )
 
     fs.writeFileSync(
@@ -109,39 +135,39 @@ export const removeRecentProject = (projectPath: string): void => {
 }
 
 /**
- * Save a project to the recent projects list.
- * Updates the timestamp if the project already exists, otherwise adds it.
- * Keeps only the most recent MAX_RECENT_PROJECTS projects.
- * Validates that the path exists before saving.
+ * Save a project to the known-project list.
+ * Updates the timestamp if the project already exists and retains all known
+ * paths so /history can later browse sessions from any of them.
  */
 export const saveRecentProject = (projectPath: string): void => {
-  // Validate path exists before saving
-  if (!fs.existsSync(projectPath)) {
-    logger.debug({ projectPath }, 'Skipping save for non-existent project path')
+  const normalizedPath = normalizeProjectPath(projectPath)
+
+  if (!fs.existsSync(normalizedPath)) {
+    logger.debug(
+      { projectPath: normalizedPath },
+      'Skipping save for non-existent project path',
+    )
     return
   }
 
   const configDir = getConfigDir()
   const recentProjectsPath = getRecentProjectsPath()
+  const targetKey = projectPathKey(normalizedPath)
 
   try {
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true })
     }
 
-    // Load existing projects
     const existingProjects = loadRecentProjects()
-
-    // Remove the project if it already exists (we'll add it back at the top)
     const filteredProjects = existingProjects.filter(
-      (p) => p.path !== projectPath,
+      (project) => projectPathKey(project.path) !== targetKey,
     )
 
-    // Add the new/updated project at the beginning
     const updatedProjects: RecentProject[] = [
-      { path: projectPath, lastOpened: Date.now() },
+      { path: normalizedPath, lastOpened: Date.now() },
       ...filteredProjects,
-    ].slice(0, MAX_RECENT_PROJECTS)
+    ]
 
     fs.writeFileSync(
       recentProjectsPath,

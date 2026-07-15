@@ -55,6 +55,12 @@ let mcpServersCache: Record<string, MCPConfig> = {}
  * Later directories take precedence, so project agents override global ones.
  */
 export async function initializeAgentRegistry(): Promise<void> {
+  // Project switches can happen without restarting the CLI (project picker,
+  // git-root banner, or /history). Clear path-dependent caches before loading
+  // definitions from the new working directory.
+  cachedAgentsByMode.clear()
+  cachedAgentsDir = null
+
   try {
     // Let SDK load from all default directories (cwd, parent, home)
     userAgentsCache = await sdkLoadLocalAgents({ verbose: false })

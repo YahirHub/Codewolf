@@ -126,7 +126,11 @@ También puedes indicar el nombre directamente:
 /rename Refactor de autenticación
 ```
 
-El nombre aparece en `/history` y se conserva entre reinicios.
+El nombre aparece en `/history` y se conserva entre reinicios. `/history`
+muestra primero las sesiones del proyecto actual; pulsa `Tab` para cambiar a
+**Todos los proyectos**, buscar por nombre o ruta y reanudar una conversación
+guardada en otro directorio. Codewolf cambia al proyecto seleccionado antes de
+restaurar el chat.
 
 Exporta la conversación actual a un archivo JSONL portable:
 

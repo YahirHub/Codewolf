@@ -43,17 +43,18 @@ export function startNewChat() {
   return currentChatId
 }
 
-// Get the project-specific data directory
+// Resolve the project-specific data directory for any project root.
+// Kept as a pure helper so /history can inspect sessions from other paths
+// without changing the active project first.
+export function getProjectDataDirForRoot(root: string): string {
+  const resolvedRoot = path.resolve(root)
+  const baseName = path.basename(resolvedRoot)
+  return path.join(getConfigDir(), 'projects', baseName)
+}
+
+// Get the project-specific data directory for the active project.
 export function getProjectDataDir(): string {
-  const root = getProjectRoot()
-  if (!root) {
-    throw new Error('No se ha establecido la raíz del proyecto')
-  }
-
-  const baseName = path.basename(root)
-  const baseDir = path.join(getConfigDir(), 'projects', baseName)
-
-  return baseDir
+  return getProjectDataDirForRoot(getProjectRoot())
 }
 
 /**

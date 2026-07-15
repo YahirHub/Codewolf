@@ -19,6 +19,8 @@ export interface UseSearchableListOptions<T extends SearchableItem> {
   resetKey?: string
   /** Custom filter function (defaults to case-insensitive label matching) */
   filterFn?: (item: T, query: string) => boolean
+  /** Filter queries beginning with / or ~ instead of treating them as paths. */
+  filterPathQueries?: boolean
 }
 
 export interface UseSearchableListReturn<T extends SearchableItem> {
@@ -36,6 +38,25 @@ export interface UseSearchableListReturn<T extends SearchableItem> {
   handleFocusChange: (index: number) => void
 }
 
+export function filterSearchableItems<T extends SearchableItem>(
+  items: T[],
+  query: string,
+  filterFunction: (item: T, query: string) => boolean,
+  filterPathQueries: boolean = false,
+): T[] {
+  const trimmedQuery = query.trim()
+  if (!trimmedQuery) return items
+  if (
+    !filterPathQueries &&
+    (trimmedQuery.startsWith('/') || trimmedQuery.startsWith('~'))
+  ) {
+    return items
+  }
+  return items.filter(
+    (item) => item.label === '..' || filterFunction(item, trimmedQuery),
+  )
+}
+
 /**
  * Hook for managing searchable list state.
  * Handles search filtering, focus management, and automatic index clamping.
@@ -44,6 +65,7 @@ export function useSearchableList<T extends SearchableItem>({
   items,
   resetKey,
   filterFn,
+  filterPathQueries = false,
 }: UseSearchableListOptions<T>): UseSearchableListReturn<T> {
   const [searchQuery, setSearchQuery] = useState('')
   const [focusedIndex, setFocusedIndex] = useState(0)
@@ -57,18 +79,16 @@ export function useSearchableList<T extends SearchableItem>({
 
   const filterFunction = filterFn ?? defaultFilterFn
 
-  // Filter items based on search query
-  // Skip filtering for path-like queries (starting with / or ~) - those are for navigation, not filtering
-  const filteredItems = useMemo(() => {
-    const trimmedQuery = searchQuery.trim()
-    if (!trimmedQuery) return items
-    // Path-like queries should not filter the directory list
-    if (trimmedQuery.startsWith('/') || trimmedQuery.startsWith('~')) return items
-    // Always keep parent directory entry (..) visible, filter others
-    return items.filter((item) => 
-      item.label === '..' || filterFunction(item, trimmedQuery)
-    )
-  }, [items, searchQuery, filterFunction])
+  const filteredItems = useMemo(
+    () =>
+      filterSearchableItems(
+        items,
+        searchQuery,
+        filterFunction,
+        filterPathQueries,
+      ),
+    [filterFunction, filterPathQueries, items, searchQuery],
+  )
 
   // Reset focus when resetKey changes (but keep search query)
   useEffect(() => {

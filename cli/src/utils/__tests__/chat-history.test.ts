@@ -13,7 +13,11 @@ mock.module('../logger', () => ({
   },
 }))
 
-import { deleteChatSession, getAllChats } from '../chat-history'
+import {
+  deleteChatSession,
+  getAllChats,
+  getChatsForProjects,
+} from '../chat-history'
 
 let tempDataDir = ''
 
@@ -51,9 +55,9 @@ describe('chat-history', () => {
 
     expect(fs.existsSync(path.join(tempDataDir, 'chats', 'chat-a'))).toBe(false)
     expect(fs.existsSync(path.join(tempDataDir, 'chats', 'chat-b'))).toBe(true)
-    expect(
-      getAllChats(500, tempDataDir).map((chat) => chat.chatId),
-    ).toEqual(['chat-b'])
+    expect(getAllChats(500, tempDataDir).map((chat) => chat.chatId)).toEqual([
+      'chat-b',
+    ])
   })
 
   test('deleteChatSession rejects invalid chat ids', () => {
@@ -199,5 +203,142 @@ describe('chat-history', () => {
     fs.writeFileSync(path.join(emptyDir, 'chat-messages.json'), '[]')
 
     expect(getAllChats(500, tempDataDir)).toHaveLength(0)
+  })
+  test('getChatsForProjects merges other project paths and sorts globally', () => {
+    const projectAData = path.join(tempDataDir, 'project-a-data')
+    const projectBData = path.join(tempDataDir, 'project-b-data')
+
+    const writeProjectChat = (
+      dataDir: string,
+      chatId: string,
+      prompt: string,
+      mtimeMs: number,
+    ) => {
+      const chatDir = path.join(dataDir, 'chats', chatId)
+      fs.mkdirSync(chatDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(chatDir, 'chat-messages.json'),
+        JSON.stringify([
+          {
+            id: `${chatId}-message`,
+            variant: 'user',
+            content: prompt,
+            timestamp: new Date(mtimeMs).toISOString(),
+            blocks: [],
+          },
+        ]),
+      )
+      const timestamp = new Date(mtimeMs)
+      fs.utimesSync(chatDir, timestamp, timestamp)
+    }
+
+    writeProjectChat(projectAData, 'shared-id', 'older project prompt', 1000)
+    writeProjectChat(projectBData, 'shared-id', 'newer project prompt', 2000)
+
+    const chats = getChatsForProjects(
+      [
+        {
+          projectPath: path.join(tempDataDir, 'project-a'),
+          dataDir: projectAData,
+        },
+        {
+          projectPath: path.join(tempDataDir, 'project-b'),
+          dataDir: projectBData,
+        },
+      ],
+      500,
+    )
+
+    expect(chats).toHaveLength(2)
+    expect(chats.map((chat) => chat.lastPrompt)).toEqual([
+      'newer project prompt',
+      'older project prompt',
+    ])
+    expect(chats[0].projectName).toBe('project-b')
+    expect(chats[0].dataDir).toBe(path.resolve(projectBData))
+    expect(chats[1].projectName).toBe('project-a')
+  })
+
+  test('getChatsForProjects skips one unreadable source without hiding other projects', () => {
+    const healthyData = path.join(tempDataDir, 'healthy-data')
+    const brokenData = path.join(tempDataDir, 'broken-data')
+    const healthyChatDir = path.join(healthyData, 'chats', 'healthy-chat')
+    fs.mkdirSync(healthyChatDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(healthyChatDir, 'chat-messages.json'),
+      JSON.stringify([
+        {
+          id: 'healthy-message',
+          variant: 'user',
+          content: 'healthy project prompt',
+          timestamp: new Date().toISOString(),
+          blocks: [],
+        },
+      ]),
+    )
+
+    fs.mkdirSync(brokenData, { recursive: true })
+    fs.writeFileSync(path.join(brokenData, 'chats'), 'not a directory')
+
+    const chats = getChatsForProjects(
+      [
+        { projectPath: '/broken-project', dataDir: brokenData },
+        { projectPath: '/healthy-project', dataDir: healthyData },
+      ],
+      500,
+    )
+
+    expect(chats).toHaveLength(1)
+    expect(chats[0].chatId).toBe('healthy-chat')
+    expect(chats[0].projectPath).toBe(path.resolve('/healthy-project'))
+  })
+
+  test('getChatsForProjects applies the global limit before reading entries', () => {
+    const projectAData = path.join(tempDataDir, 'project-a-data')
+    const projectBData = path.join(tempDataDir, 'project-b-data')
+
+    const copyChat = (
+      dataDir: string,
+      chatId: string,
+      prompt: string,
+      mtimeMs: number,
+    ) => {
+      const chatDir = path.join(dataDir, 'chats', chatId)
+      fs.mkdirSync(chatDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(chatDir, 'chat-messages.json'),
+        JSON.stringify([
+          {
+            id: `${chatId}-message`,
+            variant: 'user',
+            content: prompt,
+            timestamp: new Date(mtimeMs).toISOString(),
+            blocks: [],
+          },
+        ]),
+      )
+      const timestamp = new Date(mtimeMs)
+      fs.utimesSync(chatDir, timestamp, timestamp)
+    }
+
+    copyChat(projectAData, 'chat-a', 'older', 1000)
+    copyChat(projectBData, 'chat-b', 'newest', 3000)
+
+    const chats = getChatsForProjects(
+      [
+        {
+          projectPath: path.join(tempDataDir, 'project-a'),
+          dataDir: projectAData,
+        },
+        {
+          projectPath: path.join(tempDataDir, 'project-b'),
+          dataDir: projectBData,
+        },
+      ],
+      1,
+    )
+
+    expect(chats).toHaveLength(1)
+    expect(chats[0].lastPrompt).toBe('newest')
   })
 })

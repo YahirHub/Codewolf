@@ -1,3 +1,4 @@
+import path from 'path'
 import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -20,6 +21,7 @@ import type { TopBannerType } from './types/store'
 import { IS_FREEBUFF } from './utils/constants'
 import { findGitRoot } from './utils/git'
 
+import type { ChatHistorySelection } from './components/chat-history-screen'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { AgentMode } from './utils/constants'
 import type { AuthStatus } from './utils/status-indicator-state'
@@ -35,7 +37,7 @@ interface AppProps {
   continueChatId?: string
   initialMode?: AgentMode
   showProjectPicker: boolean
-  onProjectChange: (projectPath: string) => void
+  onProjectChange: (projectPath: string) => void | Promise<void>
 }
 
 export const App = ({
@@ -153,17 +155,31 @@ export const App = ({
   const [resumeChatId, setResumeChatId] = useState<string | null>(null)
 
   const handleResumeChat = useCallback(
-    (chatId: string) => {
-      // Abort any in-flight run BEFORE resetting the store and switching
-      // chats: an orphaned run would keep checkpointing, and its writes could
-      // land in the resumed chat's directory, overwriting that transcript.
+    async ({ chatId, projectPath }: ChatHistorySelection) => {
+      // Stop the active run before changing either the project or chat. An
+      // orphaned checkpoint could otherwise be written into the resumed
+      // session after the switch.
       abortActiveRun()
+
+      const activeProjectPath = path.resolve(getProjectRoot())
+      const targetProjectPath = path.resolve(projectPath)
+      const sameProject =
+        process.platform === 'win32'
+          ? activeProjectPath.toLowerCase() === targetProjectPath.toLowerCase()
+          : activeProjectPath === targetProjectPath
+
+      // Keep the history screen mounted until the directory switch succeeds.
+      // If process.chdir fails, ChatHistoryScreen displays the rejection and
+      // the current conversation remains available.
+      if (!sameProject) {
+        await onProjectChange(targetProjectPath)
+      }
+
       closeChatHistory()
-      // Reset chat store to clear previous messages before loading the selected chat
       resetChatStore()
       setResumeChatId(chatId)
     },
-    [closeChatHistory, resetChatStore]
+    [closeChatHistory, onProjectChange, resetChatStore],
   )
 
   const handleNewChat = useCallback(() => {
@@ -182,7 +198,9 @@ export const App = ({
 
   // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
-  const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
+  const authErrorStatusCode = authError
+    ? getErrorStatusCode(authError)
+    : undefined
 
   let authStatus: AuthStatus = 'ok'
   if (authQuery.isError && authErrorStatusCode !== undefined) {
@@ -226,7 +244,9 @@ export const App = ({
   }
 
   // Use key to force remount when resuming a different chat from history
-  const chatKey = resumeChatId ?? 'current'
+  const chatKey = resumeChatId
+    ? `${projectRoot}:${resumeChatId}`
+    : `current:${projectRoot}`
 
   return (
     <AuthedSurface
@@ -259,7 +279,9 @@ interface AuthedSurfaceProps {
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean | null>>
-  setUser: React.Dispatch<React.SetStateAction<import('./utils/auth').User | null>>
+  setUser: React.Dispatch<
+    React.SetStateAction<import('./utils/auth').User | null>
+  >
   logoutMutation: ReturnType<typeof useAuthState>['logoutMutation']
   continueChat: boolean
   continueChatId: string | undefined
@@ -268,7 +290,7 @@ interface AuthedSurfaceProps {
   gitRoot: string | null | undefined
   onSwitchToGitRoot: () => void
   showChatHistory: boolean
-  onSelectChat: (chatId: string) => void
+  onSelectChat: (selection: ChatHistorySelection) => void | Promise<void>
   onCancelChatHistory: () => void
   onNewChat: () => void
 }
