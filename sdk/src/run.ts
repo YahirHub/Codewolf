@@ -71,7 +71,6 @@ import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
-import type { RequestToolPermissionFn } from '@codebuff/common/types/tool-permission'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -178,8 +177,6 @@ export type CodebuffClientOptions = {
   traceWriter?: TraceWriter
   /** Receives local numeric token-usage metadata for every model call. */
   onTokenUsage?: TokenUsageCallback
-  /** Optional approval callback invoked before sensitive tools execute. */
-  requestToolPermission?: RequestToolPermissionFn
   /** Called immediately before a built-in file editing tool mutates disk. */
   onBeforeFileMutation?: (event: FileMutationEvent) => void | Promise<void>
   /** Called after a built-in file editing tool settles. */
@@ -337,7 +334,6 @@ async function runOnce({
   logger,
   traceWriter,
   onTokenUsage,
-  requestToolPermission,
   onBeforeFileMutation,
   onAfterFileMutation,
 
@@ -563,7 +559,6 @@ async function runOnce({
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
-    requestToolPermission,
     requestToolCall: async ({ userInputId, toolName, input, mcpConfig }) => {
       return handleToolCall({
         action: {

@@ -62,7 +62,6 @@ export function getAgentRuntimeImpl(
     AgentRuntimeScopedDeps,
     | 'handleStepsLogChunk'
     | 'requestToolCall'
-    | 'requestToolPermission'
     | 'requestMcpToolData'
     | 'requestFiles'
     | 'requestOptionalFile'
@@ -81,7 +80,6 @@ export function getAgentRuntimeImpl(
     clientEnv: clientEnvInput,
     handleStepsLogChunk,
     requestToolCall,
-    requestToolPermission,
     requestMcpToolData,
     requestFiles,
     requestOptionalFile,
@@ -178,7 +176,6 @@ export function getAgentRuntimeImpl(
     // Client (WebSocket)
     handleStepsLogChunk,
     requestToolCall,
-    requestToolPermission,
     requestMcpToolData,
     requestFiles,
     requestOptionalFile,

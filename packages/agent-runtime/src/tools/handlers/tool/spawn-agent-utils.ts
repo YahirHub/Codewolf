@@ -88,7 +88,6 @@ export function extractSubagentContextParams(
     // AgentRuntimeScopedDeps - Client (WebSocket)
     handleStepsLogChunk: params.handleStepsLogChunk,
     requestToolCall: params.requestToolCall,
-    requestToolPermission: params.requestToolPermission,
     requestMcpToolData: params.requestMcpToolData,
     requestFiles: params.requestFiles,
     requestOptionalFile: params.requestOptionalFile,

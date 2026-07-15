@@ -17,6 +17,7 @@ import {
   getCustomProviderAuthPath,
   getCustomProviderAuthStatus,
   getCustomProvidersPath,
+  loadAvailableProvidersConfig,
   loadCustomProvidersConfig,
   normalizeCustomProviderBaseUrl,
   parseCustomProviderModels,
@@ -26,6 +27,10 @@ import {
   updateCustomProvider,
   upsertCustomProvider,
 } from '../custom-providers'
+import {
+  OPENCODE_FREE_BASE_URL,
+  OPENCODE_FREE_PROVIDER_ID,
+} from '../../providers/opencode-catalog'
 
 describe('custom providers', () => {
   let configDir: string
@@ -44,6 +49,49 @@ describe('custom providers', () => {
     } else {
       process.env.TEST_CUSTOM_PROVIDER_KEY = originalEnv
     }
+  })
+
+  test('includes OpenCode Free by default without persisting credentials', () => {
+    const available = loadAvailableProvidersConfig(configDir)
+    const provider = available.providers.find(
+      (item) => item.id === OPENCODE_FREE_PROVIDER_ID,
+    )
+
+    expect(provider).toBeDefined()
+    expect(provider?.baseUrl).toBe(OPENCODE_FREE_BASE_URL)
+    expect(provider?.models.length).toBeGreaterThan(0)
+    expect(
+      provider?.models.every((model) => model.id.endsWith('-free')),
+    ).toBe(true)
+    expect(available.activeProviderId).toBe(OPENCODE_FREE_PROVIDER_ID)
+    expect(getActiveCustomProviderRuntimeConfig(configDir)).toMatchObject({
+      id: OPENCODE_FREE_PROVIDER_ID,
+      apiKey: undefined,
+    })
+    expect(fs.existsSync(getCustomProviderAuthPath(configDir))).toBe(false)
+    expect(fs.existsSync(getCustomProvidersPath(configDir))).toBe(false)
+  })
+
+  test('keeps OpenCode Free ephemeral when selecting one of its models', () => {
+    const available = loadAvailableProvidersConfig(configDir)
+    const freeModel = available.providers.find(
+      (provider) => provider.id === OPENCODE_FREE_PROVIDER_ID,
+    )?.models[0]
+    expect(freeModel).toBeDefined()
+
+    activateCustomProviderModel(
+      OPENCODE_FREE_PROVIDER_ID,
+      freeModel!.id,
+      configDir,
+    )
+
+    const persisted = loadCustomProvidersConfig(configDir)
+    expect(persisted.activeProviderId).toBe(OPENCODE_FREE_PROVIDER_ID)
+    expect(persisted.providers).toEqual([])
+    expect(
+      getCustomProviderApiKey(OPENCODE_FREE_PROVIDER_ID, configDir),
+    ).toBeUndefined()
+    expect(fs.existsSync(getCustomProviderAuthPath(configDir))).toBe(false)
   })
 
   test('normalizes API roots and strips chat completions endpoint', () => {

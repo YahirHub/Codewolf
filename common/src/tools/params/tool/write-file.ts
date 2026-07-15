@@ -16,12 +16,6 @@ const inputSchema = z
     instructions: z
       .string()
       .describe('What the change is intended to do in only one sentence.'),
-    reason: z
-      .string()
-      .optional()
-      .describe(
-        'Motivo breve para crear o sobrescribir el archivo. Se muestra en la solicitud del Modo seguro.',
-      ),
     content: z.string().describe(`Complete file content to write to the file.`),
   })
   .describe(`Create or overwrite a file with the given content.`)
@@ -43,7 +37,6 @@ ${$getNativeToolCallExampleString({
   input: {
     path: 'new-file.ts',
     instructions: 'Prints Hello, world',
-    reason: 'Crear el archivo solicitado con una implementación mínima.',
     content: 'console.log("Hello, world!");',
   },
   endsAgentStep,
@@ -56,8 +49,6 @@ ${$getNativeToolCallExampleString({
   input: {
     path: 'foo.ts',
     instructions: 'Update foo function',
-    reason:
-      'Reemplazar la implementación completa para aplicar el nuevo comportamiento.',
     content: `function foo() {
   doSomethingNew();
 }

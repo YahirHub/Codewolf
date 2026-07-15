@@ -13,6 +13,7 @@ import {
   disableCustomProvider,
 } from '../utils/custom-providers'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
+import { refreshBundledOpenCodeProviders } from '../utils/opencode-providers'
 
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
@@ -44,6 +45,21 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
   const selectorHeight = Math.max(6, Math.min(14, terminalHeight - 3))
   const config = useCustomProviderStore((state) => state.config)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [catalogStatus, setCatalogStatus] = useState<
+    'loading' | 'ready' | 'warning'
+  >('loading')
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void refreshBundledOpenCodeProviders({ signal: controller.signal }).then(
+      (result) => {
+        if (controller.signal.aborted) return
+        refreshCustomProviderStore()
+        setCatalogStatus(result.warnings.length > 0 ? 'warning' : 'ready')
+      },
+    )
+    return () => controller.abort()
+  }, [])
 
   const sections = useMemo<ModelSection[]>(() => {
     const customSections = [...config.providers]
@@ -258,8 +274,11 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
         ))}
       </scrollbox>
       <text style={{ fg: theme.muted }}>
-        ↑↓ navegar · Enter seleccionar · Esc cancelar · /login agrega
-        proveedores
+        {catalogStatus === 'loading'
+          ? 'Actualizando modelos OpenCode…'
+          : catalogStatus === 'warning'
+            ? 'Modelos OpenCode en caché · ↑↓ navegar · Enter seleccionar · Esc cancelar'
+            : '↑↓ navegar · Enter seleccionar · Esc cancelar · /login agrega proveedores'}
       </text>
     </box>
   )

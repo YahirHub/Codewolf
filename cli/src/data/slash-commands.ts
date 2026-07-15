@@ -34,7 +34,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'login',
     label: 'login',
     description:
-      'Configurar interactivamente un proveedor compatible con OpenAI',
+      'Configurar autenticación mediante API key y proveedores compatibles',
     aliases: ['signin'],
   },
   {

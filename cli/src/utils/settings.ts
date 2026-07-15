@@ -11,7 +11,6 @@ const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   projectContextEnabled: false,
   verifiedCommitsEnabled: false,
-  safeModeEnabled: false,
 }
 
 // Note: The old FREE mode has been renamed back to LITE; migrate on load.
@@ -29,8 +28,6 @@ export interface Settings {
   projectContextEnabled?: boolean
   /** Ask the user to verify structured edits before creating a Git commit. */
   verifiedCommitsEnabled?: boolean
-  /** Require per-operation approval for commands, file mutations and external tools. */
-  safeModeEnabled?: boolean
 }
 
 /**
@@ -98,6 +95,7 @@ const validateSettings = (parsed: unknown): Settings => {
     }
   }
 
+
   // Validate alwaysUseALaCarte (legacy)
   if (typeof obj.alwaysUseALaCarte === 'boolean') {
     settings.alwaysUseALaCarte = obj.alwaysUseALaCarte
@@ -108,16 +106,13 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.fallbackToALaCarte = obj.fallbackToALaCarte
   }
 
+
   if (typeof obj.projectContextEnabled === 'boolean') {
     settings.projectContextEnabled = obj.projectContextEnabled
   }
 
   if (typeof obj.verifiedCommitsEnabled === 'boolean') {
     settings.verifiedCommitsEnabled = obj.verifiedCommitsEnabled
-  }
-
-  if (typeof obj.safeModeEnabled === 'boolean') {
-    settings.safeModeEnabled = obj.safeModeEnabled
   }
 
   return settings
@@ -163,6 +158,7 @@ export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
 
+
 export const isProjectContextEnabled = (): boolean =>
   loadSettings().projectContextEnabled === true
 
@@ -175,11 +171,4 @@ export const isVerifiedCommitsEnabled = (): boolean =>
 
 export const setVerifiedCommitsEnabled = (enabled: boolean): void => {
   saveSettings({ verifiedCommitsEnabled: enabled })
-}
-
-export const isSafeModeEnabled = (): boolean =>
-  loadSettings().safeModeEnabled === true
-
-export const setSafeModeEnabled = (enabled: boolean): void => {
-  saveSettings({ safeModeEnabled: enabled })
 }

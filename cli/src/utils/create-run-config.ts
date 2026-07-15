@@ -32,7 +32,6 @@ export type CreateRunConfigParams = {
   maxContextLength?: number
   /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
   onStateSnapshot?: (runState: RunState) => void
-  requestToolPermission?: CodebuffClientOptions['requestToolPermission']
   onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
   onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
   additionalKnowledgeFiles?: Record<string, string>
@@ -116,7 +115,6 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     extraCodebuffMetadata,
     maxContextLength,
     onStateSnapshot,
-    requestToolPermission,
     onBeforeFileMutation,
     onAfterFileMutation,
     additionalKnowledgeFiles,
@@ -144,7 +142,6 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
         ? { maxContextLength }
         : undefined,
     onStateSnapshot,
-    requestToolPermission,
     onBeforeFileMutation,
     onAfterFileMutation,
     additionalKnowledgeFiles,

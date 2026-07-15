@@ -194,13 +194,14 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - User-visible Spanish labels are the current contract. Do not keep tests expecting removed credit surfaces or stale English labels.
 - Async atomic writes to the same target must stay serialized per path; a failed write must not poison later writes or leave an unhandled rejected cleanup promise.
 
-## Safe Mode Permission Architecture
+## Temporary bundled OpenCode providers
 
-- `/config` owns the optional `safeModeEnabled` setting. It is disabled by default and stored in `~/.codewolf/settings.json`.
-- When enabled, require a fresh user decision before every model-requested terminal command, built-in file mutation, project file-change hook, custom tool, Composio action, or MCP call. Local read-only tools remain automatic. Commands typed directly by the user in Bash mode are already explicit user actions and must not be double-confirmed.
-- Perform the permission check in the shared runtime immediately before emitting or executing the tool call. Propagate the callback through the SDK and every subagent. Never implement protection only in the main-agent prompt.
-- Denial must emit a valid tool-call/tool-result pair with `permissionDenied: true`; do not execute the handler and do not leave orphaned protocol messages. A callback failure or aborted run must fail closed.
-- Serialize concurrent permission requests through the CLI FIFO bridge. Do not add an allow-for-session option: each sensitive operation must ask again.
-- Permission dialogs must show the exact target or command, agent identity, and a concise reason. Redact likely secrets from previews of external tools. Tool schemas should encourage models to populate the optional `reason` field.
-- Automatic `contexto/` maintenance is also a file mutation and must request authorization in Safe Mode. Explicit user actions such as verified-commit confirmation and `/rewind` restoration already have their own confirmation flow and must not be double-prompted.
-- Keep `docs/safe-mode.md`, focused permission tests, and `contexto/` synchronized whenever this contract changes.
+- `cli/src/providers/opencode-catalog.ts` is the single catalog/constant boundary for the temporary OpenCode integration. Keep endpoint URLs, provider IDs, fallback free models, the `-free` filter, and the public model cache there.
+- `cli/src/utils/opencode-providers.ts` owns network refresh and OpenCode Go configuration. Generic OpenAI-compatible provider logic must remain in `custom-providers.ts`.
+- `opencode-free` is read-only and ephemeral: include it in available providers and `/models`, but never persist its provider definition or an API key. Requests to its `/models` endpoint must not include `Authorization`.
+- On a fresh config, OpenCode Free may be the default. Once `providers.json` exists with no active provider, preserve the user's explicit choice of the Codewolf backend rather than reactivating OpenCode Free.
+- Only IDs ending exactly in `-free` belong to OpenCode Free. If discovery fails, retain the cache or embedded fallback instead of removing the provider.
+- `opencode-go` is a normal persisted provider with a secret stored only in `provider-auth.json`. Its base URL and model endpoint are fixed to the official Go service.
+- `/login` first selects the authentication method. Keep the subscription row visibly disabled until a real subscription implementation exists; API-key login may offer OpenCode Go and the generic provider wizard.
+- `/providers` manages persisted providers only. OpenCode Free is selected from `/models` and must not be editable or deletable there.
+- To remove the temporary integration later, delete the two OpenCode modules, remove the available-provider merge/background refresh/login option, and keep the generic provider APIs unchanged.

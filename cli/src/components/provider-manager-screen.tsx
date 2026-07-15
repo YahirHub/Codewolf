@@ -17,6 +17,7 @@ import {
   setActiveCustomProvider,
 } from '../utils/custom-providers'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
+import { isOpenCodeFreeProviderId } from '../providers/opencode-catalog'
 
 import type { CustomProviderDefinition } from '../utils/custom-providers'
 import type { KeyEvent } from '@opentui/core'
@@ -70,7 +71,10 @@ export const ProviderManagerScreen: React.FC<
   const [message, setMessage] = useState<string | null>(null)
 
   const providers = useMemo(
-    () => [...config.providers].sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      config.providers
+        .filter((provider) => !isOpenCodeFreeProviderId(provider.id))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [config.providers],
   )
   const rows = useMemo<MainRow[]>(
@@ -426,6 +430,11 @@ export const ProviderManagerScreen: React.FC<
 
       {message && view === 'list' && (
         <text style={{ fg: theme.success, wrapMode: 'word' }}>{message}</text>
+      )}
+      {view === 'list' && (
+        <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+          OpenCode Free se actualiza automáticamente y se selecciona desde /models.
+        </text>
       )}
       <text style={{ fg: theme.muted }}>
         ↑↓ navegar · Enter seleccionar · Esc volver/cerrar

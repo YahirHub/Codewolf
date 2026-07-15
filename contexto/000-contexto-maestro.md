@@ -55,7 +55,7 @@ Secciones opcionales cuando exista información confirmada:
 # Librerías usadas
 # Problemas encontrados
 
-- `/config` incluye un Modo seguro opcional para producción. Intercepta comandos, mutaciones de archivos, hooks y herramientas externas/MCP antes de ejecutarlos, muestra el destino y el motivo, y exige una autorización individual. Las solicitudes de agente principal y subagentes se serializan en una cola FIFO; rechazos, abortos o fallos de interfaz deniegan la operación sin romper el historial.
+- OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
 
 # Pendientes
 # Próximos pasos
@@ -281,6 +281,8 @@ lista exacta y versiones bloqueadas.
 - Las operaciones sobre filesystems inyectados resuelven rutas según su propia sintaxis POSIX o Win32, independientemente del sistema anfitrión; la suite local excluye integraciones externas mediante `pathIgnorePatterns`.
 - La suite local de Windows usa `process.execPath` para procesos de Bun, entorno de pruebas autónomo, escrituras atómicas serializadas y expectativas alineadas con la interfaz española; las integraciones externas se separan por rutas explícitas.
 
+- OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
+
 # Pendientes
 
 - Ejecutar el workflow desde la rama predeterminada y verificar una release real.
@@ -327,4 +329,4 @@ al terminar.
 - `028`: typechecks corregidos y separación entre pruebas locales y E2E con credenciales.
 - `029`: rutas virtuales portables, descubrimiento correcto de pruebas y lockfile sincronizado.
 - `030`: suite local de Windows, entorno autónomo y escrituras atómicas serializadas.
-- `031`: Modo seguro con permisos por operación.
+- `031`: OpenCode Free integrado y autenticación OpenCode Go desde `/login`.

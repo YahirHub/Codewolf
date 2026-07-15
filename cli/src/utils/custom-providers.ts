@@ -4,6 +4,11 @@ import path from 'path'
 import { z } from 'zod'
 
 import { getConfigDir } from './config-dir'
+import {
+  OPENCODE_FREE_PROVIDER_ID,
+  createOpenCodeFreeProvider,
+  isOpenCodeFreeProviderId,
+} from '../providers/opencode-catalog'
 
 import {
   CONTEXT_COMPACTION_RATIO,
@@ -236,6 +241,44 @@ export function loadCustomProvidersConfig(
   }
 }
 
+/**
+ * Returns user-configured providers plus the temporary bundled OpenCode Free
+ * catalog. The bundled provider is never written to providers.json, which
+ * keeps this integration isolated and easy to remove later.
+ */
+export function loadAvailableProvidersConfig(
+  configDir = getConfigDir(),
+): CustomProvidersConfig {
+  const persisted = loadCustomProvidersConfig(configDir)
+  const bundledProvider = createOpenCodeFreeProvider(configDir)
+  const providers = [
+    bundledProvider,
+    ...persisted.providers.filter(
+      (provider) => provider.id !== OPENCODE_FREE_PROVIDER_ID,
+    ),
+  ]
+
+  const hasPersistedConfig = fs.existsSync(getCustomProvidersPath(configDir))
+  const activeProviderId =
+    persisted.activeProviderId ??
+    (!hasPersistedConfig ? OPENCODE_FREE_PROVIDER_ID : undefined)
+  const activeProvider = providers.find(
+    (provider) => provider.id === activeProviderId,
+  )
+  const activeModelId = activeProvider
+    ? activeProvider.models.some((model) => model.id === persisted.activeModelId)
+      ? persisted.activeModelId
+      : activeProvider.models[0]?.id
+    : undefined
+
+  return {
+    ...persisted,
+    providers,
+    activeProviderId,
+    activeModelId,
+  }
+}
+
 function loadProviderAuth(configDir = getConfigDir()): ProviderAuthConfig {
   try {
     const raw = readJsonFile(getCustomProviderAuthPath(configDir))
@@ -278,6 +321,9 @@ export function upsertCustomProvider(params: {
   const id = normalizeCustomProviderId(
     params.id?.trim() || createCustomProviderId(requestedName!),
   )
+  if (isOpenCodeFreeProviderId(id)) {
+    throw new Error('El identificador opencode-free está reservado por Codewolf.')
+  }
   const baseUrl = normalizeCustomProviderBaseUrl(params.baseUrl)
   const models = normalizeModels(params.models)
   const apiKeyInput = params.apiKeyInput?.trim() ?? ''
@@ -332,7 +378,8 @@ export function setActiveCustomProvider(
   configDir = getConfigDir(),
 ): CustomProviderDefinition {
   const id = normalizeCustomProviderId(providerId)
-  const config = loadCustomProvidersConfig(configDir)
+  const persistedConfig = loadCustomProvidersConfig(configDir)
+  const config = loadAvailableProvidersConfig(configDir)
   const provider = config.providers.find((item) => item.id === id)
   if (!provider) throw new Error(`No existe el proveedor ${id}.`)
 
@@ -344,7 +391,7 @@ export function setActiveCustomProvider(
 
   saveCustomProvidersConfig(
     {
-      ...config,
+      ...persistedConfig,
       activeProviderId: id,
       activeModelId: selectedModel,
     },
@@ -359,7 +406,8 @@ export function activateCustomProviderModel(
   configDir = getConfigDir(),
 ): CustomProviderModel {
   const id = normalizeCustomProviderId(providerId)
-  const config = loadCustomProvidersConfig(configDir)
+  const persistedConfig = loadCustomProvidersConfig(configDir)
+  const config = loadAvailableProvidersConfig(configDir)
   const provider = config.providers.find((item) => item.id === id)
   if (!provider) throw new Error(`No existe el proveedor ${id}.`)
 
@@ -373,7 +421,7 @@ export function activateCustomProviderModel(
 
   saveCustomProvidersConfig(
     {
-      ...config,
+      ...persistedConfig,
       activeProviderId: provider.id,
       activeModelId: model.id,
     },
@@ -398,7 +446,7 @@ export function setActiveCustomProviderModel(
   modelId: string,
   configDir = getConfigDir(),
 ): CustomProviderModel {
-  const config = loadCustomProvidersConfig(configDir)
+  const config = loadAvailableProvidersConfig(configDir)
   if (!config.activeProviderId) {
     throw new Error('No hay un proveedor personalizado activo.')
   }
@@ -416,6 +464,9 @@ export function getCustomProviderAuthStatus(
   configDir = getConfigDir(),
 ): CustomProviderAuthStatus {
   const id = normalizeCustomProviderId(providerId)
+  if (isOpenCodeFreeProviderId(id)) {
+    return { type: 'none', label: 'Sin autenticación' }
+  }
   const config = loadCustomProvidersConfig(configDir)
   const provider = config.providers.find((item) => item.id === id)
   if (!provider) throw new Error(`No existe el proveedor ${id}.`)
@@ -443,6 +494,7 @@ export function getCustomProviderApiKey(
   configDir = getConfigDir(),
 ): string | undefined {
   const id = normalizeCustomProviderId(providerId)
+  if (isOpenCodeFreeProviderId(id)) return undefined
   const config = loadCustomProvidersConfig(configDir)
   const provider = config.providers.find((item) => item.id === id)
   if (!provider) throw new Error(`No existe el proveedor ${id}.`)
@@ -461,6 +513,9 @@ export function updateCustomProvider(params: {
 }): CustomProviderDefinition {
   const configDir = params.configDir ?? getConfigDir()
   const id = normalizeCustomProviderId(params.id)
+  if (isOpenCodeFreeProviderId(id)) {
+    throw new Error('OpenCode Free se administra automáticamente.')
+  }
   const config = loadCustomProvidersConfig(configDir)
   const existing = config.providers.find((provider) => provider.id === id)
   if (!existing) throw new Error(`No existe el proveedor ${id}.`)
@@ -525,6 +580,7 @@ export function removeCustomProvider(
   configDir = getConfigDir(),
 ): boolean {
   const id = normalizeCustomProviderId(providerId)
+  if (isOpenCodeFreeProviderId(id)) return false
   const config = loadCustomProvidersConfig(configDir)
   if (!config.providers.some((provider) => provider.id === id)) return false
 
@@ -549,7 +605,7 @@ export function removeCustomProvider(
 export function getActiveCustomProviderRuntimeConfig(
   configDir = getConfigDir(),
 ): CustomProviderRuntimeConfig | undefined {
-  const config = loadCustomProvidersConfig(configDir)
+  const config = loadAvailableProvidersConfig(configDir)
   const provider = config.providers.find(
     (item) => item.id === config.activeProviderId,
   )
@@ -589,7 +645,7 @@ export function getActiveCustomProviderRuntimeConfig(
 export function getActiveCustomProviderCompactionThreshold(
   configDir = getConfigDir(),
 ): number | undefined {
-  const config = loadCustomProvidersConfig(configDir)
+  const config = loadAvailableProvidersConfig(configDir)
   const provider = config.providers.find(
     (item) => item.id === config.activeProviderId,
   )
@@ -606,7 +662,7 @@ export function getActiveCustomProviderCompactionThreshold(
 }
 
 export function formatCustomProviderStatus(
-  config = loadCustomProvidersConfig(),
+  config = loadAvailableProvidersConfig(),
 ): string {
   const provider = config.providers.find(
     (item) => item.id === config.activeProviderId,

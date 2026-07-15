@@ -15,7 +15,7 @@ import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
-import { ProviderLoginScreen } from './components/provider-login-screen'
+import { ProviderAuthFlowScreen } from './components/provider-auth-flow-screen'
 import { ProviderManagerScreen } from './components/provider-manager-screen'
 import { ModelSelectorScreen } from './components/model-selector-screen'
 import { SearchSetupScreen } from './components/search-setup-screen'
@@ -25,7 +25,6 @@ import { ChatTransferScreen } from './components/chat-transfer-screen'
 import { RewindScreen } from './components/rewind-screen'
 import { ConfigScreen } from './components/config-screen'
 import { VerifiedCommitScreen } from './components/verified-commit-screen'
-import { ToolPermissionScreen } from './components/tool-permission-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
@@ -50,7 +49,10 @@ import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { getProjectRoot, setCurrentChatId } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
-import { useCustomProviderStore } from './state/custom-provider-store'
+import {
+  refreshCustomProviderStore,
+  useCustomProviderStore,
+} from './state/custom-provider-store'
 import { useChatStore } from './state/chat-store'
 import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
@@ -61,8 +63,6 @@ import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
-import { isSafeModeEnabled } from './utils/settings'
-import { ToolPermissionBridge } from './utils/tool-permission-bridge'
 
 import {
   type ChatKeyboardState,
@@ -95,11 +95,12 @@ import {
   settleCheckpointSave,
 } from './utils/run-state-storage'
 import { computeInputLayoutMetrics } from './utils/text-layout'
-import { getCodebuffClient } from './utils/codebuff-client'
+import { getCodebuffClient, resetCodebuffClient } from './utils/codebuff-client'
 import {
   invalidateProjectContextCache,
   prefetchProjectContextSummary,
 } from './utils/project-context'
+import { refreshBundledOpenCodeProviders } from './utils/opencode-providers'
 
 import type { CommandResult } from './commands/command-registry'
 import type { ModelChoice } from './components/model-selector-screen'
@@ -158,12 +159,6 @@ export const Chat = ({
   const [sessionRenameOpen, setSessionRenameOpen] = useState(false)
   const [rewindOpen, setRewindOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
-  const [safeModeEnabled, setSafeModeState] = useState(() =>
-    isSafeModeEnabled(),
-  )
-  const [pendingToolPermission, setPendingToolPermission] = useState(() =>
-    ToolPermissionBridge.getPendingRequest(),
-  )
   const [pendingVerifiedCommit, setPendingVerifiedCommit] =
     useState<PendingVerifiedCommit | null>(null)
   const [chatTransfer, setChatTransfer] = useState<{
@@ -171,29 +166,11 @@ export const Chat = ({
     initialPath?: string
   } | null>(null)
 
+
   const { validate: validateAgents } = useAgentValidation()
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
-
-  useEffect(() => {
-    const unsubscribe = ToolPermissionBridge.subscribe((request) => {
-      setPendingToolPermission(request)
-      if (request) {
-        useChatStore.getState().setInputFocused(false)
-      } else {
-        useChatStore.getState().setInputFocused(true)
-        setTimeout(() => inputRef.current?.focus(), 0)
-      }
-    })
-
-    return () => {
-      unsubscribe()
-      ToolPermissionBridge.cancelAll(
-        'La interfaz se cerró antes de autorizar la operación.',
-      )
-    }
-  }, [inputRef])
 
   // Get chat state from extracted hook
   const {
@@ -247,10 +224,26 @@ export const Chat = ({
     }
   }, [])
 
-  // Warm the contexto/ summary when the project opens. The fingerprinted
-  // cache means unchanged projects do not spend another model call.
+  // Refresh the temporary OpenCode catalogs before warming project context.
+  // Failures are non-fatal: the cached/static free catalog remains available.
   useEffect(() => {
-    void prefetchPersistentProjectContext()
+    const controller = new AbortController()
+    void refreshBundledOpenCodeProviders({ signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted) return
+        refreshCustomProviderStore()
+        resetCodebuffClient()
+        for (const warning of result.warnings) {
+          logger.warn({ warning }, '[opencode] Catalog refresh failed')
+        }
+        return prefetchPersistentProjectContext()
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        logger.warn({ error }, '[opencode] Unexpected catalog refresh failure')
+        return prefetchPersistentProjectContext()
+      })
+    return () => controller.abort()
   }, [prefetchPersistentProjectContext])
 
   // Use extracted chat messages hook for message tree and pagination
@@ -530,23 +523,6 @@ export const Chat = ({
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
-  const handleToolPermissionAllow = useCallback(() => {
-    ToolPermissionBridge.respond('allow')
-  }, [])
-
-  const handleToolPermissionDeny = useCallback(() => {
-    ToolPermissionBridge.respond('deny')
-  }, [])
-
-  const handleSafeModeChanged = useCallback((enabled: boolean) => {
-    setSafeModeState(enabled)
-    if (!enabled) {
-      ToolPermissionBridge.cancelAll(
-        'El Modo seguro fue desactivado antes de autorizar la operación.',
-      )
-    }
-  }, [])
-
   const handleVerifiedCommitReady = useCallback(
     (pending: PendingVerifiedCommit) => {
       pauseQueue()
@@ -656,6 +632,7 @@ export const Chat = ({
       }
     },
   )
+
 
   // Plan cards can request a revision without reintroducing a /plan command.
   // The mode toggle remains the single entry point for planning.
@@ -1308,7 +1285,6 @@ export const Chat = ({
       sessionRenameOpen ||
       rewindOpen ||
       configOpen ||
-      pendingToolPermission ||
       pendingVerifiedCommit ||
       chatTransfer
     )
@@ -1326,7 +1302,6 @@ export const Chat = ({
     inputRef,
     chatTransfer,
     configOpen,
-    pendingToolPermission,
     pendingVerifiedCommit,
     modelSelectorOpen,
     providerLoginOpen,
@@ -1675,7 +1650,6 @@ export const Chat = ({
       sessionRenameOpen ||
       rewindOpen ||
       configOpen ||
-      pendingToolPermission !== null ||
       pendingVerifiedCommit !== null ||
       chatTransfer !== null,
   })
@@ -1740,6 +1714,7 @@ export const Chat = ({
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
+
   const inputLayoutMetrics = useMemo(() => {
     // In bash mode, layout is based on the actual input (no ! prefix needed)
     const text = inputValue ?? ''
@@ -1800,14 +1775,12 @@ export const Chat = ({
     !sessionRenameOpen &&
     !rewindOpen &&
     !configOpen &&
-    pendingToolPermission === null &&
     pendingVerifiedCommit === null &&
     chatTransfer === null &&
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
       !isAtBottom ||
-      hasActiveContextWindow ||
-      safeModeEnabled)
+      hasActiveContextWindow)
 
   return (
     <box
@@ -1896,25 +1869,19 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
+
         {shouldShowStatusLine && (
           <StatusBar
             timerStartTime={timerStartTime}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
-            safeModeEnabled={safeModeEnabled}
             onStop={chatKeyboardHandlers.onInterruptStream}
           />
         )}
 
-        {pendingToolPermission ? (
-          <ToolPermissionScreen
-            request={pendingToolPermission}
-            onAllow={handleToolPermissionAllow}
-            onDeny={handleToolPermissionDeny}
-          />
-        ) : providerLoginOpen ? (
-          <ProviderLoginScreen
+        {providerLoginOpen ? (
+          <ProviderAuthFlowScreen
             onComplete={handleProviderConfigured}
             onCancel={closeProviderLogin}
           />
@@ -1942,7 +1909,6 @@ export const Chat = ({
           <ConfigScreen
             onClose={closeConfig}
             onProjectContextChanged={handleProjectContextChanged}
-            onSafeModeChanged={handleSafeModeChanged}
           />
         ) : pendingVerifiedCommit ? (
           <VerifiedCommitScreen

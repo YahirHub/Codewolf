@@ -61,12 +61,6 @@ const inputSchema = z
       .describe(
         `Bash-compatible command executed from the selected working directory on Windows, Linux or macOS. Prefer relative paths and do not prepend a redundant cd to the project root.`,
       ),
-    reason: z
-      .string()
-      .optional()
-      .describe(
-        'Explicación breve y concreta de por qué este comando es necesario. Se muestra al usuario cuando el Modo seguro solicita permiso.',
-      ),
     process_type: z
       .enum(['SYNC', 'BACKGROUND'])
       .default('SYNC')
@@ -124,7 +118,6 @@ ${$getNativeToolCallExampleString({
   inputSchema,
   input: {
     command: 'echo "hello world"',
-    reason: 'Comprobar que la terminal responde correctamente.',
   },
   endsAgentStep,
 })}
@@ -135,7 +128,6 @@ ${$getNativeToolCallExampleString({
   input: {
     command:
       'git commit -m "Agregar validación de sesiones" -m "Valida el estado persistido antes de reanudar una conversación."',
-    reason: 'Crear el commit que el usuario solicitó explícitamente.',
   },
   endsAgentStep,
 })}

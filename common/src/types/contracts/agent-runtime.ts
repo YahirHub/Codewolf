@@ -6,7 +6,6 @@ import type {
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
   RequestToolCallFn,
-  RequestToolPermissionFn,
   SendActionFn,
   SendSubagentChunkFn,
 } from './client'
@@ -67,7 +66,6 @@ export type AgentRuntimeScopedDeps = {
   // Client (WebSocket)
   handleStepsLogChunk: HandleStepsLogChunkFn
   requestToolCall: RequestToolCallFn
-  requestToolPermission?: RequestToolPermissionFn
   requestMcpToolData: RequestMcpToolDataFn
   requestFiles: RequestFilesFn
   requestOptionalFile: RequestOptionalFileFn

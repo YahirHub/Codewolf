@@ -2,8 +2,6 @@ import type { ServerAction } from '../../actions'
 import type { MCPConfig } from '../mcp'
 import type { ToolResultOutput } from '../messages/content-part'
 
-export type { RequestToolPermissionFn } from '../tool-permission'
-
 export type RequestToolCallFn = (params: {
   userInputId: string
   toolName: string

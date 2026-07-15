@@ -53,7 +53,6 @@ interface StatusBarProps {
   isAtBottom: boolean
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
-  safeModeEnabled?: boolean
   onStop?: () => void
 }
 
@@ -62,7 +61,6 @@ export const StatusBar = ({
   isAtBottom,
   scrollToLatest,
   statusIndicatorState,
-  safeModeEnabled = false,
   onStop,
 }: StatusBarProps) => {
   const theme = useTheme()
@@ -114,9 +112,7 @@ export const StatusBar = ({
   const statusIndicatorContent = (() => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
-        return (
-          <span fg={theme.secondary}>Pulsa Ctrl+C otra vez para salir</span>
-        )
+        return <span fg={theme.secondary}>Pulsa Ctrl+C otra vez para salir</span>
       case 'clipboard':
         return (
           <span
@@ -132,9 +128,7 @@ export const StatusBar = ({
       case 'reconnected':
         return <span fg={theme.success}>Reconectado</span>
       case 'retrying':
-        return (
-          <ShimmerText text="reintentando..." primaryColor={theme.warning} />
-        )
+        return <ShimmerText text="reintentando..." primaryColor={theme.warning} />
       case 'connecting':
         return <ShimmerText text="conectando..." />
       case 'waiting':
@@ -165,10 +159,9 @@ export const StatusBar = ({
     ) : null
   const hasContent = Boolean(
     statusIndicatorContent ||
-    elapsedTimeContent ||
-    safeModeEnabled ||
-    customProviderLabel ||
-    contextLabel,
+      elapsedTimeContent ||
+      customProviderLabel ||
+      contextLabel,
   )
   const contextColor =
     contextProgress?.level === 'critical'
@@ -225,13 +218,6 @@ export const StatusBar = ({
           gap: 1,
         }}
       >
-        {safeModeEnabled && (
-          <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.success} attributes={TextAttributes.BOLD}>
-              SEGURO
-            </span>
-          </text>
-        )}
         {customProviderLabel && (
           <text style={{ wrapMode: 'none' }}>
             <span fg={theme.secondary}>{customProviderLabel}</span>

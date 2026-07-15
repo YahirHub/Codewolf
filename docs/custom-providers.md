@@ -10,9 +10,22 @@ The standalone CLI supplies its own safe defaults for inherited public web varia
 
 ## Open the editor without an existing login
 
-The full editor opens even on a fresh installation without Codebuff credentials. This makes `/login` available before any provider exists. Sending an agent request still requires either a configured custom provider or valid Codebuff credentials.
+The full editor opens on a fresh installation without legacy backend credentials. OpenCode Free supplies a no-key default, while `/login` remains available for OpenCode Go or another OpenAI-compatible provider.
 
-## Configure a provider with `/login`
+## OpenCode Free built-in catalog
+
+Codewolf temporarily bundles a read-only provider named **OpenCode Free**. On a fresh installation it is the active provider and its first free model is selected automatically.
+
+- Base URL: `https://opencode.ai/zen/v1`
+- Model catalog: `https://opencode.ai/zen/v1/models`
+- Authentication: none
+- Filter: only model IDs ending exactly in `-free`
+
+The catalog refreshes in the background when the editor starts and whenever `/models` opens. If the endpoint is unavailable, Codewolf keeps the most recent cache from `~/.codewolf/opencode-models.json`; if no cache exists, it falls back to a small embedded list. OpenCode Free is never written as a provider definition and never receives an entry in `provider-auth.json`.
+
+The built-in provider appears in `/models`, but not in `/providers`, because it cannot be edited or deleted from the provider manager. This integration is isolated in `cli/src/providers/opencode-catalog.ts` and `cli/src/utils/opencode-providers.ts` so it can be removed later without changing the generic OpenAI-compatible provider system.
+
+## Configure authentication with `/login`
 
 Enter:
 
@@ -20,14 +33,33 @@ Enter:
 /login
 ```
 
-The editor opens a four-step assistant:
+The first selector shows:
+
+1. **Usar una suscripción** — visible as a future option, but intentionally not implemented in this edition.
+2. **Usar una API key** — opens the API-provider selector.
+
+The API-key selector supports:
+
+### OpenCode Go
+
+OpenCode Go is a separately authenticated provider:
+
+- Base URL: `https://opencode.ai/zen/go/v1`
+- Model catalog: `https://opencode.ai/zen/go/v1/models`
+- Authentication: `Authorization: Bearer <api-key>`
+
+The API key is typed in a masked input and saved only in `~/.codewolf/provider-auth.json`. Codewolf discovers the current Go models before storing and activating the provider. Reopening `/models` refreshes the list using the stored key.
+
+### Generic OpenAI-compatible provider
+
+The existing assistant remains available and asks for:
 
 1. **Provider name** — used as the visible group name in `/models`; its storage ID is generated automatically.
 2. **API base URL** — accepts an API root such as `https://api.example.com/v1`, and also normalizes URLs ending in `/chat/completions`.
 3. **API key** — shown masked and saved separately from provider metadata. Leave it blank for a local endpoint without authentication.
 4. **Models** — enter IDs separated by commas. Append `=context-tokens` when the provider does not publish its context window, for example `deepseek-v4-pro=1000000`. Leave the field blank and press Enter to discover models automatically.
 
-The API key is typed in a dedicated masked input. It never passes through the chat prompt, input history, transcript, or terminal title.
+The API key never passes through the chat prompt, input history, transcript, or terminal title.
 
 ## Automatic model discovery
 
@@ -80,7 +112,7 @@ A keyboard and mouse selector opens inside the editor:
 - Models within each provider are sorted by display name or ID.
 - The active model is marked with `●`.
 - Arrow keys move the selection, Enter activates it, and Esc closes the selector.
-- The first `Codebuff` group contains `Backend predeterminado`, which disables the custom-provider override interactively.
+- The first `Codewolf` group contains `Backend predeterminado`, which disables the direct-provider override interactively.
 
 The new selection resets the cached SDK client and applies to the next request. A request already running continues with the provider/model it started with.
 
@@ -116,6 +148,7 @@ All persistent configuration is stored in Codewolf's single cross-platform home 
 
 - `~/.codewolf/providers.json` stores provider names, URLs, model lists, and the active selection.
 - `~/.codewolf/provider-auth.json` stores directly entered API keys separately and is written with user-only permissions where POSIX modes are supported.
+- `~/.codewolf/opencode-models.json` caches only the public OpenCode Free model catalog; it contains no credentials.
 - `~/.codewolf/skills/` stores global skills.
 - `~/.codewolf/projects/` stores project chat history and run state.
 
@@ -206,3 +239,15 @@ renombrar el texto visible no rompe la selección activa ni referencias guardada
 Una API key vacía durante la edición conserva la credencial existente; escribir
 `none` la elimina. Las claves permanecen en `~/.codewolf/provider-auth.json` y
 nunca se muestran en la lista ni pasan al historial del chat.
+
+## Removing the temporary OpenCode integration
+
+The generic provider system does not depend on OpenCode-specific code. To remove the temporary integration later:
+
+1. Delete `cli/src/providers/opencode-catalog.ts` and `cli/src/utils/opencode-providers.ts`.
+2. Remove the bundled-provider merge from `loadAvailableProvidersConfig()` and return the persisted configuration directly.
+3. Remove the background refresh from `chat.tsx` and `model-selector-screen.tsx`.
+4. Replace `ProviderAuthFlowScreen` with the generic `ProviderLoginScreen`, or keep the method screen and remove only the OpenCode Go row.
+5. Remove the read-only filter/note from `provider-manager-screen.tsx` and the focused OpenCode tests.
+
+Existing generic providers, `providers.json`, `provider-auth.json`, `/providers`, `/models`, and direct SDK routing remain valid after those removals. The optional public catalog cache `~/.codewolf/opencode-models.json` can then be deleted safely.

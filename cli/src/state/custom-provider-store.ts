@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { loadCustomProvidersConfig } from '../utils/custom-providers'
+import { loadAvailableProvidersConfig } from '../utils/custom-providers'
 
 import type { CustomProvidersConfig } from '../utils/custom-providers'
 
@@ -10,8 +10,8 @@ interface CustomProviderStore {
 }
 
 export const useCustomProviderStore = create<CustomProviderStore>((set) => ({
-  config: loadCustomProvidersConfig(),
-  refresh: () => set({ config: loadCustomProvidersConfig() }),
+  config: loadAvailableProvidersConfig(),
+  refresh: () => set({ config: loadAvailableProvidersConfig() }),
 }))
 
 export function refreshCustomProviderStore(): void {
