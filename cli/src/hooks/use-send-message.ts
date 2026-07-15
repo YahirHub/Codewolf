@@ -21,6 +21,7 @@ import {
 } from '../utils/project-context-maintenance'
 import {
   isProjectContextEnabled,
+  isSafeModeEnabled,
   isVerifiedCommitsEnabled,
 } from '../utils/settings'
 import {
@@ -65,6 +66,7 @@ import {
   setupStreamingContext,
 } from './helpers/send-message'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
+import { ToolPermissionBridge } from '../utils/tool-permission-bridge'
 import { yieldToEventLoop } from '../utils/yield-to-event-loop'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
@@ -292,16 +294,44 @@ export const useSendMessage = ({
       updateChainInProgress(true)
       setCanProcessQueue(false)
 
-
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
       const projectContextEnabled = isProjectContextEnabled()
       const verifiedCommitsEnabled = isVerifiedCommitsEnabled()
+      const safeModeEnabled = isSafeModeEnabled()
       const shouldPrepareVerifiedCommit =
         agentMode !== 'PLAN' && verifiedCommitsEnabled
       const isInitRequest =
         projectContextEnabled && /^\/?init$/i.test(content.trim())
       const mutatedPaths = new Set<string>()
+      const requestContextWritePermission = async (
+        relativePath: string,
+        signal?: AbortSignal,
+      ): Promise<void> => {
+        if (!safeModeEnabled) return
+
+        const response = await ToolPermissionBridge.request(
+          {
+            toolCallId: randomUUID(),
+            toolName: 'codewolf_context_maintenance',
+            input: { path: relativePath },
+            agentId: 'codewolf-context',
+            category: 'file-edit',
+            title: 'Crear o actualizar archivo de contexto',
+            target: relativePath,
+            reason:
+              'La memoria persistente del proyecto está activada y Codewolf necesita documentar el estado o el cambio realizado.',
+          },
+          signal,
+        )
+
+        if (response.decision !== 'allow') {
+          throw new Error(
+            response.message ??
+              `El usuario rechazó la actualización de ${relativePath}.`,
+          )
+        }
+      }
       let verificationBaseline: Awaited<
         ReturnType<typeof captureGitVerificationBaseline>
       > = null
@@ -313,7 +343,10 @@ export const useSendMessage = ({
         fingerprints: {},
         skippedChangedPaths: [],
       }
-      if (agentMode !== 'PLAN' && (projectContextEnabled || verifiedCommitsEnabled)) {
+      if (
+        agentMode !== 'PLAN' &&
+        (projectContextEnabled || verifiedCommitsEnabled)
+      ) {
         try {
           verificationBaseline =
             await captureGitVerificationBaseline(rewindProjectRoot)
@@ -492,6 +525,7 @@ export const useSendMessage = ({
           const initializedPaths = await ensureInitialProjectContext({
             projectRoot: rewindProjectRoot,
             onBeforeWrite: async (relativePath) => {
+              await requestContextWritePermission(relativePath)
               await recordFileBeforeMutation({
                 chatDir: rewindChatDir,
                 projectRoot: rewindProjectRoot,
@@ -662,6 +696,10 @@ export const useSendMessage = ({
               ? [PROJECT_METHODOLOGY_VIRTUAL_PATH]
               : []),
           ],
+          requestToolPermission: safeModeEnabled
+            ? (request) =>
+                ToolPermissionBridge.request(request, abortController.signal)
+            : undefined,
           onBeforeFileMutation: async (event) => {
             await recordFileBeforeMutation({
               chatDir: runChatDir,
@@ -769,6 +807,10 @@ export const useSendMessage = ({
               runState,
               forceInit: isInitRequest,
               onBeforeWrite: async (relativePath) => {
+                await requestContextWritePermission(
+                  relativePath,
+                  abortController.signal,
+                )
                 await recordFileBeforeMutation({
                   chatDir: runChatDir,
                   projectRoot: rewindProjectRoot,

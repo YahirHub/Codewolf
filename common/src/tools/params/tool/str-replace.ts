@@ -29,6 +29,12 @@ const inputSchema = z
       .string()
       .min(1, 'Path cannot be empty')
       .describe(`The path to the file to edit.`),
+    reason: z
+      .string()
+      .optional()
+      .describe(
+        'Motivo breve para editar el archivo. Se muestra en la solicitud del Modo seguro.',
+      ),
     replacements: z
       .preprocess(
         coerceToArray,
@@ -77,6 +83,7 @@ ${$getNativeToolCallExampleString({
   inputSchema,
   input: {
     path: 'path/to/file',
+    reason: 'Actualizar los nombres y retirar la línea obsoleta.',
     replacements: [
       {
         oldString: 'This is the old string',

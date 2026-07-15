@@ -22,6 +22,7 @@ export const handleRunTerminalCommand = (async ({
     toolCallId: toolCall.toolCallId,
     input: {
       command: toolCall.input.command,
+      reason: toolCall.input.reason,
       mode: 'assistant',
       process_type: toolCall.input.process_type,
       timeout_seconds: toolCall.input.timeout_seconds,

@@ -103,6 +103,17 @@ describe('createRunConfig context pruning', () => {
     expect(result.params).toEqual({ maxContextLength: 900_000 })
   })
 
+  test('passes the safe-mode permission callback to the SDK run', () => {
+    const requestToolPermission = async () => ({ decision: 'allow' as const })
+    const result = createRunConfig({
+      ...baseParams,
+      agent: 'base2',
+      requestToolPermission,
+    })
+
+    expect(result.requestToolPermission).toBe(requestToolPermission)
+  })
+
   test('does not inject Base2-only params into arbitrary custom agents', () => {
     const result = createRunConfig({
       ...baseParams,

@@ -193,3 +193,14 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Tests using injected filesystems must preserve the path syntax supplied by the fixture. Use `common/src/util/path-flavor.ts` instead of host-native path operations for `/project`, Windows drive roots, or UNC roots.
 - User-visible Spanish labels are the current contract. Do not keep tests expecting removed credit surfaces or stale English labels.
 - Async atomic writes to the same target must stay serialized per path; a failed write must not poison later writes or leave an unhandled rejected cleanup promise.
+
+## Safe Mode Permission Architecture
+
+- `/config` owns the optional `safeModeEnabled` setting. It is disabled by default and stored in `~/.codewolf/settings.json`.
+- When enabled, require a fresh user decision before every model-requested terminal command, built-in file mutation, project file-change hook, custom tool, Composio action, or MCP call. Local read-only tools remain automatic. Commands typed directly by the user in Bash mode are already explicit user actions and must not be double-confirmed.
+- Perform the permission check in the shared runtime immediately before emitting or executing the tool call. Propagate the callback through the SDK and every subagent. Never implement protection only in the main-agent prompt.
+- Denial must emit a valid tool-call/tool-result pair with `permissionDenied: true`; do not execute the handler and do not leave orphaned protocol messages. A callback failure or aborted run must fail closed.
+- Serialize concurrent permission requests through the CLI FIFO bridge. Do not add an allow-for-session option: each sensitive operation must ask again.
+- Permission dialogs must show the exact target or command, agent identity, and a concise reason. Redact likely secrets from previews of external tools. Tool schemas should encourage models to populate the optional `reason` field.
+- Automatic `contexto/` maintenance is also a file mutation and must request authorization in Safe Mode. Explicit user actions such as verified-commit confirmation and `/rewind` restoration already have their own confirmation flow and must not be double-prompted.
+- Keep `docs/safe-mode.md`, focused permission tests, and `contexto/` synchronized whenever this contract changes.

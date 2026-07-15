@@ -8,6 +8,12 @@ import type { $ToolParams } from '../../constants'
 const toolName = 'run_file_change_hooks'
 const endsAgentStep = true
 const inputSchema = z.object({
+  reason: z
+    .string()
+    .optional()
+    .describe(
+      'Motivo breve para ejecutar los hooks. Se muestra en la solicitud del Modo seguro.',
+    ),
   files: z
     .array(z.string())
     .describe(
@@ -29,6 +35,8 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
+    reason:
+      'Ejecutar las validaciones configuradas para los archivos modificados.',
     files: ['src/components/Button.tsx', 'src/utils/helpers.ts'],
   },
   endsAgentStep,

@@ -55,6 +55,8 @@ Secciones opcionales cuando exista información confirmada:
 # Librerías usadas
 # Problemas encontrados
 
+- `/config` incluye un Modo seguro opcional para producción. Intercepta comandos, mutaciones de archivos, hooks y herramientas externas/MCP antes de ejecutarlos, muestra el destino y el motivo, y exige una autorización individual. Las solicitudes de agente principal y subagentes se serializan en una cola FIFO; rechazos, abortos o fallos de interfaz deniegan la operación sin romper el historial.
+
 # Pendientes
 # Próximos pasos
 ```
@@ -325,3 +327,4 @@ al terminar.
 - `028`: typechecks corregidos y separación entre pruebas locales y E2E con credenciales.
 - `029`: rutas virtuales portables, descubrimiento correcto de pruebas y lockfile sincronizado.
 - `030`: suite local de Windows, entorno autónomo y escrituras atómicas serializadas.
+- `031`: Modo seguro con permisos por operación.

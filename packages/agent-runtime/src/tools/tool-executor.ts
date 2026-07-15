@@ -1,6 +1,10 @@
 import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { generateCompactId } from '@codebuff/common/util/string'
+import {
+  createToolPermissionRequest,
+  shouldRequestToolPermission,
+} from '@codebuff/common/util/tool-permission'
 import { cloneDeep } from 'lodash'
 
 import { getMCPToolData } from '../mcp'
@@ -286,6 +290,131 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 
+function recordPermissionDenied(params: {
+  toolCall: CodebuffToolCall | CustomToolCall
+  excludeToolFromMessageHistory: boolean
+  message: string
+  agentId: string
+  parentAgentId?: string
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
+  toolCalls: (CodebuffToolCall | CustomToolCall)[]
+  toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[]
+  toolResults: ToolMessage[]
+  toolResultsToAddToMessageHistory: ToolMessage[]
+}): void {
+  const {
+    toolCall,
+    excludeToolFromMessageHistory,
+    message,
+    agentId,
+    parentAgentId,
+    onResponseChunk,
+    toolCalls,
+    toolCallsToAddToMessageHistory,
+    toolResults,
+    toolResultsToAddToMessageHistory,
+  } = params
+  const output = [
+    {
+      type: 'json' as const,
+      value: {
+        permissionDenied: true,
+        errorMessage: message,
+      },
+    },
+  ] satisfies ToolResultOutput[]
+  const toolResult: ToolMessage = {
+    role: 'tool',
+    toolName: toolCall.toolName,
+    toolCallId: toolCall.toolCallId,
+    content: output,
+  }
+
+  onResponseChunk({
+    type: 'tool_call',
+    toolCallId: toolCall.toolCallId,
+    toolName: toolCall.toolName,
+    input: toolCall.input,
+    agentId,
+    parentAgentId,
+    includeToolCall: !excludeToolFromMessageHistory,
+  })
+  onResponseChunk({
+    type: 'tool_result',
+    toolCallId: toolResult.toolCallId,
+    toolName: toolResult.toolName,
+    output: toolResult.content,
+  })
+
+  toolCalls.push(toolCall)
+  toolResults.push(toolResult)
+  if (!excludeToolFromMessageHistory) {
+    toolCallsToAddToMessageHistory.push(toolCall)
+    toolResultsToAddToMessageHistory.push(toolResult)
+  }
+}
+
+async function getToolPermissionDecision(params: {
+  toolCallId: string
+  toolName: string
+  input: Record<string, unknown>
+  agentState: AgentState
+  externalTool?: boolean
+  previousToolCallFinished: Promise<void>
+  requestToolPermission: AgentRuntimeScopedDeps['requestToolPermission']
+  signal: AbortSignal
+  logger: Logger
+}): Promise<{ allowed: boolean; message?: string }> {
+  if (
+    !params.requestToolPermission ||
+    !shouldRequestToolPermission({
+      toolName: params.toolName,
+      externalTool: params.externalTool,
+    })
+  ) {
+    return { allowed: true }
+  }
+
+  await params.previousToolCallFinished
+  if (params.signal.aborted) {
+    return {
+      allowed: false,
+      message: 'La operación fue cancelada porque la ejecución se detuvo.',
+    }
+  }
+
+  try {
+    const response = await params.requestToolPermission(
+      createToolPermissionRequest({
+        toolCallId: params.toolCallId,
+        toolName: params.toolName,
+        input: params.input,
+        agentId: params.agentState.agentId,
+        parentAgentId: params.agentState.parentId,
+        externalTool: params.externalTool,
+      }),
+    )
+    return response.decision === 'allow'
+      ? { allowed: true }
+      : {
+          allowed: false,
+          message:
+            response.message ??
+            'El usuario rechazó esta operación desde el Modo seguro.',
+        }
+  } catch (error) {
+    params.logger.warn(
+      { error, toolName: params.toolName },
+      'Tool permission request failed; denying operation safely',
+    )
+    return {
+      allowed: false,
+      message:
+        'No se pudo obtener autorización del usuario. La operación se rechazó por seguridad.',
+    }
+  }
+}
+
 export async function executeToolCall<T extends ToolName>(
   params: ExecuteToolCallParams<T>,
 ): Promise<void> {
@@ -453,7 +582,41 @@ export async function executeToolCall<T extends ToolName>(
     }
   }
 
-  // Only emit tool_call event after permission check passes
+  // Use effective input for spawn_agents so the handler receives the correct agent types.
+  const finalToolCall =
+    toolName === 'spawn_agents'
+      ? { ...toolCall, input: effectiveInput }
+      : toolCall
+
+  const permission = await getToolPermissionDecision({
+    toolCallId,
+    toolName,
+    input: effectiveInput,
+    agentState,
+    previousToolCallFinished,
+    requestToolPermission: params.requestToolPermission,
+    signal: params.signal,
+    logger,
+  })
+  if (!permission.allowed) {
+    recordPermissionDenied({
+      toolCall: finalToolCall,
+      excludeToolFromMessageHistory,
+      message:
+        permission.message ??
+        'El usuario rechazó esta operación desde el Modo seguro.',
+      agentId: agentState.agentId,
+      parentAgentId: agentState.parentId,
+      onResponseChunk,
+      toolCalls,
+      toolCallsToAddToMessageHistory,
+      toolResults,
+      toolResultsToAddToMessageHistory,
+    })
+    return
+  }
+
+  // Only emit tool_call after the permission check passes.
   onResponseChunk({
     type: 'tool_call',
     toolCallId,
@@ -468,12 +631,6 @@ export async function executeToolCall<T extends ToolName>(
   const handler = codebuffToolHandlers[
     toolName
   ] as unknown as CodebuffToolHandlerFunction<T>
-
-  // Use effective input for spawn_agents so the handler receives the correct agent types
-  const finalToolCall =
-    toolName === 'spawn_agents'
-      ? { ...toolCall, input: effectiveInput }
-      : toolCall
 
   toolCalls.push(finalToolCall)
   if (!excludeToolFromMessageHistory) {
@@ -680,7 +837,36 @@ export async function executeCustomToolCall(
     return previousToolCallFinished
   }
 
-  // Only emit tool_call event after permission check passes
+  const permission = await getToolPermissionDecision({
+    toolCallId: toolCall.toolCallId,
+    toolName,
+    input: toolCall.input,
+    agentState,
+    externalTool: true,
+    previousToolCallFinished,
+    requestToolPermission: params.requestToolPermission,
+    signal: params.signal,
+    logger,
+  })
+  if (!permission.allowed) {
+    recordPermissionDenied({
+      toolCall,
+      excludeToolFromMessageHistory,
+      message:
+        permission.message ??
+        'El usuario rechazó esta herramienta externa desde el Modo seguro.',
+      agentId: agentState.agentId,
+      parentAgentId: agentState.parentId,
+      onResponseChunk,
+      toolCalls,
+      toolCallsToAddToMessageHistory,
+      toolResults,
+      toolResultsToAddToMessageHistory,
+    })
+    return
+  }
+
+  // Only emit tool_call after the permission check passes.
   onResponseChunk({
     type: 'tool_call',
     toolCallId: toolCall.toolCallId,

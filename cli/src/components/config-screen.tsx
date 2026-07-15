@@ -6,8 +6,10 @@ import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import {
   isProjectContextEnabled,
+  isSafeModeEnabled,
   isVerifiedCommitsEnabled,
   setProjectContextEnabled,
+  setSafeModeEnabled,
   setVerifiedCommitsEnabled,
 } from '../utils/settings'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
@@ -17,10 +19,11 @@ import type { KeyEvent } from '@opentui/core'
 interface ConfigScreenProps {
   onClose: () => void
   onProjectContextChanged?: (enabled: boolean) => void
+  onSafeModeChanged?: (enabled: boolean) => void
 }
 
 type ConfigItem = {
-  id: 'project-context' | 'verified-commits'
+  id: 'project-context' | 'verified-commits' | 'safe-mode'
   title: string
   description: string
 }
@@ -38,11 +41,18 @@ const CONFIG_ITEMS: ConfigItem[] = [
     description:
       'Después de editar, pide probar los cambios y solo crea el commit cuando confirmas que funcionan.',
   },
+  {
+    id: 'safe-mode',
+    title: 'Modo seguro para producción',
+    description:
+      'Antes de cada comando, creación/edición/eliminación de archivos o herramienta externa/MCP, muestra qué se ejecutará y exige permiso individual. Las lecturas y los comandos escritos manualmente por ti siguen directos.',
+  },
 ]
 
 export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   onClose,
   onProjectContextChanged,
+  onSafeModeChanged,
 }) => {
   const theme = useTheme()
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -52,13 +62,17 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   const [verifiedCommitsEnabled, setVerifiedCommitsState] = useState(() =>
     isVerifiedCommitsEnabled(),
   )
+  const [safeModeEnabled, setSafeModeState] = useState(() =>
+    isSafeModeEnabled(),
+  )
 
   const values = useMemo(
     () => ({
       'project-context': projectContextEnabled,
       'verified-commits': verifiedCommitsEnabled,
+      'safe-mode': safeModeEnabled,
     }),
-    [projectContextEnabled, verifiedCommitsEnabled],
+    [projectContextEnabled, safeModeEnabled, verifiedCommitsEnabled],
   )
 
   const toggle = useCallback(
@@ -71,11 +85,25 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         return
       }
 
-      const next = !verifiedCommitsEnabled
-      setVerifiedCommitsEnabled(next)
-      setVerifiedCommitsState(next)
+      if (item.id === 'verified-commits') {
+        const next = !verifiedCommitsEnabled
+        setVerifiedCommitsEnabled(next)
+        setVerifiedCommitsState(next)
+        return
+      }
+
+      const next = !safeModeEnabled
+      setSafeModeEnabled(next)
+      setSafeModeState(next)
+      onSafeModeChanged?.(next)
     },
-    [onProjectContextChanged, projectContextEnabled, verifiedCommitsEnabled],
+    [
+      onProjectContextChanged,
+      onSafeModeChanged,
+      projectContextEnabled,
+      safeModeEnabled,
+      verifiedCommitsEnabled,
+    ],
   )
 
   useKeyboard(
@@ -106,7 +134,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
 
   return (
     <box
-      title=" Configuración de metodología "
+      title=" Configuración de Codewolf "
       titleAlignment="center"
       style={{
         width: '100%',

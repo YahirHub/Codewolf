@@ -43,6 +43,12 @@ export type ApplyPatchOperation = z.infer<typeof operationSchema>
 
 const inputSchema = z
   .object({
+    reason: z
+      .string()
+      .optional()
+      .describe(
+        'Motivo breve para crear, modificar o eliminar el archivo. Se muestra en la solicitud del Modo seguro.',
+      ),
     operation: operationSchema.describe(
       'The file operation to perform. type is one of create_file, update_file, or delete_file.',
     ),
@@ -64,6 +70,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
+    reason: 'Crear el archivo requerido por la nueva funcionalidad.',
     operation: {
       type: 'create_file',
       path: 'hello.txt',
@@ -78,6 +85,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
+    reason: 'Actualizar la función sin reemplazar el resto del archivo.',
     operation: {
       type: 'update_file',
       path: 'lib/fib.py',
@@ -92,6 +100,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
+    reason: 'Eliminar un archivo que ya no forma parte del proyecto.',
     operation: {
       type: 'delete_file',
       path: 'old-file.txt',

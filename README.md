@@ -15,7 +15,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
 - Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
 - Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
-- Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
+- Metodología opcional desde `/config`, con resumen automático de `contexto/`, commits verificados y Modo seguro por operación.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
@@ -77,16 +77,17 @@ La pantalla permite activar por separado:
 
 - **Contexto persistente del proyecto:** al abrir un proyecto busca `contexto/*.md`, los ordena por número y utiliza un agente de solo lectura para resumir arquitectura, reglas, decisiones y pendientes. El resumen se cachea por huella de archivos y se inyecta junto con la metodología en cada ejecución. Después de una implementación con cambios reales, Codewolf crea localmente un registro técnico corto y actualiza `000-contexto-maestro.md` sin gastar otra llamada al modelo; filtra texto conversacional, evita nombres copiados de la solicitud y omite secciones sin datos. Con la opción activa, `/init` crea `contexto/` si falta y lo actualiza analizando el proyecto.
 - **Commits automáticos verificados:** después de una implementación con archivos editados, Codewolf pausa la cola y pide probar el resultado. Si eliges **No crear commit**, esos cambios verificados quedan pendientes y se acumulan con las siguientes implementaciones. Cuando finalmente confirmas, el commit incluye todos los cambios pendientes seguros desde el último commit automático, sin mezclar modificaciones manuales o ajenas.
+- **Modo seguro para producción:** antes de cada comando solicitado por el modelo, creación/edición/eliminación de archivos, hook o herramienta externa/MCP, Codewolf muestra la operación, el destino y su motivo. **PERMITIR ESTA VEZ** autoriza solo esa acción y **RECHAZAR** la devuelve al modelo sin ejecutarla. Las lecturas locales y los comandos escritos directamente por el usuario permanecen directos.
 
 El mensaje del commit se deriva primero de los cambios reales: estado Git, archivos, títulos Markdown y solicitud original. Por ejemplo, si el turno crea documentos en `contexto/`, el Summary describe la creación del contexto en lugar de usar frases genéricas como “Guardar cambios verificados”. El proveedor activo puede refinar el mensaje, pero una caída temporal no impide crear un commit correcto porque existe un fallback semántico local.
 
 Los comandos de terminal usan sintaxis Bash desde la raíz activa del proyecto en Windows, Linux y macOS. Codewolf elimina un `cd` redundante y convierte rutas de Windows a la forma de Git Bash o WSL cuando corresponde.
 
-Las dos opciones están desactivadas por defecto y se guardan en `~/.codewolf/settings.json`. Los commits verificados nunca incluyen cambios previamente preparados, archivos manuales que ya estaban modificados antes del primer turno elegible ni ediciones posteriores realizadas fuera de Codewolf. Los cambios que Codewolf dejó pendientes al seleccionar **No crear commit** sí se reconocen en turnos posteriores mediante huellas persistentes. Tampoco ejecutan `git push`.
+Las tres opciones están desactivadas por defecto y se guardan en `~/.codewolf/settings.json`. Los commits verificados nunca incluyen cambios previamente preparados, archivos manuales que ya estaban modificados antes del primer turno elegible ni ediciones posteriores realizadas fuera de Codewolf. Los cambios que Codewolf dejó pendientes al seleccionar **No crear commit** sí se reconocen en turnos posteriores mediante huellas persistentes. Tampoco ejecutan `git push`.
 
 Cuando la metodología está activa, el agente debe utilizar las herramientas de búsqueda y los agentes de documentación si duda de una API, versión, arquitectura, seguridad, despliegue o estructura de proyecto. Debe priorizar fuentes oficiales y avisar cuando no tenga búsqueda disponible.
 
-Consulta [docs/project-methodology.md](docs/project-methodology.md) para conocer el flujo y las protecciones completas.
+Consulta [docs/project-methodology.md](docs/project-methodology.md) para la metodología y [docs/safe-mode.md](docs/safe-mode.md) para el flujo de permisos.
 
 ## Configurar modelos
 
