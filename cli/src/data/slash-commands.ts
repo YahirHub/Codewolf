@@ -36,6 +36,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'models',
   'setup-search',
   'usage',
+  'config',
   'agent',
   'image',
   'publish',
@@ -77,6 +78,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description:
       'Mostrar estadísticas locales de tokens por sesión, agente y modelo',
     aliases: ['tokens', 'stats'],
+  },
+  {
+    id: 'config',
+    label: 'config',
+    description: 'Configurar contexto persistente y commits verificados',
+    aliases: ['settings'],
   },
   {
     id: 'help',

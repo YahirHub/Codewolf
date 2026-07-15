@@ -34,6 +34,8 @@ export type CreateRunConfigParams = {
   onStateSnapshot?: (runState: RunState) => void
   onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
   onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
+  additionalKnowledgeFiles?: Record<string, string>
+  excludedKnowledgeFilePaths?: string[]
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -115,6 +117,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     onStateSnapshot,
     onBeforeFileMutation,
     onAfterFileMutation,
+    additionalKnowledgeFiles,
+    excludedKnowledgeFilePaths,
   } = params
 
   const agentId = typeof agent === 'string' ? agent : agent.id
@@ -140,6 +144,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     onStateSnapshot,
     onBeforeFileMutation,
     onAfterFileMutation,
+    additionalKnowledgeFiles,
+    excludedKnowledgeFilePaths,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

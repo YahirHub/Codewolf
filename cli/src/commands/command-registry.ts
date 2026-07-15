@@ -87,6 +87,7 @@ export type CommandResult = {
   openProviderManager?: boolean
   openModelSelector?: boolean
   openSearchSetup?: boolean
+  openConfig?: boolean
   openTokenUsage?: boolean
   openSessionRename?: boolean
   openChatTransfer?: {
@@ -202,6 +203,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'models',
   'setup-search',
   'usage',
+  'config',
   'image',
   'publish',
   'agent',
@@ -229,6 +231,15 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'usage',
     aliases: ['tokens', 'stats'],
     handler: handleTokenUsageCommand,
+  }),
+  defineCommand({
+    name: 'config',
+    aliases: ['settings'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openConfig: true }
+    },
   }),
   defineCommand({
     name: 'help',

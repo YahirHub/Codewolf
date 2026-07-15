@@ -15,6 +15,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
 - Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
 - Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
+- Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
@@ -63,6 +64,25 @@ bun run dev
 ```
 
 No se requiere un archivo `.env` para utilizar proveedores personalizados.
+
+## Configurar metodología de trabajo
+
+Ejecuta:
+
+```text
+/config
+```
+
+La pantalla permite activar por separado:
+
+- **Contexto persistente del proyecto:** al abrir un proyecto busca `contexto/*.md`, los ordena por número y utiliza un agente de solo lectura para resumir arquitectura, reglas, decisiones y pendientes. El resumen se cachea por huella de archivos y se inyecta junto con la metodología en cada ejecución. Después de cambios importantes, el agente puede crear el siguiente documento numerado y actualizar `000-contexto-maestro.md`.
+- **Commits automáticos verificados:** después de una implementación con archivos editados, Codewolf pausa la cola y pide probar el resultado. Solo si confirmas que funciona genera `Summary` y `Description` en español y crea un commit limitado a los archivos limpios al comenzar el turno y modificados mediante herramientas estructuradas.
+
+Las dos opciones están desactivadas por defecto y se guardan en `~/.codewolf/settings.json`. Los commits verificados nunca incluyen cambios previamente preparados, archivos que ya estaban modificados antes del turno ni ediciones posteriores realizadas fuera de Codewolf. Tampoco ejecutan `git push`.
+
+Cuando la metodología está activa, el agente debe utilizar las herramientas de búsqueda y los agentes de documentación si duda de una API, versión, arquitectura, seguridad, despliegue o estructura de proyecto. Debe priorizar fuentes oficiales y avisar cuando no tenga búsqueda disponible.
+
+Consulta [docs/project-methodology.md](docs/project-methodology.md) para conocer el flujo y las protecciones completas.
 
 ## Configurar modelos
 
@@ -249,7 +269,9 @@ Estructura principal:
 ├── recent-projects.json
 ├── usage.jsonl
 ├── projects/
-│   └── <proyecto>/chats/<chat-id>/checkpoints/
+│   └── <proyecto>/
+│       ├── context-summary.json
+│       └── chats/<chat-id>/checkpoints/
 └── skills/
 ```
 

@@ -12,6 +12,8 @@ import type { AgentMode } from './constants'
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   adsEnabled: true,
+  projectContextEnabled: false,
+  verifiedCommitsEnabled: false,
 }
 
 // Note: The old FREE mode has been renamed back to LITE; migrate on load.
@@ -34,6 +36,10 @@ export interface Settings {
    *  first-time onboarding suggested prompts so they only show to brand-new
    *  users and quietly retire afterwards. */
   hasSubmittedFirstPrompt?: boolean
+  /** Load and maintain the project's contexto/ memory through a cached agent summary. */
+  projectContextEnabled?: boolean
+  /** Ask the user to verify structured edits before creating a Git commit. */
+  verifiedCommitsEnabled?: boolean
 }
 
 /**
@@ -131,6 +137,14 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.hasSubmittedFirstPrompt = obj.hasSubmittedFirstPrompt
   }
 
+  if (typeof obj.projectContextEnabled === 'boolean') {
+    settings.projectContextEnabled = obj.projectContextEnabled
+  }
+
+  if (typeof obj.verifiedCommitsEnabled === 'boolean') {
+    settings.verifiedCommitsEnabled = obj.verifiedCommitsEnabled
+  }
+
   return settings
 }
 
@@ -205,4 +219,18 @@ export const hasSubmittedFirstPrompt = (): boolean => {
 export const markFirstPromptSubmitted = (): void => {
   if (loadSettings().hasSubmittedFirstPrompt === true) return
   saveSettings({ hasSubmittedFirstPrompt: true })
+}
+
+export const isProjectContextEnabled = (): boolean =>
+  loadSettings().projectContextEnabled === true
+
+export const setProjectContextEnabled = (enabled: boolean): void => {
+  saveSettings({ projectContextEnabled: enabled })
+}
+
+export const isVerifiedCommitsEnabled = (): boolean =>
+  loadSettings().verifiedCommitsEnabled === true
+
+export const setVerifiedCommitsEnabled = (enabled: boolean): void => {
+  saveSettings({ verifiedCommitsEnabled: enabled })
 }

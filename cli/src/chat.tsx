@@ -24,6 +24,8 @@ import { TokenUsageScreen } from './components/token-usage-screen'
 import { SessionRenameScreen } from './components/session-rename-screen'
 import { ChatTransferScreen } from './components/chat-transfer-screen'
 import { RewindScreen } from './components/rewind-screen'
+import { ConfigScreen } from './components/config-screen'
+import { VerifiedCommitScreen } from './components/verified-commit-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
@@ -103,6 +105,11 @@ import {
   settleCheckpointSave,
 } from './utils/run-state-storage'
 import { computeInputLayoutMetrics } from './utils/text-layout'
+import { getCodebuffClient } from './utils/codebuff-client'
+import {
+  invalidateProjectContextCache,
+  prefetchProjectContextSummary,
+} from './utils/project-context'
 
 import type { CommandResult } from './commands/command-registry'
 import type { ModelChoice } from './components/model-selector-screen'
@@ -113,6 +120,10 @@ import type { FreebuffSessionResponse } from './types/freebuff-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { ImportedChat } from './utils/chat-transfer'
+import type {
+  PendingVerifiedCommit,
+  VerifiedCommitResult,
+} from './utils/verified-commit'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -159,6 +170,9 @@ export const Chat = ({
   const [tokenUsageOpen, setTokenUsageOpen] = useState(false)
   const [sessionRenameOpen, setSessionRenameOpen] = useState(false)
   const [rewindOpen, setRewindOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [pendingVerifiedCommit, setPendingVerifiedCommit] =
+    useState<PendingVerifiedCommit | null>(null)
   const [chatTransfer, setChatTransfer] = useState<{
     mode: 'export' | 'import'
     initialPath?: string
@@ -213,6 +227,25 @@ export const Chat = ({
       setAgentMode(initialMode)
     }
   }, [initialMode, setAgentMode])
+
+  const prefetchPersistentProjectContext = useCallback(async () => {
+    try {
+      const client = await getCodebuffClient()
+      if (!client) return
+      await prefetchProjectContextSummary({
+        projectRoot: getProjectRoot(),
+        client,
+      })
+    } catch (error) {
+      logger.warn({ error }, '[contexto] Failed to prefetch project context')
+    }
+  }, [])
+
+  // Warm the contexto/ summary when the project opens. The fingerprinted
+  // cache means unchanged projects do not spend another model call.
+  useEffect(() => {
+    void prefetchPersistentProjectContext()
+  }, [prefetchPersistentProjectContext])
 
   // Use extracted chat messages hook for message tree and pagination
   const {
@@ -492,6 +525,15 @@ export const Chat = ({
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
+  const handleVerifiedCommitReady = useCallback(
+    (pending: PendingVerifiedCommit) => {
+      pauseQueue()
+      setPendingVerifiedCommit(pending)
+      setInputFocused(false)
+    },
+    [pauseQueue, setInputFocused],
+  )
+
   const { sendMessage, clearMessages, replaceRunState } = useSendMessage({
     inputRef,
     activeSubagentsRef,
@@ -510,6 +552,7 @@ export const Chat = ({
     requeueMessageAtFront: addToQueueFront,
     continueChat,
     continueChatId,
+    onVerifiedCommitReady: handleVerifiedCommitReady,
   })
 
   sendMessageRef.current = sendMessage
@@ -813,7 +856,21 @@ export const Chat = ({
         useChatHistoryStore.getState().openChatHistory()
       }
 
+      if (result.openConfig) {
+        setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
+        setSessionRenameOpen(false)
+        setRewindOpen(false)
+        setChatTransfer(null)
+        setConfigOpen(true)
+        setInputFocused(false)
+      }
+
       if (result.openRewind) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
@@ -830,6 +887,7 @@ export const Chat = ({
       }
 
       if (result.openProviderLogin) {
+        setConfigOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
         setSearchSetupOpen(false)
@@ -841,6 +899,7 @@ export const Chat = ({
       }
 
       if (result.openProviderManager) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setModelSelectorOpen(false)
         setSearchSetupOpen(false)
@@ -852,6 +911,7 @@ export const Chat = ({
       }
 
       if (result.openModelSelector) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setSearchSetupOpen(false)
@@ -861,6 +921,7 @@ export const Chat = ({
       }
 
       if (result.openSearchSetup) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
@@ -870,6 +931,7 @@ export const Chat = ({
       }
 
       if (result.openTokenUsage) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
@@ -879,6 +941,7 @@ export const Chat = ({
       }
 
       if (result.openSessionRename) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
@@ -890,6 +953,7 @@ export const Chat = ({
       }
 
       if (result.openChatTransfer) {
+        setConfigOpen(false)
         setProviderLoginOpen(false)
         setProviderManagerOpen(false)
         setModelSelectorOpen(false)
@@ -1087,6 +1151,58 @@ export const Chat = ({
     setTimeout(() => inputRef.current?.focus(), 0)
   }, [inputRef, setInputFocused])
 
+  const closeConfig = useCallback(() => {
+    setConfigOpen(false)
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, setInputFocused])
+
+  const handleProjectContextChanged = useCallback(
+    (enabled: boolean) => {
+      invalidateProjectContextCache(getProjectRoot())
+      if (enabled) void prefetchPersistentProjectContext()
+    },
+    [prefetchPersistentProjectContext],
+  )
+
+  const handleVerifiedCommitCreated = useCallback(
+    (result: VerifiedCommitResult) => {
+      setPendingVerifiedCommit(null)
+      resumeQueue()
+      setMessages((previous) => [
+        ...previous,
+        getSystemMessage(
+          `Commit creado: ${result.hash}\n\nSummary: ${result.summary}\n\nDescription: ${result.description}`,
+        ),
+      ])
+      setInputFocused(true)
+      setTimeout(() => inputRef.current?.focus(), 0)
+    },
+    [inputRef, resumeQueue, setInputFocused, setMessages],
+  )
+
+  const handleVerifiedCommitNeedsChanges = useCallback(() => {
+    const request = pendingVerifiedCommit?.request.trim()
+    const prefix = request
+      ? `La verificación de la implementación solicitada ("${request.slice(0, 160)}") encontró este problema: `
+      : 'La verificación encontró este problema: '
+    setPendingVerifiedCommit(null)
+    setInputValue({
+      text: prefix,
+      cursorPosition: prefix.length,
+      lastEditDueToNav: false,
+    })
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, pendingVerifiedCommit, setInputFocused, setInputValue])
+
+  const handleVerifiedCommitSkipped = useCallback(() => {
+    setPendingVerifiedCommit(null)
+    resumeQueue()
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, resumeQueue, setInputFocused])
+
   const handleModelSelected = useCallback(
     (choice: ModelChoice) => {
       setModelSelectorOpen(false)
@@ -1197,6 +1313,8 @@ export const Chat = ({
       tokenUsageOpen ||
       sessionRenameOpen ||
       rewindOpen ||
+      configOpen ||
+      pendingVerifiedCommit ||
       chatTransfer
     )
       return
@@ -1212,6 +1330,8 @@ export const Chat = ({
     askUserState,
     inputRef,
     chatTransfer,
+    configOpen,
+    pendingVerifiedCommit,
     modelSelectorOpen,
     providerLoginOpen,
     providerManagerOpen,
@@ -1557,6 +1677,9 @@ export const Chat = ({
       searchSetupOpen ||
       tokenUsageOpen ||
       sessionRenameOpen ||
+      rewindOpen ||
+      configOpen ||
+      pendingVerifiedCommit !== null ||
       chatTransfer !== null,
   })
 
@@ -1644,6 +1767,8 @@ export const Chat = ({
     !tokenUsageOpen &&
     !sessionRenameOpen &&
     !rewindOpen &&
+    !configOpen &&
+    pendingVerifiedCommit === null &&
     chatTransfer === null &&
     askUserState === null
 
@@ -1725,6 +1850,8 @@ export const Chat = ({
     !tokenUsageOpen &&
     !sessionRenameOpen &&
     !rewindOpen &&
+    !configOpen &&
+    pendingVerifiedCommit === null &&
     chatTransfer === null &&
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
@@ -1872,6 +1999,18 @@ export const Chat = ({
           <SearchSetupScreen onClose={closeSearchSetup} />
         ) : tokenUsageOpen ? (
           <TokenUsageScreen onClose={closeTokenUsage} />
+        ) : configOpen ? (
+          <ConfigScreen
+            onClose={closeConfig}
+            onProjectContextChanged={handleProjectContextChanged}
+          />
+        ) : pendingVerifiedCommit ? (
+          <VerifiedCommitScreen
+            pending={pendingVerifiedCommit}
+            onCommitted={handleVerifiedCommitCreated}
+            onNeedsChanges={handleVerifiedCommitNeedsChanges}
+            onSkip={handleVerifiedCommitSkipped}
+          />
         ) : rewindOpen ? (
           <RewindScreen
             chatDir={resolveCurrentChatDir()}

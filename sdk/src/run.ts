@@ -136,6 +136,10 @@ export type CodebuffClientOptions = {
   skillsDir?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
+  /** Extra knowledge merged on top of auto-discovered or explicitly supplied knowledge files. */
+  additionalKnowledgeFiles?: Record<string, string>
+  /** Knowledge paths removed after previous-run or auto-discovered state is loaded. */
+  excludedKnowledgeFilePaths?: string[]
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
   env?: Record<string, string>
@@ -312,6 +316,8 @@ async function runOnce({
   skillsDir,
   projectFiles,
   knowledgeFiles,
+  additionalKnowledgeFiles,
+  excludedKnowledgeFilePaths,
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
@@ -405,6 +411,17 @@ async function runOnce({
       logger,
     })
   }
+
+  if (additionalKnowledgeFiles) {
+    sessionState.fileContext.knowledgeFiles = {
+      ...sessionState.fileContext.knowledgeFiles,
+      ...additionalKnowledgeFiles,
+    }
+  }
+  for (const knowledgePath of excludedKnowledgeFilePaths ?? []) {
+    delete sessionState.fileContext.knowledgeFiles[knowledgePath]
+  }
+
   const traceSessionId = previousRun?.traceSessionId ?? crypto.randomUUID()
 
   for (const toolName of COMPOSIO_META_TOOL_NAMES) {

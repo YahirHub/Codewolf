@@ -212,6 +212,7 @@ lista exacta y versiones bloqueadas.
 - El modo PLAN dependía de instrucciones para no editar y convivía con un
   comando `/plan` redundante; las sesiones tampoco podían volver de forma
   coordinada a un mensaje anterior y a los archivos modificados por el agente.
+- La metodología de trabajo y la memoria `contexto/` dependían de instrucciones manuales fuera del CLI; tampoco existía una confirmación segura que pidiera probar una implementación antes de crear un commit limitado a sus archivos.
 
 # Soluciones implementadas
 
@@ -250,6 +251,7 @@ lista exacta y versiones bloqueadas.
   validación y reversión. `/rewind` crea hasta 100 checkpoints por chat antes de
   cada prompt y permite restaurar conversación, archivos estructuralmente
   editados o ambos sin sobrescribir cambios externos detectados.
+- `/config` habilita de forma independiente el contexto persistente y los commits verificados. `contexto/*.md` se resume con un agente de solo lectura y caché por huella, se inyecta como conocimiento virtual, y el agente actualiza documentos numerados tras cambios importantes. Los commits solo se crean después de una confirmación explícita, se limitan a mutaciones estructuradas que estaban limpias al iniciar el turno y rechazan staging o cambios externos.
 
 # Pendientes
 
@@ -290,3 +292,4 @@ al terminar.
 - `020`: historial global de proyectos y reanudación entre rutas con `Tab`.
 - `021`: medidor permanente de uso y capacidad restante de contexto.
 - `022`: modo PLAN seguro y checkpoints de conversación/archivos con `/rewind`.
+- `023`: metodología opcional, resumen automático de `contexto/` y commits verificados.

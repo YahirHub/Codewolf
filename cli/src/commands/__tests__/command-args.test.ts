@@ -165,6 +165,7 @@ describe('command factory pattern', () => {
         'login',
         'providers',
         'models',
+        'config',
         'agent',
         'logout',
         'exit',
@@ -217,6 +218,24 @@ describe('command factory pattern', () => {
     })
   })
 
+  describe('config command', () => {
+    test('opens the optional methodology configuration screen', () => {
+      const command = COMMAND_REGISTRY.find((item) => item.name === 'config')
+      expect(command).toBeDefined()
+
+      const params = createMockParams({ inputValue: '/config' })
+      const result = command!.handler(params, '')
+
+      expect(result).toEqual({ openConfig: true })
+      expect(params.saveToHistory).toHaveBeenCalledWith('/config')
+      expect(params.setInputValue).toHaveBeenCalledWith({
+        text: '',
+        cursorPosition: 0,
+        lastEditDueToNav: false,
+      })
+    })
+  })
+
   describe('rewind command', () => {
     test('opens the rewind screen and clears the command input', () => {
       const command = COMMAND_REGISTRY.find((item) => item.name === 'rewind')
@@ -236,7 +255,9 @@ describe('command factory pattern', () => {
     })
 
     test('the removed /plan slash command is not registered', () => {
-      expect(COMMAND_REGISTRY.find((item) => item.name === 'plan')).toBeUndefined()
+      expect(
+        COMMAND_REGISTRY.find((item) => item.name === 'plan'),
+      ).toBeUndefined()
     })
   })
 

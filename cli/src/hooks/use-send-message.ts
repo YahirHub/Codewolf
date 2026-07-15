@@ -15,6 +15,21 @@ import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { getActiveCustomProviderCompactionThreshold } from '../utils/custom-providers'
 import {
+  prepareProjectContextKnowledge,
+  PROJECT_CONTEXT_SUMMARY_VIRTUAL_PATH,
+  PROJECT_METHODOLOGY_VIRTUAL_PATH,
+} from '../utils/project-context'
+import {
+  isProjectContextEnabled,
+  isVerifiedCommitsEnabled,
+} from '../utils/settings'
+import {
+  captureGitVerificationBaseline,
+  captureVerifiedCommitFingerprints,
+  filterVerifiedCommitPathsWithChanges,
+  selectVerifiedCommitPaths,
+} from '../utils/verified-commit'
+import {
   createRewindCheckpoint,
   recordFileAfterMutation,
   recordFileBeforeMutation,
@@ -57,10 +72,10 @@ import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
+import type { PendingVerifiedCommit } from '../utils/verified-commit'
 import { STATE_SNAPSHOT_INTERRUPTION_MESSAGE } from '@codebuff/sdk'
 
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
-
 
 interface UseSendMessageOptions {
   inputRef: React.MutableRefObject<any>
@@ -89,6 +104,7 @@ interface UseSendMessageOptions {
   }) => void
   continueChat: boolean
   continueChatId?: string
+  onVerifiedCommitReady?: (pending: PendingVerifiedCommit) => void
 }
 
 // Choose the agent definition by explicit selection or mode-based fallback.
@@ -140,6 +156,7 @@ export const useSendMessage = ({
   requeueMessageAtFront,
   continueChat,
   continueChatId,
+  onVerifiedCommitReady,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -301,6 +318,24 @@ export const useSendMessage = ({
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
+      const verifiedCommitsEnabled = isVerifiedCommitsEnabled()
+      const shouldPrepareVerifiedCommit =
+        agentMode !== 'PLAN' && verifiedCommitsEnabled
+      const mutatedPaths = new Set<string>()
+      let verificationBaseline: Awaited<
+        ReturnType<typeof captureGitVerificationBaseline>
+      > = null
+      if (shouldPrepareVerifiedCommit) {
+        try {
+          verificationBaseline =
+            await captureGitVerificationBaseline(rewindProjectRoot)
+        } catch (error) {
+          logger.warn(
+            { error },
+            '[verified-commit] Failed to capture pre-run Git status',
+          )
+        }
+      }
       try {
         await createRewindCheckpoint({
           chatDir: rewindChatDir,
@@ -459,6 +494,20 @@ export const useSendMessage = ({
         return
       }
 
+      const projectContextEnabled = isProjectContextEnabled()
+      let additionalKnowledgeFiles: Record<string, string> | undefined
+      try {
+        additionalKnowledgeFiles = await prepareProjectContextKnowledge({
+          projectRoot: rewindProjectRoot,
+          client,
+        })
+      } catch (error) {
+        logger.warn(
+          { error },
+          '[contexto] Failed to prepare persistent project context',
+        )
+      }
+
       // Create AI message shell and setup streaming context
       const aiMessageId = generateAiMessageId()
       const aiMessage = createAiMessageShell(aiMessageId)
@@ -590,6 +639,15 @@ export const useSendMessage = ({
               ? { freebuff_instance_id: freebuffInstanceId }
               : undefined,
           maxContextLength: getActiveCustomProviderCompactionThreshold(),
+          additionalKnowledgeFiles,
+          excludedKnowledgeFilePaths: [
+            ...(!projectContextEnabled
+              ? [PROJECT_CONTEXT_SUMMARY_VIRTUAL_PATH]
+              : []),
+            ...(!projectContextEnabled && !verifiedCommitsEnabled
+              ? [PROJECT_METHODOLOGY_VIRTUAL_PATH]
+              : []),
+          ],
           onBeforeFileMutation: async (event) => {
             await recordFileBeforeMutation({
               chatDir: runChatDir,
@@ -603,6 +661,9 @@ export const useSendMessage = ({
               projectRoot: rewindProjectRoot,
               filePath: event.path,
             })
+            if (event.succeeded && shouldPrepareVerifiedCommit) {
+              mutatedPaths.add(event.path)
+            }
           },
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
@@ -692,6 +753,47 @@ export const useSendMessage = ({
           isProcessingQueueRef,
           isQueuePausedRef,
         })
+
+        if (
+          runChatIsCurrent() &&
+          !abortController.signal.aborted &&
+          runState.output.type !== 'error' &&
+          verificationBaseline &&
+          mutatedPaths.size > 0 &&
+          onVerifiedCommitReady
+        ) {
+          const selected = selectVerifiedCommitPaths({
+            projectRoot: rewindProjectRoot,
+            baseline: verificationBaseline,
+            mutatedPaths,
+          })
+          if (selected.paths.length > 0) {
+            try {
+              const changedPaths = await filterVerifiedCommitPathsWithChanges({
+                gitRoot: verificationBaseline.gitRoot,
+                paths: selected.paths,
+              })
+              if (changedPaths.length > 0) {
+                onVerifiedCommitReady({
+                  projectRoot: rewindProjectRoot,
+                  gitRoot: verificationBaseline.gitRoot,
+                  request: content,
+                  paths: changedPaths,
+                  skippedPreexistingPaths: selected.skippedPreexistingPaths,
+                  fingerprints: captureVerifiedCommitFingerprints({
+                    gitRoot: verificationBaseline.gitRoot,
+                    paths: changedPaths,
+                  }),
+                })
+              }
+            } catch (error) {
+              logger.warn(
+                { error },
+                '[verified-commit] Failed to inspect final Git changes',
+              )
+            }
+          }
+        }
       } catch (error) {
         // If this run was aborted, the abort handler already handled cleanup.
         // Don't run error handling to avoid interfering with any new run that
@@ -757,7 +859,7 @@ export const useSendMessage = ({
     },
     [
       addActiveSubagent,
-        agentId,
+      agentId,
       inputRef,
       isChainInProgressRef,
       isProcessingQueueRef,
@@ -765,6 +867,7 @@ export const useSendMessage = ({
       mainAgentTimer,
       onBeforeMessageSend,
       onTimerEvent,
+      onVerifiedCommitReady,
       prepareUserMessage,
       removeActiveSubagent,
       requeueMessageAtFront,
