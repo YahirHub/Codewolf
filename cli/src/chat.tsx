@@ -23,6 +23,7 @@ import { SearchSetupScreen } from './components/search-setup-screen'
 import { TokenUsageScreen } from './components/token-usage-screen'
 import { SessionRenameScreen } from './components/session-rename-screen'
 import { ChatTransferScreen } from './components/chat-transfer-screen'
+import { RewindScreen } from './components/rewind-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
@@ -92,6 +93,15 @@ import { createPasteHandler } from './utils/strings'
 import { getCurrentSessionName } from './utils/session-name'
 import { setTerminalTitle } from './utils/terminal-title'
 import { abortActiveRun } from './utils/active-run'
+import {
+  restoreRewindCheckpoint,
+  type RewindRestoreMode,
+} from './utils/rewind-checkpoints'
+import {
+  resolveCurrentChatDir,
+  saveRewoundChatState,
+  settleCheckpointSave,
+} from './utils/run-state-storage'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { CommandResult } from './commands/command-registry'
@@ -148,6 +158,7 @@ export const Chat = ({
   const [searchSetupOpen, setSearchSetupOpen] = useState(false)
   const [tokenUsageOpen, setTokenUsageOpen] = useState(false)
   const [sessionRenameOpen, setSessionRenameOpen] = useState(false)
+  const [rewindOpen, setRewindOpen] = useState(false)
   const [chatTransfer, setChatTransfer] = useState<{
     mode: 'export' | 'import'
     initialPath?: string
@@ -481,7 +492,7 @@ export const Chat = ({
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
-  const { sendMessage, clearMessages } = useSendMessage({
+  const { sendMessage, clearMessages, replaceRunState } = useSendMessage({
     inputRef,
     activeSubagentsRef,
     isChainInProgressRef,
@@ -608,6 +619,25 @@ export const Chat = ({
       })
     },
   )
+
+  // Plan cards can request a revision without reintroducing a /plan command.
+  // The mode toggle remains the single entry point for planning.
+  useEffect(() => {
+    const handleRevisePlan = () => {
+      setAgentMode('PLAN')
+      const prompt = 'Revisa el plan anterior con estos cambios: '
+      setInputValue({
+        text: prompt,
+        cursorPosition: prompt.length,
+        lastEditDueToNav: false,
+      })
+      setInputFocused(true)
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
+    globalThis.addEventListener('codewolf:revise-plan', handleRevisePlan)
+    return () =>
+      globalThis.removeEventListener('codewolf:revise-plan', handleRevisePlan)
+  }, [inputRef, setAgentMode, setInputFocused, setInputValue])
 
   // Handle followup suggestion clicks
   useEffect(() => {
@@ -781,6 +811,18 @@ export const Chat = ({
 
       if (result.openChatHistory) {
         useChatHistoryStore.getState().openChatHistory()
+      }
+
+      if (result.openRewind) {
+        setProviderLoginOpen(false)
+        setProviderManagerOpen(false)
+        setModelSelectorOpen(false)
+        setSearchSetupOpen(false)
+        setTokenUsageOpen(false)
+        setSessionRenameOpen(false)
+        setChatTransfer(null)
+        setRewindOpen(true)
+        setInputFocused(false)
       }
 
       if (result.openReviewScreen) {
@@ -1075,6 +1117,76 @@ export const Chat = ({
     [publishMutation],
   )
 
+  const closeRewind = useCallback(() => {
+    setRewindOpen(false)
+    setInputFocused(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [inputRef, setInputFocused])
+
+  const handleRewindRestore = useCallback(
+    async (checkpointId: string, mode: RewindRestoreMode) => {
+      abortActiveRun()
+      stopStreaming()
+      // The abort path may have queued one final persistence checkpoint. Drain
+      // it before saving the rewound state so a stale write cannot land after
+      // restoration and silently resurrect the discarded future conversation.
+      await settleCheckpointSave()
+      const chatDir = resolveCurrentChatDir()
+      const result = await restoreRewindCheckpoint({
+        checkpointId,
+        mode,
+        chatDir,
+        projectRoot: getProjectRoot(),
+      })
+
+      if (mode === 'conversation' || mode === 'both') {
+        const restoredMessages = result.messages ?? []
+        const restoredRunState = result.runState ?? null
+        const saved = saveRewoundChatState(
+          restoredRunState,
+          restoredMessages,
+          chatDir,
+        )
+        if (!saved) {
+          throw new Error(
+            'Los archivos pudieron restaurarse, pero no se pudo guardar el chat restaurado. Revisa los permisos del directorio de sesiones e inténtalo nuevamente.',
+          )
+        }
+        const store = useChatStore.getState()
+        store.setMessages(restoredMessages)
+        replaceRunState(restoredRunState)
+        setInputValue({
+          text: result.prompt,
+          cursorPosition: result.prompt.length,
+          lastEditDueToNav: false,
+        })
+      }
+
+      const restoredCount = result.restoredFiles.length
+      const skippedCount = result.skippedFiles.length
+      const scopeLabel =
+        mode === 'both'
+          ? 'Conversación y archivos restaurados'
+          : mode === 'conversation'
+            ? 'Conversación restaurada'
+            : 'Archivos restaurados'
+      showClipboardMessage(
+        [
+          scopeLabel,
+          restoredCount > 0 ? `${restoredCount} archivos` : '',
+          skippedCount > 0
+            ? `${skippedCount} omitidos por cambios externos`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        { durationMs: 5000 },
+      )
+      closeRewind()
+    },
+    [closeRewind, replaceRunState, setInputValue, stopStreaming],
+  )
+
   // Ensure bracketed paste events target the active chat input
   useEffect(() => {
     if (
@@ -1084,6 +1196,7 @@ export const Chat = ({
       searchSetupOpen ||
       tokenUsageOpen ||
       sessionRenameOpen ||
+      rewindOpen ||
       chatTransfer
     )
       return
@@ -1103,6 +1216,7 @@ export const Chat = ({
     providerLoginOpen,
     providerManagerOpen,
     searchSetupOpen,
+    rewindOpen,
     sessionRenameOpen,
     tokenUsageOpen,
   ])
@@ -1529,6 +1643,7 @@ export const Chat = ({
     !searchSetupOpen &&
     !tokenUsageOpen &&
     !sessionRenameOpen &&
+    !rewindOpen &&
     chatTransfer === null &&
     askUserState === null
 
@@ -1609,6 +1724,7 @@ export const Chat = ({
     !searchSetupOpen &&
     !tokenUsageOpen &&
     !sessionRenameOpen &&
+    !rewindOpen &&
     chatTransfer === null &&
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
@@ -1756,6 +1872,12 @@ export const Chat = ({
           <SearchSetupScreen onClose={closeSearchSetup} />
         ) : tokenUsageOpen ? (
           <TokenUsageScreen onClose={closeTokenUsage} />
+        ) : rewindOpen ? (
+          <RewindScreen
+            chatDir={resolveCurrentChatDir()}
+            onRestore={handleRewindRestore}
+            onCancel={closeRewind}
+          />
         ) : sessionRenameOpen ? (
           <SessionRenameScreen
             onComplete={(name) => {

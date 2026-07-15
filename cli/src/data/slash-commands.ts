@@ -42,7 +42,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'init',
 ])
 
-const FREEBUFF_ONLY_COMMAND_IDS = new Set(['connect', 'plan', 'end-session'])
+const FREEBUFF_ONLY_COMMAND_IDS = new Set(['connect', 'end-session'])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
@@ -126,11 +126,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
       'La IA hace preguntas para convertir la solicitud en una especificación',
   },
   {
-    id: 'plan',
-    label: 'plan',
-    description: 'Crear un plan para implementar una solicitud',
-  },
-  {
     id: 'review',
     label: 'review',
     description: 'Revisar cambios de código',
@@ -154,6 +149,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'history',
     description: 'Explorar y reanudar conversaciones anteriores',
     aliases: ['chats'],
+  },
+  {
+    id: 'rewind',
+    label: 'rewind',
+    description: 'Volver a un punto anterior del chat y restaurar archivos',
+    aliases: ['restore'],
   },
   {
     id: 'rename',

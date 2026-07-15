@@ -1,10 +1,9 @@
 /**
- * Centralized prompt builders for /plan and /review commands.
- * This ensures consistent behavior regardless of entry path.
+ * Centralized prompt builders for interview and review flows.
  *
- * By default /plan and /review run on the user's currently selected model. If
- * the user has connected a ChatGPT account (via /connect), we delegate the
- * deep-thinking step to the GPT model through the @thinker-gpt agent instead.
+ * Review runs on the user's currently selected model. If the user has
+ * connected a ChatGPT account (via /connect), the deep-thinking step is
+ * delegated to the GPT model through the @thinker-gpt agent instead.
  */
 
 import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
@@ -19,17 +18,6 @@ function gptOrSelectedModelPrompt(
   return isChatGptConnected() ? gptVariant : selectedModelVariant
 }
 
-// Base prompt for plan command - always gathers context first.
-export function buildPlanBasePrompt(
-  isChatGptConnected?: () => boolean,
-): string {
-  return gptOrSelectedModelPrompt(
-    'Gather all the relevant context and then spawn @thinker-gpt Think about how to implement the following:',
-    'Gather all the relevant context and then think carefully about how to implement the following:',
-    isChatGptConnected,
-  )
-}
-
 // Base prompt for review command - always gathers context first.
 export function buildReviewBasePrompt(
   isChatGptConnected?: () => boolean,
@@ -39,23 +27,6 @@ export function buildReviewBasePrompt(
     'Please gather all relevant context and then carefully review:',
     isChatGptConnected,
   )
-}
-
-/**
- * Build a plan prompt from user input.
- * @param input - The user's plan request (e.g., "add OAuth login")
- * @returns The full prompt to send to the agent
- */
-export function buildPlanPrompt(
-  input: string,
-  isChatGptConnected?: () => boolean,
-): string {
-  const basePrompt = buildPlanBasePrompt(isChatGptConnected)
-  const trimmedInput = input.trim()
-  if (!trimmedInput) {
-    return basePrompt
-  }
-  return `${basePrompt}\n\n${trimmedInput}`
 }
 
 // Base prompt for interview command - asks clarifying questions before acting

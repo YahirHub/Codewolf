@@ -95,47 +95,75 @@ export function createBase2(
     },
     outputMode: 'last_message',
     includeMessageHistory: true,
-    toolNames: buildArray(
-      'spawn_agents',
-      'read_files',
-      'read_subtree',
-      !isFast && 'write_todos',
-      !noAskUser && 'suggest_followups',
-      'str_replace',
-      'write_file',
-      !isFree && 'propose_str_replace',
-      !isFree && 'propose_write_file',
-      !noAskUser && 'ask_user',
-      'read_url',
-      'skill',
-      'set_output',
-      'list_directory',
-      'glob',
-      'render_ui',
-      !noGravityIndex && 'gravity_index',
-      ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
-    ),
-    spawnableAgents: buildArray(
-      !isMax && 'file-picker',
-      isMax && 'file-picker-max',
-      'code-searcher',
-      'researcher-web',
-      'researcher-docs',
-      'basher',
-      isDefault && 'thinker',
-      (isDefault || isMax) && ['opus-agent', 'agent'],
-      isMax && 'thinker-best-of-n-opus',
-      isDefault && 'editor',
-      isMax && 'editor-multi-prompt',
-      'tmux-cli',
-      'browser-use',
-      isFree && !noReview && freeCodeReviewerAgentId,
-      isDefault && 'code-reviewer',
-      isMax && 'code-reviewer-multi-prompt',
-      hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
-      'thinker-gpt',
-      'context-pruner',
-    ),
+    // PLAN is enforced as read-only at the capability layer, not merely by
+    // instructions. Even a weak or confused model cannot call file mutation,
+    // terminal, todo-writing, or general-purpose editing agents in this mode.
+    toolNames: planOnly
+      ? buildArray(
+          'spawn_agents',
+          'read_files',
+          'read_subtree',
+          !noAskUser && 'ask_user',
+          'read_url',
+          'skill',
+          'list_directory',
+          'glob',
+          !noGravityIndex && 'gravity_index',
+        )
+      : buildArray(
+          'spawn_agents',
+          'read_files',
+          'read_subtree',
+          !isFast && 'write_todos',
+          !noAskUser && 'suggest_followups',
+          'str_replace',
+          'write_file',
+          !isFree && 'propose_str_replace',
+          !isFree && 'propose_write_file',
+          !noAskUser && 'ask_user',
+          'read_url',
+          'skill',
+          'set_output',
+          'list_directory',
+          'glob',
+          'render_ui',
+          !noGravityIndex && 'gravity_index',
+          ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
+        ),
+    spawnableAgents: planOnly
+      ? buildArray(
+          !isMax && 'file-picker',
+          isMax && 'file-picker-max',
+          'code-searcher',
+          'researcher-web',
+          'researcher-docs',
+          'thinker',
+          'thinker-best-of-n-opus',
+          'thinker-gpt',
+          'browser-use',
+          'context-pruner',
+        )
+      : buildArray(
+          !isMax && 'file-picker',
+          isMax && 'file-picker-max',
+          'code-searcher',
+          'researcher-web',
+          'researcher-docs',
+          'basher',
+          isDefault && 'thinker',
+          (isDefault || isMax) && ['opus-agent', 'agent'],
+          isMax && 'thinker-best-of-n-opus',
+          isDefault && 'editor',
+          isMax && 'editor-multi-prompt',
+          'tmux-cli',
+          'browser-use',
+          isFree && !noReview && freeCodeReviewerAgentId,
+          isDefault && 'code-reviewer',
+          isMax && 'code-reviewer-multi-prompt',
+          hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
+          'thinker-gpt',
+          'context-pruner',
+        ),
 
     systemPrompt: `You are Buffy, the strategic coding assistant. You are the AI agent behind the product, ${isFree ? 'Freebuff' : 'Codewolf'}, a local-first CLI where users can chat with you to code with AI${isFree ? ' for free' : ''}.
 
@@ -569,51 +597,55 @@ function buildImplementationStepPrompt({
 }
 
 function buildPlanOnlyInstructionsPrompt({}: {}) {
-  return `Orchestrate the completion of the user's request using your specialized sub-agents.
+  return `You are Codewolf's architecture and planning mode. Your job is to produce an implementation-ready plan grounded in the actual repository. You are strictly read-only: investigate, reason, ask questions, and plan, but never edit files, run terminal commands, create todos, or claim that implementation has started.
 
- You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
-    
-## Example response
+# Required workflow
 
-The user asks you to implement a new feature. You respond in multiple steps:
+1. Recover project context first. If a contexto/ directory or a knowledge file such as AGENTS.md, knowledge.md, or CLAUDE.md exists, read the relevant material before planning.
+2. Inspect the implementation that will actually be affected: entry points, neighboring code, types, tests, configuration, dependencies, routes, permissions, data contracts, and established conventions.
+3. Use skills and read-only research agents when they materially improve accuracy. Verify third-party APIs or current documentation instead of relying on memory.
+4. Ask the user through ask_user only when an unresolved decision would materially change architecture, behavior, compatibility, data, security, or scope. Do not ask questions whose answers are already in the repository or can safely remain implementation details.
+5. Resolve ambiguities explicitly. Distinguish confirmed requirements, inferred decisions, and assumptions that still need approval.
+6. Produce one final plan only after enough context has been gathered. Match the user's language.
 
-${buildArray(
-  EXPLORE_PROMPT,
-  `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
+# Required output
 
-## Asking questions
+Wrap the final markdown plan in <PLAN> and </PLAN>. Do not wrap the whole plan in a code fence.
 
-To clarify the user's intent, or get them to weigh in on key decisions, you should use the ask_user tool.
+The plan must be concrete enough that another agent can implement it without redoing the investigation. Use these sections when applicable:
 
-It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
+# Plan: <short title>
 
-If you don't have any important questions to ask, you can skip this step. Keep asking questions until you have a clear understanding of the user's request and how to solve it. However, be sure that you never ask questions with obvious answers or questions about details that can be changed later. Focus on the most important, non-obvious aspects only.
+## Objetivo
+A precise description of the requested end state and what is intentionally out of scope.
 
-## Creating a spec
+## Contexto verificado
+Relevant architecture, existing behavior, conventions, dependencies, and files you actually inspected.
 
-Wrap your spec in <PLAN> and </PLAN> tags. The content inside should be markdown formatted (no code fences around the whole plan/spec). For example: <PLAN>\n# Plan\n- Item 1\n- Item 2\n</PLAN>.
+## Decisiones y requisitos
+Confirmed behavior, compatibility constraints, edge cases, and any explicit assumptions.
 
-The spec should include:
-- A brief title and overview. For the title is preferred to call it a "Plan" rather than a "Spec".
-- A bullet point list of the requirements.
-- An optional "Notes" section detailing any key considerations or constraints or testing requirements.
-- A section with a list of relevant files.
+## Implementación
+A numbered, step-by-step sequence. For each step identify the files or modules involved, the intended change, how it connects to existing code, and important failure/rollback behavior. Do not include full source code.
 
-It should not include:
-- A lot of analysis.
-- Sections of actual code.
-- A list of the benefits, performance benefits, or challenges.
-- A step-by-step plan for the implementation.
-- A summary of the spec.
+## Archivos afectados
+List likely files to create, modify, rename, or remove. State when exact paths remain to be discovered during implementation.
 
-This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
-`,
-).join('\n')}`
+## Validación
+Specific tests and manual checks, separated when relevant by role, UI/API, routes, permissions, persistence, migrations, and regressions.
+
+## Riesgos y reversión
+Data-loss risks, compatibility concerns, destructive operations, migrations, concurrency/security concerns, and how to safely roll back.
+
+## Lista inicial de ejecución
+A concise checklist of 3–10 implementation tasks that can be converted directly into write_todos after approval.
+
+Keep simple plans concise, but never omit critical implementation details merely to be short. Do not implement anything in PLAN mode.`
 }
 
 function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
-    `You are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not use the write_todos tool.`,
+    `PLAN mode is capability-restricted and read-only. Continue investigating or refining the plan. Never attempt file mutation, terminal execution, todo writing, or implementation. Your final implementation-ready response must be enclosed in <PLAN>...</PLAN>.`,
   ).join('\n')
 }
 

@@ -15,6 +15,7 @@ export type {
   MessageContent,
   TextContent,
   ImageContent,
+  FileMutationEvent,
 } from './run'
 export type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'

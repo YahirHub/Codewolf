@@ -99,6 +99,13 @@ function normalizeToolOutputs(outputs: ToolResultOutput[]): ToolResultOutput[] {
   )
 }
 
+export type FileMutationEvent = {
+  toolName: 'write_file' | 'str_replace' | 'apply_patch'
+  /** Project-relative path supplied to the editing tool. */
+  path: string
+  cwd: string
+}
+
 type OverrideToolHandlers = {
   [K in PublishedClientToolName]?: (input: any) => Promise<ToolResultOutput[]>
 } & {
@@ -166,6 +173,12 @@ export type CodebuffClientOptions = {
   traceWriter?: TraceWriter
   /** Receives local numeric token-usage metadata for every model call. */
   onTokenUsage?: TokenUsageCallback
+  /** Called immediately before a built-in file editing tool mutates disk. */
+  onBeforeFileMutation?: (event: FileMutationEvent) => void | Promise<void>
+  /** Called after a built-in file editing tool settles. */
+  onAfterFileMutation?: (
+    event: FileMutationEvent & { succeeded: boolean },
+  ) => void | Promise<void>
 }
 
 export type ImageContent = {
@@ -315,6 +328,8 @@ async function runOnce({
   logger,
   traceWriter,
   onTokenUsage,
+  onBeforeFileMutation,
+  onAfterFileMutation,
 
   agent,
   prompt,
@@ -549,6 +564,8 @@ async function runOnce({
         env,
         apiKey,
         signal,
+        onBeforeFileMutation,
+        onAfterFileMutation,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -800,6 +817,45 @@ async function readFiles({
   })
 }
 
+function getFileMutationEvent(params: {
+  toolName: string
+  input: unknown
+  cwd?: string
+}): FileMutationEvent | null {
+  const { toolName, input, cwd } = params
+  if (!cwd || typeof input !== 'object' || input === null) return null
+
+  if (toolName === 'write_file' || toolName === 'str_replace') {
+    const pathValue = (input as { path?: unknown }).path
+    return typeof pathValue === 'string'
+      ? { toolName, path: pathValue, cwd }
+      : null
+  }
+
+  if (toolName === 'apply_patch') {
+    const operation = (input as { operation?: unknown }).operation
+    const pathValue =
+      typeof operation === 'object' && operation !== null
+        ? (operation as { path?: unknown }).path
+        : undefined
+    return typeof pathValue === 'string'
+      ? { toolName, path: pathValue, cwd }
+      : null
+  }
+
+  return null
+}
+
+function toolResultSucceeded(result: ToolResultOutput[]): boolean {
+  return !result.some(
+    (item) =>
+      item.type === 'json' &&
+      typeof item.value === 'object' &&
+      item.value !== null &&
+      'errorMessage' in item.value,
+  )
+}
+
 async function handleToolCall({
   action,
   overrides,
@@ -809,6 +865,8 @@ async function handleToolCall({
   env,
   apiKey,
   signal,
+  onBeforeFileMutation,
+  onAfterFileMutation,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -818,6 +876,8 @@ async function handleToolCall({
   env?: Record<string, string>
   apiKey: string
   signal?: AbortSignal
+  onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
+  onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -879,6 +939,15 @@ async function handleToolCall({
       output: normalizeToolOutputs(
         await customToolHandler.execute(action.input),
       ),
+    }
+  }
+
+  const fileMutationEvent = getFileMutationEvent({ toolName, input, cwd })
+  if (fileMutationEvent && onBeforeFileMutation) {
+    try {
+      await onBeforeFileMutation(fileMutationEvent)
+    } catch {
+      // Checkpointing/observability hooks must never block the file operation.
     }
   }
 
@@ -986,8 +1055,19 @@ async function handleToolCall({
       },
     ]
   }
+  const normalizedResult = normalizeToolOutputs(result)
+  if (fileMutationEvent && onAfterFileMutation) {
+    try {
+      await onAfterFileMutation({
+        ...fileMutationEvent,
+        succeeded: toolResultSucceeded(normalizedResult),
+      })
+    } catch {
+      // Checkpointing/observability hooks must never change the tool result.
+    }
+  }
   return {
-    output: normalizeToolOutputs(result),
+    output: normalizedResult,
   }
 }
 

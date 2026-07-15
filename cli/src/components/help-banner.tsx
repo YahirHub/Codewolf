@@ -73,7 +73,7 @@ export const HelpBanner = () => {
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
             {IS_FREEBUFF && (
               <text style={{ fg: theme.muted }}>
-                Flujo sugerido: /interview → /plan → implementar → /review
+                Flujo sugerido: /interview → modo PLAN → implementar → /review
               </text>
             )}
             <text style={{ fg: theme.muted }}>

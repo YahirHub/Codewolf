@@ -24,6 +24,15 @@ describe('writeFileAtomic', () => {
     expect(fs.readFileSync(target, 'utf8')).toBe('{"a":1}')
   })
 
+  test('writes binary content atomically', () => {
+    const target = path.join(tempDir, 'blob.bin')
+    const content = new Uint8Array([0, 1, 2, 255])
+
+    writeFileAtomic(target, content)
+
+    expect([...fs.readFileSync(target)]).toEqual([...content])
+  })
+
   test('replaces an existing file', () => {
     const target = path.join(tempDir, 'out.json')
     fs.writeFileSync(target, 'old content')

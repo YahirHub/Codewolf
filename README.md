@@ -13,6 +13,8 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
 - Conversaciones con nombre visible, historial, exportación e importación portable.
 - Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
+- Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
+- Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
 - Binarios independientes para Windows y Linux.
 
@@ -112,6 +114,45 @@ Ejecuta:
 
 El agente resume la conversación y sustituye el historial largo por esa memoria. Además, antes de cada paso, el agente base compacta automáticamente cuando el contexto alcanza el 90 % de la ventana configurada para el modelo. Así, un modelo con un millón de tokens empieza a compactar alrededor de 900 000.
 
+## Planificar antes de implementar
+
+Selecciona **PLAN** desde el control de modos situado junto a DEFAULT, MAX y
+LITE. No existe un comando `/plan` separado. En este modo Codewolf solo puede
+leer, investigar, buscar documentación, cargar skills y hacer preguntas que
+cambien decisiones importantes; no dispone de herramientas de escritura,
+terminal ni agentes editores.
+
+El resultado se presenta como un plan con contexto verificado, decisiones, pasos
+numerados, archivos afectados, validación y estrategia de reversión. Desde la
+tarjeta puedes **Revisar o ajustar plan** o aprobarlo para implementarlo con modo
+predeterminado, máximo o ligero. Al aprobar, el agente convierte primero el plan
+en una lista visible mediante `write_todos`.
+
+## Volver a un punto anterior
+
+Codewolf crea un checkpoint antes de cada solicitud enviada al agente. Ejecuta:
+
+```text
+/rewind
+```
+
+Selecciona el prompt anterior y después una de estas acciones:
+
+- restaurar conversación y archivos;
+- restaurar solo la conversación;
+- restaurar solo los archivos.
+
+Cuando vuelve la conversación, la solicitud original aparece de nuevo en el
+campo de entrada para editarla o reenviarla. Se conservan los 100 puntos más
+recientes de cada chat. Los archivos se deduplican por contenido y permanecen
+dentro del directorio de la sesión.
+
+`/rewind` restaura únicamente cambios realizados mediante `write_file`,
+`str_replace` y `apply_patch`. No revierte comandos Bash, scripts, Git, MCP,
+editores externos ni otros procesos. Si un archivo cambió fuera de Codewolf
+después de la última edición rastreada, se omite para no sobrescribir trabajo
+manual. Esta función es una red de seguridad, no un sustituto de Git.
+
 ## Sesiones con nombre y chats portables
 
 Renombra la conversación actual desde una pantalla interactiva:
@@ -208,6 +249,7 @@ Estructura principal:
 ├── recent-projects.json
 ├── usage.jsonl
 ├── projects/
+│   └── <proyecto>/chats/<chat-id>/checkpoints/
 └── skills/
 ```
 

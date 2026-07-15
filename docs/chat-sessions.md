@@ -90,3 +90,54 @@ chat-messages.json
 run-state.json
 chat-meta.json
 ```
+
+## Checkpoints y `/rewind`
+
+Antes de cada solicitud enviada al agente, Codewolf crea un checkpoint con la
+conversación y el `RunState` anteriores al prompt. La línea temporal conserva
+los 100 puntos más recientes de cada chat en:
+
+```text
+~/.codewolf/projects/<proyecto>/chats/<chat-id>/checkpoints/
+├── index.json
+├── objects/
+└── files/
+```
+
+Los mensajes y estados se guardan como objetos JSON dirigidos por contenido y
+los archivos como blobs identificados por SHA-256. Esto deduplica contenido
+repetido entre puntos sin copiar el proyecto completo.
+
+`/rewind` detiene primero cualquier ejecución activa y muestra los prompts
+anteriores. Al seleccionar uno ofrece:
+
+1. **Restaurar conversación y archivos**: vuelve el chat y los archivos
+   rastreados al estado anterior a ese prompt.
+2. **Restaurar solo la conversación**: conserva el disco actual y recorta el
+   chat/estado interno.
+3. **Restaurar solo los archivos**: conserva la conversación actual y restaura
+   únicamente archivos elegibles.
+
+Las acciones que restauran conversación vuelven a colocar el prompt elegido en
+el editor. La línea temporal posterior se elimina para que los siguientes
+mensajes continúen desde el punto restaurado. Antes de persistir, Codewolf drena
+cualquier checkpoint asíncrono del turno abortado para evitar que una escritura
+antigua sobrescriba la restauración.
+
+### Alcance y protección
+
+Solo se rastrean mutaciones realizadas por `write_file`, `str_replace` y
+`apply_patch`, tanto del agente principal como de subagentes. Los callbacks se
+ejecutan en el límite compartido del SDK y sus fallas nunca bloquean la edición.
+
+No se restauran efectos de Bash, scripts, Git, MCP, editores externos, servidores
+de desarrollo ni otros procesos. Antes de escribir un archivo, Codewolf compara
+su contenido actual con el último estado conocido después de la edición del
+agente. Si no coincide, lo marca como cambio externo y lo omite. También rechaza
+rutas que salgan del proyecto por `..`, rutas absolutas externas o enlaces
+simbólicos.
+
+Los checkpoints son una red de seguridad para iterar sobre una conversación; no
+reemplazan commits, ramas ni respaldos de Git. Las sesiones creadas antes de esta
+función comienzan a tener puntos únicamente a partir del primer prompt enviado
+con la nueva versión.

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
-  buildPlanPrompt,
   buildReviewPrompt,
   buildReviewPromptFromArgs,
 } from '../prompt-builders'
@@ -23,12 +22,6 @@ describe('prompt-builders ChatGPT-aware base prompts', () => {
       connected = true
     })
 
-    test('/plan delegates to @thinker-gpt', () => {
-      expect(
-        buildPlanPrompt('add OAuth login', isChatGptConnected),
-      ).toContain('@thinker-gpt')
-    })
-
     test('/review delegates to @thinker-gpt', () => {
       expect(
         buildReviewPrompt('uncommitted', undefined, isChatGptConnected),
@@ -40,12 +33,6 @@ describe('prompt-builders ChatGPT-aware base prompts', () => {
   })
 
   describe('when ChatGPT is not connected', () => {
-    test('/plan runs on the selected model (no @thinker-gpt spawn)', () => {
-      const prompt = buildPlanPrompt('add OAuth login', isChatGptConnected)
-      expect(prompt).not.toContain('@thinker-gpt')
-      expect(prompt).toContain('add OAuth login')
-    })
-
     test('/review runs on the selected model (no @thinker-gpt spawn)', () => {
       expect(
         buildReviewPrompt('uncommitted', undefined, isChatGptConnected),
@@ -56,14 +43,14 @@ describe('prompt-builders ChatGPT-aware base prompts', () => {
     })
   })
 
-  test('user input is preserved regardless of connection state', () => {
+  test('review input is preserved regardless of connection state', () => {
     connected = true
-    expect(buildPlanPrompt('do the thing', isChatGptConnected)).toContain(
-      'do the thing',
-    )
+    expect(
+      buildReviewPromptFromArgs('do the thing', isChatGptConnected),
+    ).toContain('do the thing')
     connected = false
-    expect(buildPlanPrompt('do the thing', isChatGptConnected)).toContain(
-      'do the thing',
-    )
+    expect(
+      buildReviewPromptFromArgs('do the thing', isChatGptConnected),
+    ).toContain('do the thing')
   })
 })

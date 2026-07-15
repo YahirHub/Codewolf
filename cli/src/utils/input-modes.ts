@@ -9,7 +9,6 @@ export type InputMode =
   | 'default'
   | 'bash'
   | 'homeDir'
-  | 'plan'
   | 'review'
   | 'interview'
   | 'usage'
@@ -88,16 +87,6 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     placeholder:
       'describe una función, error u otra solicitud que quieras detallar...',
     widthAdjustment: 12,
-    showAgentModeToggle: false,
-    disableSlashSuggestions: true,
-    blockKeyboardExit: false,
-  },
-  plan: {
-    icon: null,
-    label: 'Plan',
-    color: 'info',
-    placeholder: 'describe lo que quieres planear...',
-    widthAdjustment: 7,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,

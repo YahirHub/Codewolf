@@ -206,6 +206,7 @@ describe('command-registry', () => {
       expect(findCommand('providers')?.name).toBe('providers')
       expect(findCommand('agent')?.name).toBe('agent')
       expect(findCommand('compact')?.name).toBe('compact')
+      expect(findCommand('rewind')?.name).toBe('rewind')
       expect(findCommand('rename')?.name).toBe('rename')
       expect(findCommand('export')?.name).toBe('export')
       expect(findCommand('import')?.name).toBe('import')
@@ -240,6 +241,8 @@ describe('command-registry', () => {
       expect(findCommand('sub')).toBeUndefined()
       expect(findCommand('agent:gpt-5')).toBeUndefined()
       expect(findCommand('gpt-5-agent')).toBeUndefined()
+      expect(findCommand('plan')).toBeUndefined()
+      expect(SLASH_COMMANDS.some((command) => command.id === 'plan')).toBe(false)
     })
 
     test('is case insensitive', () => {

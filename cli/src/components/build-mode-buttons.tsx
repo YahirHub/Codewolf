@@ -21,7 +21,7 @@ export const BuildModeButtons = ({
   if (IS_FREEBUFF) return null
 
   const [hoveredButton, setHoveredButton] = useState<
-    'fast' | 'max' | 'lite' | null
+    'fast' | 'max' | 'lite' | 'revise' | null
   >(null)
   const { width } = useTerminalLayout()
   const isNarrow = width.is('xs')
@@ -43,6 +43,27 @@ export const BuildModeButtons = ({
           </span>
         </text>
       )}
+      <Button
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: 2,
+          paddingRight: 2,
+          borderStyle: 'single',
+          borderColor:
+            hoveredButton === 'revise' ? theme.foreground : theme.secondary,
+          customBorderChars: BORDER_CHARS,
+        }}
+        onClick={() =>
+          globalThis.dispatchEvent(new Event('codewolf:revise-plan'))
+        }
+        onMouseOver={() => setHoveredButton('revise')}
+        onMouseOut={() => setHoveredButton(null)}
+      >
+        <text wrapMode="none">
+          <span fg={theme.foreground}>REVISAR O AJUSTAR PLAN</span>
+        </text>
+      </Button>
       <box
         style={{
           flexDirection: 'row',

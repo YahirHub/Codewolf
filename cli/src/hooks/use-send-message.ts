@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { useCallback, useEffect, useRef } from 'react'
 
-import { setCurrentChatId } from '../project-files'
+import { getProjectRoot, setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -14,6 +14,11 @@ import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { getActiveCustomProviderCompactionThreshold } from '../utils/custom-providers'
+import {
+  createRewindCheckpoint,
+  recordFileAfterMutation,
+  recordFileBeforeMutation,
+} from '../utils/rewind-checkpoints'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
@@ -138,6 +143,7 @@ export const useSendMessage = ({
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
+  replaceRunState: (runState: RunState | null) => void
 } => {
   // Pull setters directly from store - these are stable references that don't need
   // to trigger re-renders, so using getState() outside of callbacks is intentional.
@@ -222,9 +228,19 @@ export const useSendMessage = ({
     [updateActiveSubagents],
   )
 
+  const replaceRunState = useCallback(
+    (runState: RunState | null) => {
+      // Update both representations synchronously. Session-level actions such
+      // as /rewind can be followed immediately by Enter, before React effects
+      // have had a chance to mirror the Zustand value into this request ref.
+      previousRunStateRef.current = runState
+      setRunState(runState)
+    },
+    [setRunState],
+  )
+
   function clearMessages() {
-    previousRunStateRef.current = null
-    setRunState(null)
+    replaceRunState(null)
   }
 
   const prepareUserMessage = useCallback(
@@ -281,6 +297,21 @@ export const useSendMessage = ({
           isQueuePausedRef,
         })
         return
+      }
+
+      const rewindChatDir = resolveCurrentChatDir()
+      const rewindProjectRoot = getProjectRoot()
+      try {
+        await createRewindCheckpoint({
+          chatDir: rewindChatDir,
+          projectRoot: rewindProjectRoot,
+          prompt: content,
+          messages: useChatStore.getState().messages,
+          runState: previousRunStateRef.current,
+        })
+      } catch (error) {
+        // Checkpointing must never prevent the user from sending a prompt.
+        logger.warn({ error }, '[rewind] Failed to create prompt checkpoint')
       }
 
       if (agentMode !== 'PLAN') {
@@ -465,7 +496,7 @@ export const useSendMessage = ({
       // would persist this run's state over a different chat's transcript.
       // After a switch the store's messages belong to the new conversation,
       // so persistence and state adoption below are gated on runChatIsCurrent.
-      const runChatDir = resolveCurrentChatDir()
+      const runChatDir = rewindChatDir
       const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
 
       // Checkpoint the turn to disk immediately so that killing the process
@@ -559,6 +590,20 @@ export const useSendMessage = ({
               ? { freebuff_instance_id: freebuffInstanceId }
               : undefined,
           maxContextLength: getActiveCustomProviderCompactionThreshold(),
+          onBeforeFileMutation: async (event) => {
+            await recordFileBeforeMutation({
+              chatDir: runChatDir,
+              projectRoot: rewindProjectRoot,
+              filePath: event.path,
+            })
+          },
+          onAfterFileMutation: async (event) => {
+            await recordFileAfterMutation({
+              chatDir: runChatDir,
+              projectRoot: rewindProjectRoot,
+              filePath: event.path,
+            })
+          },
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
             // Don't persist or update the visible meter once the run is
@@ -742,5 +787,6 @@ export const useSendMessage = ({
   return {
     sendMessage,
     clearMessages,
+    replaceRunState,
   }
 }

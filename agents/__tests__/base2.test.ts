@@ -187,3 +187,30 @@ describe('base2 context pruning', () => {
     })
   })
 })
+
+describe('base2 plan mode', () => {
+  test('enforces read-only planning through capabilities', () => {
+    const plan = createBase2('default', { planOnly: true })
+
+    expect(plan.toolNames).toContain('read_files')
+    expect(plan.toolNames).toContain('ask_user')
+    expect(plan.toolNames).not.toContain('write_file')
+    expect(plan.toolNames).not.toContain('str_replace')
+    expect(plan.toolNames).not.toContain('write_todos')
+    expect(plan.spawnableAgents).toContain('code-searcher')
+    expect(plan.spawnableAgents).not.toContain('editor')
+    expect(plan.spawnableAgents).not.toContain('basher')
+    expect(plan.spawnableAgents).not.toContain('agent')
+  })
+
+  test('requires an implementation-ready plan with validation and rollback', () => {
+    const plan = createBase2('default', { planOnly: true })
+
+    expect(plan.instructionsPrompt).toContain('implementation-ready plan')
+    expect(plan.instructionsPrompt).toContain('Archivos afectados')
+    expect(plan.instructionsPrompt).toContain('Validación')
+    expect(plan.instructionsPrompt).toContain('Riesgos y reversión')
+    expect(plan.instructionsPrompt).toContain('<PLAN>')
+    expect(plan.stepPrompt).toContain('capability-restricted and read-only')
+  })
+})

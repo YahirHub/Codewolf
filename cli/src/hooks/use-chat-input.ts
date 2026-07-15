@@ -18,7 +18,8 @@ interface UseChatInputOptions {
   isNarrowWidth: boolean
 }
 
-const BUILD_IT_TEXT = '¡Constrúyelo!'
+const BUILD_IT_TEXT =
+  'Implementa fielmente el plan aprobado anterior. Conviértelo primero en write_todos y detente si encuentras una contradicción crítica.'
 
 export const useChatInput = ({
   setInputValue,

@@ -22,7 +22,6 @@ import {
 } from './process-diagnostics'
 import {
   buildInterviewPrompt,
-  buildPlanPrompt,
   buildReviewPromptFromArgs,
 } from './prompt-builders'
 import { runBashCommand } from './router'
@@ -81,6 +80,7 @@ export type CommandResult = {
   openFeedbackMode?: boolean
   openPublishMode?: boolean
   openChatHistory?: boolean
+  openRewind?: boolean
   openReviewScreen?: boolean
   preSelectAgents?: string[]
   openProviderLogin?: boolean
@@ -207,7 +207,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'agent',
 ])
 
-const FREEBUFF_ONLY_COMMANDS = new Set(['connect', 'plan', 'end-session'])
+const FREEBUFF_ONLY_COMMANDS = new Set(['connect', 'end-session'])
 
 const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
@@ -546,6 +546,20 @@ const ALL_COMMANDS: CommandDefinition[] = [
       return { openChatHistory: true }
     },
   }),
+  defineCommand({
+    name: 'rewind',
+    aliases: ['restore'],
+    handler: (params) => {
+      // Freeze the state before presenting restoration points. Otherwise a
+      // streaming run could keep adding messages or mutating files while the
+      // user is deciding where to return.
+      abortActiveRun()
+      params.stopStreaming()
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openRewind: true }
+    },
+  }),
   defineCommandWithArgs({
     name: 'interview',
     handler: (params, args) => {
@@ -568,32 +582,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter interview mode
       useChatStore.getState().setInputMode('interview')
-    },
-  }),
-  defineCommandWithArgs({
-    name: 'plan',
-    handler: (params, args) => {
-      // /plan runs on the selected model by default, or delegates to GPT when a
-      // ChatGPT account is connected (handled in buildPlanPrompt). No gate.
-      const trimmedArgs = args.trim()
-
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-
-      // If user provided plan text directly, send it immediately
-      if (trimmedArgs) {
-        params.sendMessage({
-          content: buildPlanPrompt(trimmedArgs),
-          agentMode: params.agentMode,
-        })
-        setTimeout(() => {
-          params.scrollToLatest()
-        }, 0)
-        return
-      }
-
-      // Otherwise enter plan mode
-      useChatStore.getState().setInputMode('plan')
     },
   }),
   defineCommandWithArgs({

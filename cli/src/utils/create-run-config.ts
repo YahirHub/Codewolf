@@ -11,6 +11,7 @@ import type { EventHandlerState } from './sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   AgentDefinition,
+  CodebuffClientOptions,
   FileFilter,
   MessageContent,
   RunState,
@@ -31,6 +32,8 @@ export type CreateRunConfigParams = {
   maxContextLength?: number
   /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
   onStateSnapshot?: (runState: RunState) => void
+  onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
+  onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -110,6 +113,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     extraCodebuffMetadata,
     maxContextLength,
     onStateSnapshot,
+    onBeforeFileMutation,
+    onAfterFileMutation,
   } = params
 
   const agentId = typeof agent === 'string' ? agent : agent.id
@@ -133,6 +138,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
         ? { maxContextLength }
         : undefined,
     onStateSnapshot,
+    onBeforeFileMutation,
+    onAfterFileMutation,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

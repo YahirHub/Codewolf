@@ -211,6 +211,36 @@ export function saveChatState(
 }
 
 /**
+ * Persist a rewound conversation that may intentionally have no RunState yet
+ * (for example, the checkpoint before the very first prompt).
+ */
+export function saveRewoundChatState(
+  runState: RunState | null,
+  messages: ChatMessage[],
+  chatDir: string = resolveCurrentChatDir(),
+): boolean {
+  try {
+    fs.mkdirSync(chatDir, { recursive: true })
+    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
+    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
+    if (runState) {
+      writeFileAtomic(runStatePath, stringifyJsonValue(runState))
+    } else {
+      fs.rmSync(runStatePath, { force: true })
+    }
+    writeFileAtomic(messagesPath, stringifyJsonValue(messages))
+    writeChatMeta(chatDir, messages)
+    return true
+  } catch (error) {
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to save rewound chat state',
+    )
+    return false
+  }
+}
+
+/**
  * Async counterpart to saveChatState. Serializes and writes off the caller's
  * tick so a multi-MB transcript doesn't block the CLI's render/input thread.
  */

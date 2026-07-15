@@ -217,6 +217,29 @@ describe('command factory pattern', () => {
     })
   })
 
+  describe('rewind command', () => {
+    test('opens the rewind screen and clears the command input', () => {
+      const command = COMMAND_REGISTRY.find((item) => item.name === 'rewind')
+      expect(command).toBeDefined()
+
+      const params = createMockParams({ inputValue: '/rewind' })
+      const result = command!.handler(params, '')
+
+      expect(result).toEqual({ openRewind: true })
+      expect(params.stopStreaming).toHaveBeenCalled()
+      expect(params.saveToHistory).toHaveBeenCalledWith('/rewind')
+      expect(params.setInputValue).toHaveBeenCalledWith({
+        text: '',
+        cursorPosition: 0,
+        lastEditDueToNav: false,
+      })
+    })
+
+    test('the removed /plan slash command is not registered', () => {
+      expect(COMMAND_REGISTRY.find((item) => item.name === 'plan')).toBeUndefined()
+    })
+  })
+
   describe('agent command', () => {
     test('inserts the generic agent mention without saving command history', () => {
       const command = COMMAND_REGISTRY.find((item) => item.name === 'agent')

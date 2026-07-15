@@ -209,6 +209,9 @@ lista exacta y versiones bloqueadas.
   repite el historial en cada llamada e incluye subagentes; además el conteo
   persistido quedaba una respuesta por detrás y no descendía al terminar
   `/compact`.
+- El modo PLAN dependía de instrucciones para no editar y convivía con un
+  comando `/plan` redundante; las sesiones tampoco podían volver de forma
+  coordinada a un mensaje anterior y a los archivos modificados por el agente.
 
 # Soluciones implementadas
 
@@ -242,6 +245,11 @@ lista exacta y versiones bloqueadas.
   ventana del modelo; permanece visible, se vacía según capacidad restante,
   advierte desde 75 %, recuerda `/compact` desde 80 % y recalcula el conteo al
   final de cada paso y después de compactar.
+- PLAN se selecciona únicamente desde el control de modos, queda restringido a
+  capacidades de lectura/investigación y genera planes implementables con
+  validación y reversión. `/rewind` crea hasta 100 checkpoints por chat antes de
+  cada prompt y permite restaurar conversación, archivos estructuralmente
+  editados o ambos sin sobrescribir cambios externos detectados.
 
 # Pendientes
 
@@ -281,3 +289,4 @@ al terminar.
 - `019`: agente genérico `/agent` con herencia del modelo activo global.
 - `020`: historial global de proyectos y reanudación entre rutas con `Tab`.
 - `021`: medidor permanente de uso y capacidad restante de contexto.
+- `022`: modo PLAN seguro y checkpoints de conversación/archivos con `/rewind`.

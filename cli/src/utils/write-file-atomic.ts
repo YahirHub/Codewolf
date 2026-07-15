@@ -15,7 +15,10 @@ function tempPathFor(filePath: string): string {
  * every agent step, so a plain writeFileSync interrupted by a crash/kill
  * leaves truncated JSON that hides the chat from /history.
  */
-export function writeFileAtomic(filePath: string, data: string): void {
+export function writeFileAtomic(
+  filePath: string,
+  data: string | Uint8Array,
+): void {
   const tmpPath = tempPathFor(filePath)
   try {
     fs.writeFileSync(tmpPath, data)
@@ -37,7 +40,7 @@ export function writeFileAtomic(filePath: string, data: string): void {
  */
 export async function writeFileAtomicAsync(
   filePath: string,
-  data: string,
+  data: string | Uint8Array,
 ): Promise<void> {
   const tmpPath = tempPathFor(filePath)
   try {

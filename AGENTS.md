@@ -146,3 +146,19 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
   conversation rather than the previous one.
 - Update `docs/chat-sessions.md`, `docs/custom-providers.md`, tests, and
   `contexto/` whenever these contracts change.
+
+## PLAN Mode and Rewind Checkpoints
+
+- PLAN is selected through the agent-mode toggle. Do not reintroduce a standalone `/plan` slash command or a separate plan input mode.
+- `base2-plan` must be read-only by capabilities, not just by prompt. It may inspect files, search, load skills, ask material questions, and spawn research/reasoning agents; it must not expose file mutation tools, terminal agents, todo-writing, editors, tmux, or the generic implementation agent.
+- A completed plan must be grounded in inspected project context and include objective, verified context, decisions, numbered implementation steps, affected files, validation, risks/rollback, and a concise execution checklist. The plan card may be revised in PLAN or approved into DEFAULT, MAX, or LITE.
+- Approved-plan prompts must tell the implementation mode to convert the plan into `write_todos` before editing and to stop for critical contradictions rather than silently changing scope.
+- `/rewind` creates a checkpoint before each submitted user prompt and keeps the 100 most recent checkpoints per chat under `checkpoints/`.
+- Observe built-in `write_file`, `str_replace`, and `apply_patch` at the SDK boundary. Snapshot the file before mutation and record the last known state afterward for main-agent and subagent edits alike. Callback/storage failures are best-effort and must never block or alter the editing tool result.
+- Restoration supports conversation plus files, conversation only, and files only. Conversation restoration must put the selected original prompt back in the input and synchronize both the visible RunState and the send hook's imperative RunState reference before the user can submit again.
+- Abort an active run before opening rewind and drain any queued persistence checkpoint before saving restored state, so an old asynchronous write cannot resurrect discarded future messages.
+- Rewind only files changed by tracked structural editing tools. Never claim to restore Bash, scripts, MCP, Git, editor, or external-process mutations. If the current file differs from Codewolf's last known post-edit state, skip it instead of overwriting possible user work.
+- Reject path traversal and symlink escapes outside the project root. Preserve content-addressed deduplication, atomic blob restoration, and garbage-collect unreferenced checkpoint objects after retention or conversation rewind.
+- Per-chat checkpoint queues must return operation failures to their caller while keeping a rejection-safe internal tail. Never leave rejected bookkeeping promises unobserved, because they can terminate the CLI after the original error was already handled.
+- `/rewind` is not a replacement for Git. Keep this limitation visible in the UI and in `docs/chat-sessions.md`.
+- Update `contexto/`, `docs/agents-and-tools.md`, `docs/chat-sessions.md`, command tests, plan capability tests, and rewind storage tests whenever these contracts change.
