@@ -8,8 +8,13 @@ import type { AgentDefinition, CodebuffClient, RunState } from '@codebuff/sdk'
 
 const AUTO_SECTION_START = '<!-- codewolf:auto-context:start -->'
 const AUTO_SECTION_END = '<!-- codewolf:auto-context:end -->'
-const MAX_RESULT_TEXT = 12_000
+const AUTO_RECORD_MARKER = '<!-- codewolf:auto-context:record -->'
+const MAX_RESULT_TEXT = 6_000
 const MAX_INVENTORY_ENTRIES = 80
+const MAX_TITLE_LENGTH = 72
+const MAX_OBJECTIVE_LENGTH = 280
+const MAX_ITEM_LENGTH = 240
+const MAX_ITEMS_PER_SECTION = 8
 
 export type ProjectContextMaintenanceResult = {
   paths: string[]
@@ -43,6 +48,17 @@ type NormalizedContextRecord = {
   masterSummary: string
 }
 
+type TechnicalSummary = Pick<
+  NormalizedContextRecord,
+  | 'decisions'
+  | 'architecture'
+  | 'libraries'
+  | 'problems'
+  | 'solutions'
+  | 'pending'
+  | 'nextSteps'
+>
+
 const CONTEXT_WRITER_AGENT: AgentDefinition = {
   id: 'codewolf-project-context-writer',
   displayName: 'Project Context Writer',
@@ -53,7 +69,7 @@ const CONTEXT_WRITER_AGENT: AgentDefinition = {
     properties: {
       title: {
         type: 'string',
-        description: 'Título breve en español para el documento de contexto.',
+        description: 'Título técnico breve en español, máximo 72 caracteres.',
       },
       objective: { type: 'string' },
       decisions: { type: 'array', items: { type: 'string' } },
@@ -65,8 +81,7 @@ const CONTEXT_WRITER_AGENT: AgentDefinition = {
       nextSteps: { type: 'array', items: { type: 'string' } },
       masterSummary: {
         type: 'string',
-        description:
-          'Resumen breve del estado actualizado para el contexto maestro.',
+        description: 'Resumen técnico breve del estado actualizado.',
       },
     },
     required: [
@@ -85,9 +100,13 @@ const CONTEXT_WRITER_AGENT: AgentDefinition = {
   includeMessageHistory: false,
   spawnableAgents: [],
   toolNames: [],
-  systemPrompt: `Documenta cambios reales de un proyecto de software en español. Usa exclusivamente la solicitud, el resultado y el inventario suministrados. No inventes pruebas, decisiones, librerías ni problemas. No menciones asistentes, modelos, prompts ni inteligencia artificial. Produce información técnica útil para retomar el proyecto en otra sesión. Si un apartado no tiene datos confirmados, devuelve una lista vacía.`,
+  systemPrompt: `Documenta únicamente hechos técnicos confirmados del proyecto en español.
+No copies la solicitud ni la respuesta completa. No uses texto conversacional, tablas Markdown, encabezados dentro de campos ni frases de relleno.
+El título debe ser una acción técnica corta, por ejemplo: "Agregar detención manual del escaneo".
+Cada elemento debe contener una sola idea verificable. Devuelve listas vacías cuando no haya información real.
+No inventes pruebas, decisiones, dependencias, arquitectura, problemas ni pendientes. No menciones asistentes, modelos, prompts ni inteligencia artificial.`,
   instructionsPrompt:
-    'Resume lo implementado con precisión y devuelve únicamente la salida estructurada solicitada.',
+    'Devuelve solo la salida estructurada y conserva cada campo breve y factual.',
 }
 
 function normalizePath(value: string): string {
@@ -98,17 +117,18 @@ function contextPath(value: string): boolean {
   return /^contexto\/.*\.md$/i.test(normalizePath(value))
 }
 
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .slice(0, 20)
+function compactWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
 }
 
-function safeString(value: unknown, fallback: string): string {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback
+function truncateAtWord(value: string, limit: number): string {
+  const compact = compactWhitespace(value)
+  if (compact.length <= limit) return compact
+  const contentLimit = Math.max(1, limit - 1)
+  const sliced = compact.slice(0, contentLimit + 1)
+  const lastSpace = sliced.lastIndexOf(' ')
+  const end = lastSpace > contentLimit * 0.6 ? lastSpace : contentLimit
+  return `${sliced.slice(0, end).trim()}…`
 }
 
 function stripForbiddenReferences(value: string): string {
@@ -116,12 +136,82 @@ function stripForbiddenReferences(value: string): string {
     .split(/\r?\n/)
     .filter(
       (line) =>
-        !/\b(ChatGPT|OpenAI|IA|inteligencia artificial|asistente|modelo|prompt)\b/i.test(
+        !/\b(ChatGPT|OpenAI|IA|inteligencia artificial|asistente de IA|modelo de lenguaje|LLM|prompt del sistema)\b/i.test(
           line,
         ),
     )
     .join('\n')
     .trim()
+}
+
+function stripMarkdown(value: string): string {
+  return value
+    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+    .replace(/[`*~]/g, '')
+    .replace(/^\s*(?:[-+•]|\d+[.)])\s+/, '')
+    .replace(/^\s*#{1,6}\s*/, '')
+    .trim()
+}
+
+const NOISE_LINE_PATTERNS = [
+  /^the user(?:'s)? request/i,
+  /^let me\b/i,
+  /^i (?:have|will|am|can)\b/i,
+  /^voy a\b/i,
+  /^he (?:completado|terminado)\b/i,
+  /^(?:resumen|summary)$/i,
+  /^\d+\s+archivos?\s+(?:modificados?|creados?)/i,
+  /^(?:archivo|file)\s*\|\s*(?:cambio|change)$/i,
+  /^[-:|\s]+$/,
+  /^no se (?:registraron|informaron|detectaron)\b/i,
+  /^se conserva la arquitectura existente salvo\b/i,
+  /^sin pendientes adicionales\b/i,
+  /^continuar desde el contexto maestro\b/i,
+  /^validar (?:manualmente )?(?:el cambio|el comportamiento modificado)\b/i,
+]
+
+function cleanContextItem(value: string): string {
+  const cleaned = truncateAtWord(
+    compactWhitespace(stripMarkdown(stripForbiddenReferences(value)))
+      .replace(/^["'“”]+|["'“”]+$/g, '')
+      .replace(/\s+([,.;:])/g, '$1'),
+    MAX_ITEM_LENGTH,
+  )
+  if (!cleaned || NOISE_LINE_PATTERNS.some((pattern) => pattern.test(cleaned))) {
+    return ''
+  }
+  if (/^\|.*\|$/.test(cleaned)) return ''
+  return cleaned
+}
+
+function uniqueItems(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const rawValue of values) {
+    const value = cleanContextItem(rawValue)
+    if (!value) continue
+    const key = value.toLocaleLowerCase('es')
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(value)
+    if (result.length >= MAX_ITEMS_PER_SECTION) break
+  }
+  return result
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return uniqueItems(
+    value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .flatMap((entry) => entry.split(/\r?\n/)),
+  )
+}
+
+function safeString(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback
+  const cleaned = cleanContextItem(value)
+  return cleaned || fallback
 }
 
 function slugify(value: string): string {
@@ -131,21 +221,144 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 64)
+    .slice(0, 52)
+    .replace(/-+$/g, '')
   return slug || 'actualizacion-proyecto'
 }
 
-function requestTitle(request: string, forceInit: boolean): string {
-  if (forceInit) return 'Inicialización y actualización del contexto del proyecto'
-  const line = request
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .find((entry) => entry.length > 4)
-  return (line || 'Actualización del proyecto')
-    .replace(/^[/#*-]+\s*/, '')
-    .replace(/^(?:quiero|necesito|puedes|podrías|por favor)\s+(?:que\s+)?/i, '')
-    .replace(/[.!?]+$/, '')
-    .slice(0, 100)
+const ACTION_VERBS: Array<[RegExp, string]> = [
+  [/^(?:agrega|agregar|añade|añadir)\b/i, 'Agregar'],
+  [/^(?:implementa|implementar)\b/i, 'Implementar'],
+  [/^(?:corrige|corregir|soluciona|solucionar|arregla|arreglar)\b/i, 'Corregir'],
+  [/^(?:mejora|mejorar|optimiza|optimizar)\b/i, 'Mejorar'],
+  [/^(?:actualiza|actualizar)\b/i, 'Actualizar'],
+  [/^(?:elimina|eliminar|quita|quitar)\b/i, 'Eliminar'],
+  [/^(?:renombra|renombrar)\b/i, 'Renombrar'],
+  [/^(?:integra|integrar)\b/i, 'Integrar'],
+  [/^(?:permite|permitir|habilita|habilitar)\b/i, 'Permitir'],
+  [/^(?:evita|evitar|impide|impedir)\b/i, 'Evitar'],
+  [/^(?:crea|crear)\b/i, 'Crear'],
+  [/^(?:documenta|documentar)\b/i, 'Documentar'],
+]
+
+function toInfinitiveAction(value: string): string {
+  const normalized = value.toLocaleLowerCase('es')
+  if (/^(?:agrega|agregar|añade|añadir)$/.test(normalized)) return 'Agregar'
+  if (/^(?:implementa|implementar)$/.test(normalized)) return 'Implementar'
+  if (/^(?:corrige|corregir|soluciona|solucionar|arregla|arreglar)$/.test(normalized)) return 'Corregir'
+  if (/^(?:mejora|mejorar|optimiza|optimizar)$/.test(normalized)) return 'Mejorar'
+  if (/^(?:actualiza|actualizar)$/.test(normalized)) return 'Actualizar'
+  if (/^(?:elimina|eliminar|quita|quitar)$/.test(normalized)) return 'Eliminar'
+  if (/^(?:renombra|renombrar)$/.test(normalized)) return 'Renombrar'
+  if (/^(?:integra|integrar)$/.test(normalized)) return 'Integrar'
+  if (/^(?:permite|permitir|habilita|habilitar)$/.test(normalized)) return 'Permitir'
+  if (/^(?:evita|evitar|impide|impedir)$/.test(normalized)) return 'Evitar'
+  if (/^(?:crea|crear)$/.test(normalized)) return 'Crear'
+  if (/^(?:documenta|documentar)$/.test(normalized)) return 'Documentar'
+  return ''
+}
+
+function findInlineAction(value: string): string | null {
+  const match = value.match(
+    /\b(agrega(?:r)?|añade|añadir|implementa(?:r)?|corrige|corregir|soluciona|solucionar|arregla|arreglar|mejora|mejorar|optimiza|optimizar|actualiza|actualizar|elimina|eliminar|quita|quitar|renombra|renombrar|integra|integrar|permite|permitir|habilita|habilitar|evita|evitar|impide|impedir|crea|crear|documenta|documentar)\b\s+(.+?)(?=\s*[,;.]|\s+(?:adem[aá]s|también|de paso|luego|después)\b|$)/i,
+  )
+  if (!match) return null
+  const action = toInfinitiveAction(match[1])
+  return action ? `${action} ${match[2]}` : null
+}
+
+function fallbackTitleFromPaths(changedPaths: string[]): string {
+  const sourcePaths = changedPaths.filter((entry) => !contextPath(entry))
+  if (sourcePaths.length === 1) {
+    return `Actualizar ${path.posix.basename(normalizePath(sourcePaths[0]))}`
+  }
+  if (sourcePaths.length > 1) {
+    const parents = sourcePaths.map((entry) => path.posix.dirname(normalizePath(entry)))
+    if (parents.every((entry) => entry === parents[0]) && parents[0] !== '.') {
+      return `Actualizar ${path.posix.basename(parents[0])}`
+    }
+  }
+  return 'Actualizar implementación del proyecto'
+}
+
+function normalizeTechnicalPhrase(value: string): string {
+  let phrase = compactWhitespace(value)
+    .replace(/[“”"']/g, '')
+    .replace(/\s*\/\s*/g, ' o ')
+    .replace(/\bescaneo\s+en\s+proceso\s+o\s+escaneo\s+activo\b/gi, 'escaneo activo')
+    .replace(/\b(en proceso)\s+o\s+activo\b/gi, 'activo')
+    .replace(/\s+(?:por favor|gracias)$/i, '')
+    .replace(/[.!?,;:]+$/g, '')
+    .trim()
+
+  for (const [pattern, infinitive] of ACTION_VERBS) {
+    if (pattern.test(phrase)) {
+      phrase = phrase.replace(pattern, infinitive)
+      break
+    }
+  }
+  return phrase
+}
+
+function requestTitle(
+  request: string,
+  forceInit: boolean,
+  changedPaths: string[],
+): string {
+  if (forceInit) return 'Inicializar contexto del proyecto'
+
+  const normalized = compactWhitespace(request)
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^\/?(?:contin[uú]a|sigue|procede|hazlo)\.?$/i, '')
+  if (!normalized) return fallbackTitleFromPaths(changedPaths)
+
+  const withoutPreamble = normalized
+    .replace(/^(?:(?:ahora|adem[aá]s|también|de paso|primero|por favor)\s*[,;:]?\s*)+/i, '')
+    .replace(/^antes de (?:empezar|continuar)[,;:]?\s*/i, '')
+    .replace(/^hay un detalle(?:\s+y\s+es\s+que)?\s*/i, '')
+    .replace(/^el (?:detalle|problema)(?:\s+actual)?\s+es\s+que\s*/i, '')
+    .replace(/^(?:quiero|necesito|me gustar[ií]a|quisiera|puedes|podr[ií]as)\s+(?:que\s+)?/i, '')
+
+  const noCapability = withoutPreamble.match(
+    /^no (?:hay|existe) (?:una )?manera de\s+(.+?)(?=\s*[,;.]|\s+(?:me gustar[ií]a|quiero|necesito|adem[aá]s|también)\b|$)/i,
+  )
+  const statedIssue = withoutPreamble.match(
+    /^(?:hay|existe) (?:un|una) (?:bug|error|fallo|problema)(?:\s+(?:donde|que|en))?\s+(.+)/i,
+  )
+  const inlineAction =
+    noCapability || statedIssue ? null : findInlineAction(withoutPreamble)
+  let candidate = noCapability
+    ? `Permitir ${noCapability[1]}`
+    : statedIssue
+      ? `Corregir fallo donde ${statedIssue[1]}`
+      : inlineAction ??
+        withoutPreamble.split(/(?<=[.!?;])\s+|\s*,\s*(?=(?:adem[aá]s|también|me gustar[ií]a|quiero|necesito)\b)/i)[0]
+
+  candidate = normalizeTechnicalPhrase(candidate)
+  if (/^Corregir (?:este|el|un) (?:error|bug|fallo|problema)$/i.test(candidate)) {
+    const detail = withoutPreamble.split(/[,;:]/).slice(1).join(' ').trim()
+    if (detail) candidate = `Corregir error cuando ${detail}`
+  }
+  if (!ACTION_VERBS.some(([pattern]) => pattern.test(candidate))) {
+    if (/\b(?:bug|error|fallo|problema)\b/i.test(candidate)) {
+      candidate = `Corregir ${candidate.replace(/^(?:un|una|el|la)?\s*(?:bug|error|fallo|problema)\s*(?:donde|que|en)?\s*/i, '')}`
+    } else if (!/^Permitir\b/i.test(candidate)) {
+      candidate = `Actualizar ${candidate}`
+    }
+  }
+
+  candidate = normalizeTechnicalPhrase(candidate)
+  if (candidate.length < 8 || /^Actualizar\s+(?:esto|eso|cambio|detalle)$/i.test(candidate)) {
+    candidate = fallbackTitleFromPaths(changedPaths)
+  }
+  return truncateAtWord(
+    candidate.charAt(0).toUpperCase() + candidate.slice(1),
+    MAX_TITLE_LENGTH,
+  )
+}
+
+function objectiveFromTitle(title: string): string {
+  return `${truncateAtWord(title, MAX_OBJECTIVE_LENGTH).replace(/[.!?]+$/, '')}.`
 }
 
 function collectText(value: unknown, output: string[], depth = 0): void {
@@ -170,6 +383,72 @@ function summarizeRunState(runState: RunState): string {
   const parts: string[] = []
   collectText(runState.output, parts)
   return stripForbiddenReferences(parts.join('\n')).slice(0, MAX_RESULT_TEXT)
+}
+
+function emptyTechnicalSummary(): TechnicalSummary {
+  return {
+    decisions: [],
+    architecture: [],
+    libraries: [],
+    problems: [],
+    solutions: [],
+    pending: [],
+    nextSteps: [],
+  }
+}
+
+function classifySection(value: string): keyof TechnicalSummary | null {
+  const heading = compactWhitespace(stripMarkdown(value)).toLowerCase()
+  if (/decisiones?/.test(heading)) return 'decisions'
+  if (/arquitectura/.test(heading)) return 'architecture'
+  if (/librer[ií]as?|dependencias?/.test(heading)) return 'libraries'
+  if (/problemas?|errores?/.test(heading)) return 'problems'
+  if (/pendientes?/.test(heading)) return 'pending'
+  if (/pr[oó]ximos? pasos?/.test(heading)) return 'nextSteps'
+  if (/soluciones?|implementaci[oó]n|comportamiento|correcciones?|cambios?/.test(heading)) {
+    return 'solutions'
+  }
+  return null
+}
+
+function extractTechnicalSummary(text: string): TechnicalSummary {
+  const result = emptyTechnicalSummary()
+  let section: keyof TechnicalSummary | null = null
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+    if (!trimmed) continue
+
+    const looksLikeHeading = /^#{1,6}\s+/.test(trimmed) || /^\*\*[^*]+\*\*:?$/.test(trimmed)
+    if (looksLikeHeading) {
+      section = classifySection(trimmed)
+      continue
+    }
+    if (/^\|.*\|$/.test(trimmed) || /^[-:|\s]+$/.test(trimmed)) continue
+
+    const isListItem = /^\s*(?:[-+•]|\d+[.)])\s+/.test(rawLine)
+    if (!isListItem) continue
+
+    const item = cleanContextItem(trimmed)
+    if (!item) continue
+
+    let target = section
+    if (!target) {
+      if (/\b(?:pendiente|falta|no se pudo|sin probar|requiere validar)\b/i.test(item)) {
+        target = 'pending'
+      } else if (/\b(?:error|fallo|problema)\b/i.test(item) && !/\b(?:corrig|solucion|evit|ya no)\w*/i.test(item)) {
+        target = 'problems'
+      } else {
+        target = 'solutions'
+      }
+    }
+    result[target].push(item)
+  }
+
+  for (const key of Object.keys(result) as Array<keyof TechnicalSummary>) {
+    result[key] = uniqueItems(result[key])
+  }
+  return result
 }
 
 function readManifestSummary(projectRoot: string): string[] {
@@ -219,7 +498,12 @@ function projectInventory(projectRoot: string): string {
   try {
     entries = fs
       .readdirSync(projectRoot, { withFileTypes: true })
-      .filter((entry) => !['.git', 'node_modules', 'vendor', 'dist', 'build'].includes(entry.name))
+      .filter(
+        (entry) =>
+          !['.git', 'node_modules', 'vendor', 'dist', 'build'].includes(
+            entry.name,
+          ),
+      )
       .slice(0, MAX_INVENTORY_ENTRIES)
       .map((entry) => `${entry.isDirectory() ? 'dir' : 'file'}:${entry.name}`)
   } catch {
@@ -227,6 +511,37 @@ function projectInventory(projectRoot: string): string {
   }
   const manifests = readManifestSummary(projectRoot)
   return [...entries, ...manifests].join('\n').slice(0, 24_000)
+}
+
+function localRecord(params: {
+  request: string
+  changedPaths: string[]
+  runSummary: string
+  forceInit: boolean
+}): NormalizedContextRecord {
+  const title = requestTitle(params.request, params.forceInit, params.changedPaths)
+  const extracted = extractTechnicalSummary(params.runSummary)
+  const solutions =
+    extracted.solutions.length > 0
+      ? extracted.solutions
+      : [
+          params.forceInit
+            ? 'Se inicializó o actualizó la memoria persistente del proyecto.'
+            : `Se implementó el cambio necesario para ${title.toLocaleLowerCase('es')}.`,
+        ]
+
+  return {
+    title,
+    objective: objectiveFromTitle(title),
+    decisions: extracted.decisions,
+    architecture: extracted.architecture,
+    libraries: extracted.libraries,
+    problems: extracted.problems,
+    solutions: uniqueItems(solutions),
+    pending: extracted.pending,
+    nextSteps: extracted.nextSteps,
+    masterSummary: truncateAtWord(objectiveFromTitle(title), MAX_ITEM_LENGTH),
+  }
 }
 
 function normalizeOutput(
@@ -237,55 +552,30 @@ function normalizeOutput(
     runSummary: string
     forceInit: boolean
   },
+  fallback: NormalizedContextRecord,
 ): NormalizedContextRecord {
-  const fallbackTitle = requestTitle(params.request, params.forceInit)
-  const changed = params.changedPaths.map(normalizePath)
-  const resultSummary = params.runSummary.trim()
+  // The local title is intentionally authoritative. It is deterministic,
+  // bounded and cannot become a copy of a long conversational request.
+  const title = requestTitle(params.request, params.forceInit, params.changedPaths)
+  const normalizedSolutions = toStringArray(output.solutions)
   return {
-    title: stripForbiddenReferences(safeString(output.title, fallbackTitle)),
-    objective: stripForbiddenReferences(
-      safeString(output.objective, fallbackTitle),
-    ),
-    decisions: toStringArray(output.decisions).map(stripForbiddenReferences).filter(Boolean),
-    architecture: toStringArray(output.architecture).map(stripForbiddenReferences).filter(Boolean),
-    libraries: toStringArray(output.libraries).map(stripForbiddenReferences).filter(Boolean),
-    problems: toStringArray(output.problems).map(stripForbiddenReferences).filter(Boolean),
-    solutions: toStringArray(output.solutions).map(stripForbiddenReferences).filter(Boolean),
-    pending: toStringArray(output.pending).map(stripForbiddenReferences).filter(Boolean),
-    nextSteps: toStringArray(output.nextSteps).map(stripForbiddenReferences).filter(Boolean),
-    masterSummary: stripForbiddenReferences(
-      safeString(
-        output.masterSummary,
-        resultSummary || `Se atendió: ${fallbackTitle}.`,
-      ),
+    title,
+    objective: safeString(output.objective, fallback.objective),
+    decisions: toStringArray(output.decisions),
+    architecture: toStringArray(output.architecture),
+    libraries: toStringArray(output.libraries),
+    problems: toStringArray(output.problems),
+    solutions:
+      normalizedSolutions.length > 0
+        ? normalizedSolutions
+        : fallback.solutions,
+    pending: toStringArray(output.pending),
+    nextSteps: toStringArray(output.nextSteps),
+    masterSummary: truncateAtWord(
+      safeString(output.masterSummary, fallback.masterSummary),
+      MAX_ITEM_LENGTH,
     ),
   }
-}
-
-function fallbackRecord(params: {
-  request: string
-  changedPaths: string[]
-  runSummary: string
-  forceInit: boolean
-}): NormalizedContextRecord {
-  const title = requestTitle(params.request, params.forceInit)
-  return normalizeOutput(
-    {
-      title,
-      objective: title,
-      decisions: params.forceInit
-        ? ['Se habilitó la memoria persistente del proyecto mediante contexto/.']
-        : [],
-      architecture: [],
-      libraries: [],
-      problems: [],
-      solutions: params.runSummary ? [params.runSummary.slice(0, 1200)] : [],
-      pending: ['Validar manualmente el comportamiento modificado antes de confirmar el cambio.'],
-      nextSteps: ['Continuar desde el contexto maestro y el registro más reciente.'],
-      masterSummary: params.runSummary || `Se atendió: ${title}.`,
-    },
-    params,
-  )
 }
 
 async function generateRecord(params: {
@@ -296,11 +586,19 @@ async function generateRecord(params: {
   runSummary: string
   forceInit: boolean
 }): Promise<{ record: NormalizedContextRecord; usedFallback: boolean }> {
+  const deterministicRecord = localRecord(params)
+
+  // Normal implementation records are built locally from the request, changed
+  // paths and concise technical bullets. This avoids an extra model call after
+  // every turn and guarantees a useful fallback even when the provider is down.
+  if (!params.forceInit) {
+    return { record: deterministicRecord, usedFallback: false }
+  }
+
   const prompt = [
-    `Solicitud:\n${params.request.slice(0, 6000)}`,
-    `Tipo de operación: ${params.forceInit ? 'inicialización o actualización general del contexto' : 'implementación terminada'}`,
-    `Archivos modificados:\n${params.changedPaths.join('\n') || '(ninguno informado)'}`,
-    `Resultado del turno:\n${params.runSummary || '(sin resumen textual disponible)'}`,
+    `Objetivo de inicialización:\n${deterministicRecord.objective}`,
+    `Archivos conocidos:\n${params.changedPaths.join('\n') || '(ninguno informado)'}`,
+    `Resultado técnico:\n${params.runSummary || '(sin resumen textual disponible)'}`,
     `Inventario del proyecto:\n${projectInventory(params.projectRoot) || '(no disponible)'}`,
   ].join('\n\n')
 
@@ -308,7 +606,7 @@ async function generateRecord(params: {
     const runState = await params.client.run({
       agent: CONTEXT_WRITER_AGENT,
       prompt,
-      maxAgentSteps: 2,
+      maxAgentSteps: 1,
     })
     if (
       runState.output.type === 'structuredOutput' &&
@@ -319,20 +617,24 @@ async function generateRecord(params: {
         record: normalizeOutput(
           runState.output.value as ContextWriterOutput,
           params,
+          deterministicRecord,
         ),
         usedFallback: false,
       }
     }
   } catch (error) {
-    logger.warn({ error }, '[contexto] Context maintenance agent failed')
+    logger.warn({ error }, '[contexto] Context initialization writer failed')
   }
-  return { record: fallbackRecord(params), usedFallback: true }
+  return { record: deterministicRecord, usedFallback: true }
 }
 
-function bullets(values: string[], empty: string): string {
-  return values.length > 0
-    ? values.map((value) => `- ${value}`).join('\n')
-    : `- ${empty}`
+function renderList(values: string[]): string {
+  return values.map((value) => `- ${value}`).join('\n')
+}
+
+function renderOptionalSection(title: string, values: string[]): string {
+  if (values.length === 0) return ''
+  return `# ${title}\n\n${renderList(values)}\n\n`
 }
 
 function renderRecord(params: {
@@ -341,7 +643,8 @@ function renderRecord(params: {
   changedPaths: string[]
 }): string {
   const prefix = String(params.number).padStart(3, '0')
-  return `# ${prefix} — ${params.record.title}\n\n# Fecha\n\n${new Date().toISOString().slice(0, 10)}\n\n# Objetivo\n\n${params.record.objective}\n\n# Decisiones tomadas\n\n${bullets(params.record.decisions, 'No se registraron decisiones adicionales confirmadas.')}\n\n# Arquitectura actual\n\n${bullets(params.record.architecture, 'Se conserva la arquitectura existente salvo los archivos indicados.')}\n\n# Librerías usadas\n\n${bullets(params.record.libraries, 'No se registraron dependencias nuevas en este cambio.')}\n\n# Archivos importantes modificados\n\n${bullets(params.changedPaths.map(normalizePath), 'No se informaron archivos modificados.')}\n\n# Problemas encontrados\n\n${bullets(params.record.problems, 'No se registraron problemas adicionales confirmados.')}\n\n# Soluciones implementadas\n\n${bullets(params.record.solutions, params.record.masterSummary)}\n\n# Pendientes\n\n${bullets(params.record.pending, 'Sin pendientes adicionales confirmados.')}\n\n# Próximos pasos\n\n${bullets(params.record.nextSteps, 'Validar el cambio y continuar desde el contexto más reciente.')}\n`
+  const changedPaths = uniqueItems(params.changedPaths.map(normalizePath))
+  return `${AUTO_RECORD_MARKER}\n# ${prefix} — ${params.record.title}\n\n# Fecha\n\n${new Date().toISOString().slice(0, 10)}\n\n# Objetivo\n\n${params.record.objective}\n\n${renderOptionalSection('Decisiones tomadas', params.record.decisions)}${renderOptionalSection('Arquitectura actual', params.record.architecture)}${renderOptionalSection('Librerías usadas', params.record.libraries)}# Archivos importantes modificados\n\n${renderList(changedPaths)}\n\n${renderOptionalSection('Problemas encontrados', params.record.problems)}# Soluciones implementadas\n\n${renderList(params.record.solutions)}\n\n${renderOptionalSection('Pendientes', params.record.pending)}${renderOptionalSection('Próximos pasos', params.record.nextSteps)}`
 }
 
 function autoMasterSection(params: {
@@ -372,7 +675,12 @@ async function writeMasterContext(params: {
     next = pattern.test(current)
       ? current.replace(pattern, section)
       : `${current.trimEnd()}\n\n${section}\n`
-    if (next === current) return { relativePath: 'contexto/000-contexto-maestro.md', changed: false }
+    if (next === current) {
+      return {
+        relativePath: 'contexto/000-contexto-maestro.md',
+        changed: false,
+      }
+    }
   } catch {
     next = `# 000 — Contexto maestro del proyecto\n\n# Fecha\n\n${new Date().toISOString().slice(0, 10)}\n\n# Objetivo\n\nConservar el estado técnico, las reglas y los pendientes necesarios para retomar el proyecto.\n\n# Decisiones tomadas\n\n- La carpeta contexto/ es la memoria persistente del proyecto.\n\n# Arquitectura actual\n\n- Consultar los registros numerados y verificar el código fuente antes de cambiar la arquitectura.\n\n# Librerías usadas\n\n- Consultar los manifiestos del proyecto y los registros numerados.\n\n# Archivos importantes modificados\n\n- Consultar el registro más reciente.\n\n# Problemas encontrados\n\n- Consultar el registro más reciente.\n\n# Soluciones implementadas\n\n- Consultar el registro más reciente.\n\n# Pendientes\n\n- Mantener este archivo actualizado después de cambios importantes.\n\n# Próximos pasos\n\n- Leer este documento y luego los archivos numerados en orden.\n\n${section}\n`
   }
@@ -394,7 +702,9 @@ export async function maintainProjectContext(params: {
   onBeforeWrite?: (relativePath: string) => Promise<void>
   onAfterWrite?: (relativePath: string) => Promise<void>
 }): Promise<ProjectContextMaintenanceResult> {
-  const changedPaths = [...new Set([...params.changedPaths].map(normalizePath))].sort()
+  const changedPaths = [
+    ...new Set([...params.changedPaths].map(normalizePath)),
+  ].sort()
   const existingContextPaths = changedPaths.filter(contextPath)
   const existingNumberedRecords = existingContextPaths.filter(
     (entry) => !/^contexto\/0+(?:[-_]|contexto-maestro)/i.test(entry),
@@ -403,17 +713,23 @@ export async function maintainProjectContext(params: {
   const forceInit = params.forceInit === true
 
   if (!forceInit && nonContextPaths.length === 0) {
-    return { paths: existingContextPaths, createdRecord: false, usedFallback: false }
+    return {
+      paths: existingContextPaths,
+      createdRecord: false,
+      usedFallback: false,
+    }
   }
 
   const contextDir = path.join(path.resolve(params.projectRoot), 'contexto')
   fs.mkdirSync(contextDir, { recursive: true })
   const runSummary = summarizeRunState(params.runState)
+  const documentedPaths =
+    nonContextPaths.length > 0 ? nonContextPaths : existingContextPaths
   const { record, usedFallback } = await generateRecord({
     client: params.client,
     projectRoot: params.projectRoot,
     request: params.request,
-    changedPaths: nonContextPaths,
+    changedPaths: documentedPaths,
     runSummary,
     forceInit,
   })
@@ -428,7 +744,11 @@ export async function maintainProjectContext(params: {
     await params.onBeforeWrite?.(recordPath)
     fs.writeFileSync(
       path.join(params.projectRoot, recordPath),
-      renderRecord({ number: nextNumber, record, changedPaths: nonContextPaths }),
+      renderRecord({
+        number: nextNumber,
+        record,
+        changedPaths: documentedPaths,
+      }),
     )
     await params.onAfterWrite?.(recordPath)
     createdRecord = true
@@ -441,7 +761,7 @@ export async function maintainProjectContext(params: {
     contextDir,
     record,
     recordPath,
-    changedPaths: nonContextPaths.length > 0 ? nonContextPaths : existingContextPaths,
+    changedPaths: documentedPaths,
     onBeforeWrite: params.onBeforeWrite,
     onAfterWrite: params.onAfterWrite,
   })

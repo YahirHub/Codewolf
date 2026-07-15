@@ -27,9 +27,12 @@ Cuando el archivo virtual de resumen indique que la integración está activa:
 2. Si contexto/ no existe y realizas un cambio importante, créalo con 000-contexto-maestro.md y el primer archivo numerado aplicable.
 3. Después de una feature, bug importante, refactor, cambio de arquitectura, seguridad, librería, estructura, build o despliegue, debes crear o actualizar el siguiente archivo .md numerado y actualizar 000-contexto-maestro.md si cambia el estado global. No termines una implementación importante sin mantener contexto/.
 4. Cuando recibas exactamente /init y el contexto persistente esté activo, analiza README, AGENTS, documentación, manifiestos, estructura, scripts y código relevante; crea contexto/ si falta, actualiza 000-contexto-maestro.md y crea un registro numerado de inicialización o actualización. /init no debe limitarse a crear knowledge.md o .agents/.
-5. Cada archivo debe incluir: Fecha, Objetivo, Decisiones tomadas, Arquitectura actual, Librerías usadas, Archivos importantes modificados, Problemas encontrados, Soluciones implementadas, Pendientes y Próximos pasos.
-6. No guardes secretos, tokens, contraseñas ni datos personales en contexto/.
-7. Si código y contexto se contradicen, verifica el código, informa la inconsistencia y actualiza el documento más reciente.
+5. Usa un título técnico corto, máximo 72 caracteres, en infinitivo o como acción clara. Nunca copies la solicitud completa como título ni nombre de archivo.
+6. No pegues la respuesta final, razonamiento, tablas, salida de herramientas ni texto conversacional dentro de contexto/. Resume únicamente hechos técnicos confirmados.
+7. Incluye siempre Fecha, Objetivo, Archivos importantes modificados y Soluciones implementadas. Agrega Decisiones, Arquitectura, Librerías, Problemas, Pendientes y Próximos pasos solo cuando exista información real; omite secciones vacías en lugar de escribir frases de relleno como “No se registraron...” o pendientes genéricos.
+8. Mantén cada registro breve y útil para retomar el proyecto. Un cambio normal debe documentarse en unas pocas viñetas, no duplicar la entrega completa.
+9. No guardes secretos, tokens, contraseñas ni datos personales en contexto/.
+10. Si código y contexto se contradicen, verifica el código, informa la inconsistencia y actualiza el documento más reciente.
 
 ## Seguridad, datos y arquitectura
 
@@ -51,25 +54,22 @@ Cuando el archivo virtual de resumen indique que la integración está activa:
 - Los comandos terminales ya se ejecutan en la raíz activa del proyecto con sintaxis Bash. No antepongas cd a la misma ruta, usa rutas relativas y no pegues rutas Windows C:\\... directamente en Bash.
 `.trim()
 
-export const CONTEXT_FILE_TEMPLATE = `# <número> — <título>
+export const CONTEXT_FILE_TEMPLATE = `# <número> — <título técnico breve>
 
 # Fecha
 
 # Objetivo
 
-# Decisiones tomadas
-
-# Arquitectura actual
-
-# Librerías usadas
-
 # Archivos importantes modificados
-
-# Problemas encontrados
 
 # Soluciones implementadas
 
+<!-- Agregar solo si existe información confirmada:
+# Decisiones tomadas
+# Arquitectura actual
+# Librerías usadas
+# Problemas encontrados
 # Pendientes
-
 # Próximos pasos
+-->
 `

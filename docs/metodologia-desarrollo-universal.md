@@ -889,7 +889,7 @@ No escribir código que el proyecto todavía no necesita.
 
 # Integración automática en Codewolf
 
-Cuando la opción de contexto persistente está activa, Codewolf garantiza el mantenimiento de `contexto/` después de implementaciones con cambios reales. Si el agente principal no documenta el turno, un agente específico genera el registro numerado y actualiza el contexto maestro con un fallback local seguro.
+Cuando la opción de contexto persistente está activa, Codewolf garantiza el mantenimiento de `contexto/` después de implementaciones con cambios reales. Si el agente principal no documenta el turno, Codewolf genera localmente un registro numerado compacto y actualiza el contexto maestro sin otra llamada al modelo. El título debe ser técnico, breve y no copiar la solicitud; el contenido debe conservar solo hechos verificables y omitir secciones vacías en lugar de usar texto de relleno. `/init` puede utilizar una única salida estructurada para enriquecer el análisis general y siempre conserva un fallback local seguro.
 
 El comando `/init` debe crear o actualizar `contexto/` en el proyecto activo, además de analizar documentación, manifiestos, estructura, scripts y código relevante.
 

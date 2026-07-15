@@ -23,7 +23,7 @@ En cada ejecución se añaden dos archivos virtuales de conocimiento:
 
 No se escriben físicamente en el proyecto. El agente principal recibe esas reglas y puede abrir los documentos originales cuando una decisión dependa de ellos.
 
-Si `contexto/` todavía no existe, Codewolf lo crea automáticamente después de la primera implementación con cambios reales. Un agente de documentación genera el registro numerado a partir de la solicitud, el resultado y los archivos modificados; si el proveedor falla, se utiliza un documento local seguro para no perder la memoria. La estructura inicial es:
+Si `contexto/` todavía no existe, Codewolf lo crea automáticamente después de la primera implementación con cambios reales. Los registros normales se construyen localmente a partir de la solicitud, los archivos modificados y las viñetas técnicas de la respuesta final, sin realizar otra llamada al modelo. `/init` puede usar una única salida estructurada para enriquecer el análisis general; si el proveedor falla, conserva el generador local. La estructura inicial es:
 
 ```text
 contexto/
@@ -31,7 +31,7 @@ contexto/
 └── 001-<cambio-importante>.md
 ```
 
-Cada documento numerado debe registrar fecha, objetivo, decisiones, arquitectura, librerías, archivos modificados, problemas, soluciones, pendientes y próximos pasos. Nunca debe contener credenciales o secretos.
+Cada documento numerado usa un título técnico corto —máximo 72 caracteres— y nunca copia la solicitud completa como nombre. Siempre registra fecha, objetivo, archivos modificados y soluciones. Las secciones de decisiones, arquitectura, librerías, problemas, pendientes y próximos pasos solo aparecen cuando existe información confirmada. No se escriben frases de relleno como `No se registraron...`, ni se pega la respuesta completa del agente. Nunca debe contener credenciales o secretos.
 
 ### Comportamiento de `/init`
 
@@ -47,7 +47,7 @@ Si `contexto/` ya existe, `/init` lo refresca sin borrar documentos anteriores.
 
 ### Mantenimiento después de implementaciones
 
-Al terminar correctamente un turno con archivos modificados, Codewolf comprueba si el agente principal actualizó `contexto/`. Si no lo hizo, ejecuta un agente de documentación de solo salida estructurada y escribe el siguiente registro numerado. También actualiza una sección delimitada dentro de `000-contexto-maestro.md` sin reemplazar el contenido manual existente.
+Al terminar correctamente un turno con archivos modificados, Codewolf comprueba si el agente principal actualizó `contexto/`. Si no lo hizo, genera localmente un registro compacto y determinista: deriva un título técnico, filtra texto conversacional y conserva solo viñetas verificables. Esto evita gastar tokens adicionales en cada implementación y mantiene el contexto disponible aunque el proveedor esté caído. También actualiza una sección delimitada dentro de `000-contexto-maestro.md` sin reemplazar el contenido manual existente.
 
 Las escrituras automáticas de contexto participan en `/rewind` y en los commits verificados. En repositorios Git también se detectan cambios producidos por terminal cuando el archivo estaba limpio al comenzar el turno.
 

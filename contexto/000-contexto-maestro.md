@@ -42,15 +42,17 @@ Cada cambio importante debe crear el siguiente archivo numerado y conservar
 esta estructura mínima:
 
 ```text
-# <número> — <título>
+# <número> — <título técnico breve>
 # Fecha
 # Objetivo
+# Archivos importantes modificados
+# Soluciones implementadas
+
+Secciones opcionales cuando exista información confirmada:
 # Decisiones tomadas
 # Arquitectura actual
 # Librerías usadas
-# Archivos importantes modificados
 # Problemas encontrados
-# Soluciones implementadas
 # Pendientes
 # Próximos pasos
 ```
@@ -108,7 +110,7 @@ TypeScript con Bun, React y OpenTUI.
   del agente principal y baja inmediatamente después de `/compact`.
 - Los commits verificados generan primero un mensaje semántico local basado en el diff y pueden completarse aunque el proveedor falle; los cambios de contexto se nombran como creación o actualización de contexto.
 - Los commits verificados mantienen un backlog persistente por proyecto: elegir **No crear commit** conserva los archivos seguros y el siguiente commit confirmado acumula todas las implementaciones pendientes cuyas huellas SHA-256 no cambiaron manualmente.
-- Con contexto persistente activo, las implementaciones con cambios reales garantizan la creación o actualización de un registro numerado y del contexto maestro mediante un agente documental con fallback local. `/init` crea o refresca `contexto/` en el proyecto activo.
+- Con contexto persistente activo, las implementaciones con cambios reales garantizan la creación o actualización de un registro numerado y del contexto maestro. Los registros normales se generan localmente sin otra llamada al proveedor, con títulos técnicos breves, filtrado de metatexto y secciones opcionales solo cuando existen hechos confirmados. `/init` puede enriquecer el análisis mediante una única salida estructurada y siempre conserva un fallback local.
 - La terminal normaliza wrappers `cd` incompatibles entre Windows, Git Bash y WSL, y `basher` devuelve el resultado sin una segunda llamada al proveedor.
 
 # Persistencia
@@ -196,6 +198,7 @@ lista exacta y versiones bloqueadas.
 
 # Problemas encontrados
 
+- La generación automática de contexto podía copiar solicitudes largas y respuestas completas en nombres y contenido, además de consumir una llamada adicional al proveedor en cada implementación.
 - El backend original no es una dependencia válida para proveedores, búsqueda,
   créditos ni suscripciones de esta edición.
 - Los subagentes podían perder el proveedor personalizado.
@@ -229,6 +232,7 @@ lista exacta y versiones bloqueadas.
 
 # Soluciones implementadas
 
+- El mantenimiento de contexto normal ahora es determinista y local: limita títulos, filtra Markdown y metatexto, conserva solo viñetas técnicas y omite secciones sin información real.
 - Proveedores y búsqueda se ejecutan localmente con configuración separada de
   credenciales.
 - El contexto del proveedor se propaga a todos los subagentes.
