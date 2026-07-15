@@ -36,7 +36,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'models',
   'setup-search',
   'usage',
-  'agent:gpt-5',
+  'agent',
   'image',
   'publish',
   'init',
@@ -179,11 +179,10 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['copy-chat'],
   },
   {
-    id: 'agent:gpt-5',
-    label: 'agent:gpt-5',
-    description:
-      'Iniciar el agente GPT-5 para ayudar a resolver problemas complejos',
-    insertText: '@GPT-5 Agent ',
+    id: 'agent',
+    label: 'agent',
+    description: 'Invocar un agente auxiliar con el proveedor y modelo activos',
+    insertText: '@Agent ',
   },
   // {
   //   id: 'agent:opus',

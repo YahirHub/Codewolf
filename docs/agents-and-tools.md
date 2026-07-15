@@ -5,6 +5,12 @@
 - Prompt/programmatic agents live in `.agents/` (programmatic agents use `handleSteps` generators).
 - Generator functions execute in a sandbox; agent templates define tool access and subagents.
 
+### Generic `/agent` shortcut
+
+`/agent` inserts `@Agent ` and invokes the bundled generic agent. Its public ID and display name are model-neutral. The agent inherits the provider/model already active in the CLI through `/models`; it has no per-agent selector or persistent model override.
+
+The template keeps an internal backend fallback for installations without a custom provider, but direct-provider mode ignores that fallback and sends the request to the globally selected OpenAI-compatible model.
+
 ### Shell Shims
 
 Direct commands without `codebuff` prefix:

@@ -29,7 +29,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   - Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.
-  - Spawn the thinker-gpt after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)
+  - Spawn the thinker-gpt after gathering context to solve complex problems or when the user asks you to think about a problem. (agent is a last resort for complex problems)
   - Implement code changes using direct file editing tools.
   - Prefer apply_patch for existing-file edits. Use write_file only for creating or replacing entire files when that is simpler.
   - Spawn bashers sequentially if the second command depends on the the first.
@@ -299,7 +299,7 @@ export function createBaseDeep(options?: {
       'basher',
       'thinker-gpt',
       'code-reviewer-gpt',
-      'gpt-5-agent',
+      'agent',
       'context-pruner',
     ],
     systemPrompt: buildDeepSystemPrompt(noAskUser, noLearning),

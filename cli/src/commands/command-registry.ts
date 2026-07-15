@@ -204,7 +204,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'usage',
   'image',
   'publish',
-  'gpt-5-agent',
+  'agent',
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set(['connect', 'plan', 'end-session'])
@@ -511,16 +511,17 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   defineCommand({
-    name: 'gpt-5-agent',
+    name: 'agent',
     handler: (params) => {
-      // Insert @ GPT-5 Agent into the input field (UI shortcut, not a real command)
+      const mention = '@Agent '
       params.setInputValue({
-        text: '@GPT-5 Agent ',
-        cursorPosition: '@GPT-5 Agent '.length,
+        text: mention,
+        cursorPosition: mention.length,
         lastEditDueToNav: false,
       })
       params.inputRef.current?.focus()
-      // Don't save to history - this is just a UI shortcut
+      // This is a UI shortcut. The spawned agent inherits the provider/model
+      // already active in the CLI, so no separate model selection is needed.
     },
   }),
   ...(CHATGPT_OAUTH_ENABLED

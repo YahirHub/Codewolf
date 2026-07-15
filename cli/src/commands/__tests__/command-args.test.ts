@@ -165,6 +165,7 @@ describe('command factory pattern', () => {
         'login',
         'providers',
         'models',
+        'agent',
         'logout',
         'exit',
         'init',
@@ -213,6 +214,32 @@ describe('command factory pattern', () => {
           `Mode command ${cmd.name} should accept args`,
         ).toBe(true)
       }
+    })
+  })
+
+  describe('agent command', () => {
+    test('inserts the generic agent mention without saving command history', () => {
+      const command = COMMAND_REGISTRY.find((item) => item.name === 'agent')
+      expect(command).toBeDefined()
+
+      const setInputValue = mock(() => {})
+      const focus = mock(() => {})
+      const blur = mock(() => {})
+      const params = createMockParams({
+        inputValue: '/agent',
+        inputRef: { current: { focus, blur } },
+        setInputValue,
+      })
+
+      command!.handler(params, '')
+
+      expect(setInputValue).toHaveBeenCalledWith({
+        text: '@Agent ',
+        cursorPosition: '@Agent '.length,
+        lastEditDueToNav: false,
+      })
+      expect(focus).toHaveBeenCalled()
+      expect(params.saveToHistory).not.toHaveBeenCalled()
     })
   })
 

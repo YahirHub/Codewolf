@@ -6,6 +6,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 
 - Proveedores OpenAI-compatible configurables desde `/login` y administrables con `/providers`.
 - Selector de modelos agrupados por proveedor mediante `/models`.
+- Agente auxiliar genérico mediante `/agent`, usando el modelo activo de la sesión.
 - Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
 - Fallback automático entre motores de búsqueda configurados.
 - Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
@@ -82,6 +83,14 @@ Para administrar todos los proveedores:
 ```text
 /providers
 ```
+
+Para invocar el agente auxiliar con el mismo proveedor y modelo activos:
+
+```text
+/agent
+```
+
+El comando inserta `@Agent ` en el campo de entrada. No abre otro selector ni guarda una configuración independiente: el agente hereda la selección actual de `/models`, igual que los demás subagentes.
 
 El administrador permite agregar, editar, activar y eliminar proveedores. Al editar se puede cambiar el nombre visible, la URL base, la credencial y la lista de modelos. En el paso de modelos puedes escribir identificadores separados por comas o dejar el campo vacío para consultar `GET <URL_BASE>/models`.
 

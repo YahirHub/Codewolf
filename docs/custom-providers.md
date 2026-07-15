@@ -84,6 +84,18 @@ A keyboard and mouse selector opens inside the editor:
 
 The new selection resets the cached SDK client and applies to the next request. A request already running continues with the provider/model it started with.
 
+## Invoke the generic agent with `/agent`
+
+Enter:
+
+```text
+/agent
+```
+
+The command inserts `@Agent ` into the prompt. The generic agent does not maintain a separate provider/model assignment and does not open another model selector. It inherits the provider and model currently active through `/models`, because the active custom-provider configuration is propagated globally to the main agent and every spawned subagent.
+
+If no custom provider is active, the existing backend fallback remains unchanged. Switching `/models` resets the cached SDK client, so the next `/agent` request uses the new selection.
+
 ## Tool history, schemas, and JSON safety
 
 Tool inputs and JSON results are normalized before they are stored or replayed to an OpenAI-compatible provider. If an integration returns an in-memory circular reference, only that circular branch is represented as the string `[Circular]`; the rest of the tool data and conversation remains available to the next request. `bigint` values are preserved as decimal strings.

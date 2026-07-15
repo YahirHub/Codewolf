@@ -204,6 +204,7 @@ describe('command-registry', () => {
       expect(findCommand('subscribe')).toBeUndefined()
 
       expect(findCommand('providers')?.name).toBe('providers')
+      expect(findCommand('agent')?.name).toBe('agent')
       expect(findCommand('compact')?.name).toBe('compact')
       expect(findCommand('rename')?.name).toBe('rename')
       expect(findCommand('export')?.name).toBe('export')
@@ -237,6 +238,8 @@ describe('command-registry', () => {
       expect(findCommand('ads:disable')).toBeUndefined()
       expect(findCommand('strong')).toBeUndefined()
       expect(findCommand('sub')).toBeUndefined()
+      expect(findCommand('agent:gpt-5')).toBeUndefined()
+      expect(findCommand('gpt-5-agent')).toBeUndefined()
     })
 
     test('is case insensitive', () => {
@@ -302,6 +305,19 @@ describe('command-registry', () => {
           expect(registered.has(alias)).toBe(true)
         }
       }
+    })
+
+    test('agent slash shortcut is generic and uses the active global model', () => {
+      const command = SLASH_COMMANDS.find((item) => item.id === 'agent')
+      expect(command).toEqual(
+        expect.objectContaining({
+          label: 'agent',
+          insertText: '@Agent ',
+        }),
+      )
+      expect(SLASH_COMMANDS.some((item) => item.id === 'agent:gpt-5')).toBe(
+        false,
+      )
     })
 
     test('mode commands expose model aliases for slash suggestions', () => {

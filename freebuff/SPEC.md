@@ -81,7 +81,7 @@ Freebuff only supports **FREE mode**. All mode-related features are stripped.
 | `/connect:claude` (+ `/claude`)                    | Claude subscription not available                                                              |
 | `/refer-friends` (+ `/referral`, `/redeem`)        | Referrals earn credits, not applicable                                                         |
 | `/mode:*` (all mode commands)                      | Only FREE mode                                                                                 |
-| `/agent:gpt-5`                                     | Premium agent, not available in free tier                                                      |
+| `/agent`                                           | Premium agent, not available in free tier                                                      |
 | `/review`                                          | Uses thinker-gpt under the hood                                                                |
 | `/publish`                                         | Agent publishing not available in free tier                                                    |
 | `/image` (+ `/img`, `/attach`)                     | Image attachments unavailable with non-multimodal free models (DeepSeek V4 Pro, DeepSeek V4 Flash) |

@@ -1,8 +1,8 @@
 import { createGeneralAgent } from './general-agent'
 
 const definition = {
-  ...createGeneralAgent({ model: 'gpt-5' }),
-  id: 'gpt-5-agent',
+  ...createGeneralAgent({ variant: 'default' }),
+  id: 'agent',
 }
 
 export default definition

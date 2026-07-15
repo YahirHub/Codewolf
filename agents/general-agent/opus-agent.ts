@@ -1,7 +1,7 @@
 import { createGeneralAgent } from './general-agent'
 
 const definition = {
-  ...createGeneralAgent({ model: 'opus' }),
+  ...createGeneralAgent({ variant: 'opus' }),
   id: 'opus-agent',
 }
 

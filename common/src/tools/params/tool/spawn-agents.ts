@@ -79,7 +79,7 @@ const inputSchema = z
                     .array(z.string())
                     .optional()
                     .describe(
-                      'Relevant file paths to read (opus-agent, gpt-5-agent)',
+                      'Relevant file paths to read (opus-agent, agent)',
                     ),
                   directories: z
                     .array(z.string())

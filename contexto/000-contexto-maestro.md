@@ -78,6 +78,7 @@ TypeScript con Bun, React y OpenTUI.
 - Proveedores de modelos configurables mediante `/login`.
 - Selector agrupado mediante `/models`.
 - Proveedor y modelo personalizados propagados a agente principal y subagentes.
+- `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
 - Fallback automático y orden configurable de motores.
@@ -184,6 +185,7 @@ lista exacta y versiones bloqueadas.
   registrado como comando real.
 - Metadatos OpenAI-compatible podían sobrescribir `role` o `content` con `null`
   y envenenar todos los turnos posteriores de una sesión.
+- El atajo heredado `/agent:gpt-5` y la identidad `GPT-5 Agent` vinculaban una función genérica a un modelo concreto, aunque los proveedores personalizados sustituyen globalmente el modelo de todos los subagentes.
 - La compactación manual reemplazaba el historial dentro de `runAgentStep` antes
   de construir la salida final. Como la memoria compactada queda correctamente
   como un único mensaje `user`, el extractor genérico `last_message` no hallaba
@@ -208,6 +210,7 @@ lista exacta y versiones bloqueadas.
   para detectar prompts nuevos grandes antes de la siguiente llamada.
 - Los campos reservados del protocolo quedan protegidos frente a metadatos del
   proveedor y los historiales dañados se reparan antes de reproducirse.
+- El atajo se simplificó a `/agent`; inserta `@Agent`, usa el ID estable `agent` y hereda directamente la selección global de `/models`, sin selector ni persistencia por agente.
 - La compactación manual se confirma al terminar todo el turno y devuelve el
   resumen generado como salida exitosa, independientemente de que el historial
   persistido ya no contenga un mensaje `assistant`. Si el resumen está vacío,
@@ -248,3 +251,4 @@ al terminar.
 - `016`: administración de proveedores y sesiones portables.
 - `017`: compactación al 90 % y recuperación de sesiones con mensajes nulos.
 - `018`: corrección del falso `No response from agent` después de `/compact`.
+- `019`: agente genérico `/agent` con herencia del modelo activo global.
