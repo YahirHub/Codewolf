@@ -1,17 +1,6 @@
 import { buildArray } from '@codebuff/common/util/array'
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
-import {
-  FREEBUFF_GEMINI_THINKER_AGENT_ID,
-  FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
-  FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
-  FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
-} from '@codebuff/common/constants/freebuff-gemini-thinker'
-import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/free-agents'
-import {
-  canFreebuffModelSpawnGeminiThinker,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
+import { minimaxModels } from '@codebuff/common/constants/model-config'
 
 import { publisher } from '../constants'
 import {
@@ -22,7 +11,7 @@ import {
 const ENABLE_COMPOSIO_TOOLS = false
 
 export function createBase2(
-  mode: 'default' | 'free' | 'lite' | 'max' | 'fast',
+  mode: 'default' | 'lite' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -45,25 +34,18 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
-  const isFree = mode === 'free' || mode === 'lite'
+  const isLite = mode === 'lite'
 
-  // Lite and free modes run MiniMax M3 (routed through the Fireworks AI API).
-  // New Freebuff clients select explicit free variants from the model picker;
-  // the unqualified base2-free agent covers legacy callers.
+  // LITE uses a smaller default model when no custom provider overrides it.
   const model =
     modelOverride ??
-    (mode === 'lite' || mode === 'free'
-      ? FREEBUFF_MINIMAX_M3_MODEL_ID
+    (mode === 'lite'
+      ? minimaxModels.minimaxM3
       : 'anthropic/claude-opus-4.8')
-  // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
-  // reasoning.
-  const hasFreeGeminiThinker =
-    isFree && canFreebuffModelSpawnGeminiThinker(model)
-  const freeCodeReviewerAgentId =
-    FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL[model] ?? 'code-reviewer-lite'
+  const liteCodeReviewerAgentId = 'code-reviewer-lite'
   const contextPrunerMaxContextLength =
     getBase2ContextPrunerMaxContextLength(model)
-  const defaultProviderOptions = isFree
+  const defaultProviderOptions = isLite
     ? {
         data_collection: 'deny' as const,
       }
@@ -118,8 +100,8 @@ export function createBase2(
           !noAskUser && 'suggest_followups',
           'str_replace',
           'write_file',
-          !isFree && 'propose_str_replace',
-          !isFree && 'propose_write_file',
+          !isLite && 'propose_str_replace',
+          !isLite && 'propose_write_file',
           !noAskUser && 'ask_user',
           'read_url',
           'skill',
@@ -157,15 +139,14 @@ export function createBase2(
           isMax && 'editor-multi-prompt',
           'tmux-cli',
           'browser-use',
-          isFree && !noReview && freeCodeReviewerAgentId,
+          isLite && !noReview && liteCodeReviewerAgentId,
           isDefault && 'code-reviewer',
           isMax && 'code-reviewer-multi-prompt',
-          hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
           'thinker-gpt',
           'context-pruner',
         ),
 
-    systemPrompt: `You are Buffy, the strategic coding assistant. You are the AI agent behind the product, ${isFree ? 'Freebuff' : 'Codewolf'}, a local-first CLI where users can chat with you to code with AI${isFree ? ' for free' : ''}.
+    systemPrompt: `You are Buffy, the strategic coding assistant. You are the AI agent behind the product, Codewolf, a local-first CLI where users can chat with you to code with AI.
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
 
@@ -215,18 +196,15 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use the list_directory and glob tools directly for searching and exploring the codebase.',
-    isFree &&
-      'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Freebuff to allow for it.',
-    hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_SYSTEM_INSTRUCTION,
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     (isDefault || isMax) &&
       `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (agent is a last resort for complex problems)`,
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
-    isFree &&
+    isLite &&
       !noReview &&
-      `- Spawn a ${freeCodeReviewerAgentId} to review the code changes after you have implemented the changes.`,
+      `- Spawn a ${liteCodeReviewerAgentId} to review the code changes after you have implemented the changes.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
@@ -236,13 +214,13 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
-# ${isFree ? 'Freebuff' : 'Codewolf'} Meta-information
+# Codewolf Meta-information
 
 You are running on the ${model} model.
 
 ${
-  isFree
-    ? 'See freebuff.com for more information about the product.'
+  isLite
+    ? 'LITE prioritizes direct implementation with fewer subagent calls.'
     : [
         'Users can select local or remote OpenAI-compatible model providers through /login and /models.',
         'Web-search providers are configured interactively through /setup-search.',
@@ -271,7 +249,7 @@ ${
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
-    : isFast || isFree
+    : isFast || isLite
       ? '[ You implement the changes using the str_replace or write_file tools ]'
       : '[ You implement the changes using the editor-multi-prompt agent ]'
 }
@@ -279,9 +257,9 @@ ${
 ${
   isDefault
     ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
-    : isFree && !noReview
-      ? `[ You spawn a ${freeCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
-      : isFree
+    : isLite && !noReview
+      ? `[ You spawn a ${liteCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
+      : isLite
         ? `[ You spawn a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
         : isMax
           ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
@@ -291,8 +269,8 @@ ${
 ${
   isDefault
     ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
-    : isFree && !noReview
-      ? `[ You fix the issues found by the ${freeCodeReviewerAgentId} and type/test errors ]`
+    : isLite && !noReview
+      ? `[ You fix the issues found by the ${liteCodeReviewerAgentId} and type/test errors ]`
       : isMax
         ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
         : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
@@ -330,12 +308,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isDefault,
           isMax,
-          isFree,
-          hasFreeGeminiThinker,
+          isLite,
           hasNoValidation,
           noAskUser,
           noReview,
-          freeCodeReviewerAgentId,
+          liteCodeReviewerAgentId,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -344,18 +321,17 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isMax,
           hasNoValidation,
-          isFree,
-          hasFreeGeminiThinker,
+          isLite,
           noAskUser,
           noReview,
-          freeCodeReviewerAgentId,
+          liteCodeReviewerAgentId,
         }),
 
     // handleSteps is serialized via .toString() and re-eval'd, so closure
-    // variables like `isFree` are not in scope at runtime. Pick the right
+    // variables like `isLite` are not in scope at runtime. Pick the right
     // literal-baked function here instead.
     handleSteps: getBase2HandleSteps({
-      isFree: mode === 'free',
+      isLite: mode === 'lite',
       maxContextLength: contextPrunerMaxContextLength,
     }),
   }
@@ -368,29 +344,29 @@ function getBase2ContextPrunerMaxContextLength(
 ): 225_000 | 360_000 | 900_000 {
   // These values are auto-compaction thresholds (90% of the known window),
   // not the provider's absolute context limits.
-  if (model === FREEBUFF_KIMI_MODEL_ID) return 225_000
+  if (String(model).toLowerCase().includes('kimi')) return 225_000
   if (String(model).toLowerCase().includes('deepseek')) return 900_000
   return 360_000
 }
 
 function getBase2HandleSteps({
-  isFree,
+  isLite,
   maxContextLength,
 }: {
-  isFree: boolean
+  isLite: boolean
   maxContextLength: 225_000 | 360_000 | 900_000
 }): Base2HandleSteps {
-  if (isFree) {
-    if (maxContextLength === 225_000) return handleStepsFree225k
-    if (maxContextLength === 900_000) return handleStepsFree900k
-    return handleStepsFree360k
+  if (isLite) {
+    if (maxContextLength === 225_000) return handleStepsLite225k
+    if (maxContextLength === 900_000) return handleStepsLite900k
+    return handleStepsLite360k
   }
   if (maxContextLength === 225_000) return handleSteps225k
   if (maxContextLength === 900_000) return handleSteps900k
   return handleSteps360k
 }
 
-const handleStepsFree225k: Base2HandleSteps = function* ({ params }) {
+const handleStepsLite225k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
@@ -410,7 +386,7 @@ const handleStepsFree225k: Base2HandleSteps = function* ({ params }) {
   }
 }
 
-const handleStepsFree360k: Base2HandleSteps = function* ({ params }) {
+const handleStepsLite360k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
@@ -430,7 +406,7 @@ const handleStepsFree360k: Base2HandleSteps = function* ({ params }) {
   }
 }
 
-const handleStepsFree900k: Base2HandleSteps = function* ({ params }) {
+const handleStepsLite900k: Base2HandleSteps = function* ({ params }) {
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
@@ -513,22 +489,20 @@ function buildImplementationInstructionsPrompt({
   isFast,
   isDefault,
   isMax,
-  isFree,
-  hasFreeGeminiThinker,
+  isLite,
   hasNoValidation,
   noAskUser,
   noReview,
-  freeCodeReviewerAgentId,
+  liteCodeReviewerAgentId,
 }: {
   isFast: boolean
   isDefault: boolean
   isMax: boolean
-  isFree: boolean
-  hasFreeGeminiThinker: boolean
+  isLite: boolean
   hasNoValidation: boolean
   noAskUser: boolean
   noReview: boolean
-  freeCodeReviewerAgentId: string
+  liteCodeReviewerAgentId: string
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -542,9 +516,8 @@ ${buildArray(
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !noAskUser &&
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
-  (isDefault || isMax || isFree) &&
+  (isDefault || isMax || isLite) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast || noReview ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
-  hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
   (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (agent is a last resort for complex problems)`,
   isDefault &&
@@ -559,9 +532,9 @@ ${buildArray(
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the code changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
-  isFree &&
+  isLite &&
     !noReview &&
-    `- Spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented code changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a ${liteCodeReviewerAgentId} to review the changes after you have implemented code changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !isFast &&
     !noAskUser &&
     `- At the end of your turn, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
@@ -573,33 +546,30 @@ function buildImplementationStepPrompt({
   isFast,
   isMax,
   hasNoValidation,
-  isFree,
-  hasFreeGeminiThinker,
+  isLite,
   noAskUser,
   noReview,
-  freeCodeReviewerAgentId,
+  liteCodeReviewerAgentId,
 }: {
   isDefault: boolean
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
-  isFree: boolean
-  hasFreeGeminiThinker: boolean
+  isLite: boolean
   noAskUser: boolean
   noReview: boolean
-  freeCodeReviewerAgentId: string
+  liteCodeReviewerAgentId: string
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    hasFreeGeminiThinker && FREEBUFF_GEMINI_THINKER_STEP_PROMPT,
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
       `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review any code changes after you have implemented the changes and in parallel with typechecking or testing.`,
-    isFree &&
+    isLite &&
       !noReview &&
-      `You must spawn a ${freeCodeReviewerAgentId} to review any code changes after you have implemented the changes and in parallel with typechecking or testing.`,
+      `You must spawn a ${liteCodeReviewerAgentId} to review any code changes after you have implemented the changes and in parallel with typechecking or testing.`,
     !noAskUser &&
       `At the end of your turn, you must use the suggest_followups tool to suggest around 3 next steps the user might want to take even if the user just asks a question.`,
   ).join('\n')

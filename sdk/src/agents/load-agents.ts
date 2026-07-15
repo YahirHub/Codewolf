@@ -237,8 +237,24 @@ export async function loadLocalAgents({
         continue
       }
       const agentDefinition = agentModule.default ?? agentModule
+      const isObjectDefinition =
+        typeof agentDefinition === 'object' && agentDefinition !== null
 
-      if (!agentDefinition?.id || !agentDefinition?.model) {
+      if (!isObjectDefinition) {
+        continue
+      }
+
+      const looksLikeAgentDefinition =
+        'id' in agentDefinition ||
+        'model' in agentDefinition ||
+        'displayName' in agentDefinition ||
+        'handleSteps' in agentDefinition
+
+      if (!looksLikeAgentDefinition) {
+        continue
+      }
+
+      if (!agentDefinition.id || !agentDefinition.model) {
         if (verbose) {
           console.error(
             `Agent definition missing required attributes (id, model): ${fullPath}`,

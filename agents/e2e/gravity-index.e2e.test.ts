@@ -6,11 +6,16 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-import base2Free from '../base2/base2-free'
+import base2 from '../base2/base2'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-describe('Gravity Index SDK E2E', () => {
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
+
+liveDescribe('Gravity Index SDK E2E', () => {
   it(
     'test agent uses gravity_index for third-party service selection',
     async () => {
@@ -27,14 +32,14 @@ describe('Gravity Index SDK E2E', () => {
       )
       const events: PrintModeEvent[] = []
       const gravityIndexTestAgent = {
-        ...(base2Free as AgentDefinition),
-        id: 'base2-free-gravity-index-e2e',
-        displayName: 'Base2 Free Gravity Index E2E',
+        ...(base2 as AgentDefinition),
+        id: 'base2-gravity-index-e2e',
+        displayName: 'Base2 Gravity Index E2E',
         toolNames: [
-          ...((base2Free as AgentDefinition).toolNames ?? []),
+          ...((base2 as AgentDefinition).toolNames ?? []),
           'gravity_index',
         ],
-        systemPrompt: `${(base2Free as AgentDefinition).systemPrompt}
+        systemPrompt: `${(base2 as AgentDefinition).systemPrompt}
 
 For this E2E test, use the gravity_index tool when asked to recommend third-party developer services.`,
       } satisfies AgentDefinition

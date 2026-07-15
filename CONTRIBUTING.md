@@ -1,23 +1,20 @@
-# Contributing
+# Contributing to Codewolf
 
-This repository is a public mirror of the Freebuff/Codebuff source tree. The private repository is the source of truth, so accepted public contributions are ported into the private repo and then exported back here.
+Codewolf is a Bun/TypeScript monorepo. Contributions should stay focused, tested, and compatible with the terminal client and SDK.
 
-## Public Contributions
+## Main workspaces
 
-Good public PRs are usually scoped to:
+- `cli/` — OpenTUI terminal client
+- `sdk/` — JavaScript/TypeScript SDK
+- `common/` — shared schemas, types, and utilities
+- `agents/` — bundled agent definitions
+- `packages/agent-runtime/` — agent execution and tool handlers
+- `packages/code-map/` — source parsing helpers
+- `packages/llm-providers/` — provider adapters
+- `evals/` — evaluation suites
+- `scripts/tmux/` — interactive terminal test helpers
 
-- `cli/`
-- `sdk/`
-- `common/`
-- `agents/`
-- `packages/agent-runtime/`
-- `packages/code-map/`
-- `packages/llm-providers/`
-- `freebuff/`, excluding the private web app
-- `scripts/tmux/`
-- public docs
-
-Please do not add backend, database, billing, deployment, or secret-management code to the public repo.
+Do not commit credentials, private deployment configuration, generated build output, or local usage/session data.
 
 ## Development
 
@@ -27,22 +24,20 @@ Install dependencies:
 bun install
 ```
 
-Build the SDK:
+Run the main validations:
 
 ```bash
 bun run build:sdk
+bun run build:binary
+bun test
 ```
 
-Build the Freebuff binary:
+For interactive terminal behavior, use the tmux helpers documented in `docs/testing.md`.
 
-```bash
-bun run build:freebuff
-```
+## Pull requests
 
-## Pull Request Flow
-
-1. Open the PR against the public repo.
-2. Public CI validates the exported public packages.
-3. A maintainer reviews the change.
-4. If accepted, a maintainer ports the patch into the private source repo.
-5. The next public export brings the accepted change back into this repo.
+1. Keep the change scoped to one concern.
+2. Add or update focused tests for non-trivial behavior.
+3. Update `contexto/` and public documentation when architecture or behavior changes.
+4. Describe manual verification steps and any known limitation.
+5. Do not mix unrelated formatting or generated files into the patch.

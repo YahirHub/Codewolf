@@ -2,7 +2,7 @@ import { createRequire } from 'module'
 
 import { Argument, Command } from 'commander'
 
-import { IS_FREEBUFF, type AgentMode } from './utils/constants'
+import type { AgentMode } from './utils/constants'
 import { getCliEnv } from './utils/env'
 
 const require = createRequire(import.meta.url)
@@ -78,97 +78,62 @@ export function loadPackageVersion(): string {
 
 export function parseArgs({
   argv = process.argv,
-  isFreebuff = IS_FREEBUFF,
   version = loadPackageVersion(),
 }: {
   argv?: string[]
-  isFreebuff?: boolean
   version?: string
 } = {}): ParsedArgs {
   const program = new Command()
   configureSpanishCommanderOutput(program)
 
-  if (isFreebuff) {
-    // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
-    program
-      .name('freebuff')
-      .description('Freebuff - Asistente gratuito de programación con IA')
-      .version(version, '-v, --version', 'Mostrar la versión del CLI')
-      .option(
-        '--continue [conversation-id]',
-        'Continuar una conversación anterior (opcionalmente indica su identificador)',
-      )
-      .option(
-        '--cwd <directory>',
-        'Establecer el directorio de trabajo (predeterminado: directorio actual)',
-      )
-      .addArgument(
-        new Argument('[command]', 'Comando que se ejecutará').choices([
-          'login',
-        ]),
-      )
-      .helpOption('-h, --help', 'Mostrar este mensaje de ayuda')
-  } else {
-    // Codewolf: full CLI with all options
-    program
-      .name('codewolf')
-      .description('Codewolf CLI - Asistente de programación con IA')
-      .version(version, '-v, --version', 'Mostrar la versión del CLI')
-      .option(
-        '--agent <agent-id>',
-        'Ejecutar un agente específico (omite las personalizaciones locales de .agents)',
-      )
-      .option(
-        '--clear-logs',
-        'Eliminar los registros existentes del CLI antes de iniciar',
-      )
-      .option(
-        '--continue [conversation-id]',
-        'Continuar una conversación anterior (opcionalmente indica su identificador)',
-      )
-      .option(
-        '--cwd <directory>',
-        'Establecer el directorio de trabajo (predeterminado: directorio actual)',
-      )
-      .option('--lite', 'Iniciar en modo LITE')
-      .option('--free', 'Iniciar en modo LITE (alias obsoleto)')
-      .option('--max', 'Iniciar en modo MAX')
-      .option('--plan', 'Iniciar en modo PLAN')
-      .addHelpText(
-        'after',
-        '\nComandos:\n  login                          Iniciar sesión en tu cuenta\n  publish                        Publicar agentes en el registro',
-      )
-      .helpOption('-h, --help', 'Mostrar este mensaje de ayuda')
-      .argument('[prompt...]', 'Solicitud inicial que se enviará al agente')
-      .allowExcessArguments(true)
-  }
+  program
+    .name('codewolf')
+    .description('Codewolf CLI - Asistente de programación con IA')
+    .version(version, '-v, --version', 'Mostrar la versión del CLI')
+    .option(
+      '--agent <agent-id>',
+      'Ejecutar un agente específico (omite las personalizaciones locales de .agents)',
+    )
+    .option(
+      '--clear-logs',
+      'Eliminar los registros existentes del CLI antes de iniciar',
+    )
+    .option(
+      '--continue [conversation-id]',
+      'Continuar una conversación anterior (opcionalmente indica su identificador)',
+    )
+    .option(
+      '--cwd <directory>',
+      'Establecer el directorio de trabajo (predeterminado: directorio actual)',
+    )
+    .option('--lite', 'Iniciar en modo LITE')
+    .option('--free', 'Iniciar en modo LITE (alias obsoleto)')
+    .option('--max', 'Iniciar en modo MAX')
+    .option('--plan', 'Iniciar en modo PLAN')
+    .addHelpText(
+      'after',
+      '\nComandos:\n  login                          Iniciar sesión en tu cuenta\n  publish                        Publicar agentes en el registro',
+    )
+    .helpOption('-h, --help', 'Mostrar este mensaje de ayuda')
+    .argument('[prompt...]', 'Solicitud inicial que se enviará al agente')
+    .allowExcessArguments(true)
 
   program.parse(argv)
 
   const options = program.opts()
   const args = program.args
-
   const continueFlag = options.continue
 
-  // Determine initial mode from flags (last flag wins if multiple specified)
-  // Freebuff always uses LITE mode
   let initialMode: AgentMode | undefined
-  if (isFreebuff) {
-    initialMode = 'LITE'
-  } else {
-    if (options.free || options.lite) initialMode = 'LITE'
-    if (options.max) initialMode = 'MAX'
-    if (options.plan) initialMode = 'PLAN'
-  }
+  if (options.free || options.lite) initialMode = 'LITE'
+  if (options.max) initialMode = 'MAX'
+  if (options.plan) initialMode = 'PLAN'
 
-  const standaloneCommand =
-    !isFreebuff && ['login', 'publish'].includes(args[0] ?? '')
+  const standaloneCommand = ['login', 'publish'].includes(args[0] ?? '')
 
   return {
     initialPrompt:
-      !isFreebuff && args.length > 0 && !standaloneCommand
-        ? args.join(' ')
-        : null,
+      args.length > 0 && !standaloneCommand ? args.join(' ') : null,
     command: args[0],
     commandArgs: standaloneCommand ? args.slice(1) : [],
     agent: options.agent,

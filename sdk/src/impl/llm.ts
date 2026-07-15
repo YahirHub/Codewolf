@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
@@ -634,7 +633,7 @@ export async function* promptAiSdkStream(
         markChatGptOAuthRateLimited()
 
         // In free mode, don't fall back to Codebuff backend — fail instead
-        if (isFreeMode(params.costMode)) {
+        if (params.costMode === 'free') {
           throw new Error(
             `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
           )
@@ -685,7 +684,7 @@ export async function* promptAiSdkStream(
 
         // Refresh failed or already retried
         // In free mode, don't fall back to Codebuff backend — fail instead
-        if (isFreeMode(params.costMode)) {
+        if (params.costMode === 'free') {
           throw new Error(
             'ChatGPT OAuth authentication failed. Please reconnect with /connect:chatgpt and try again.',
           )

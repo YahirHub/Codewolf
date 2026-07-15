@@ -3,7 +3,6 @@ import { immer } from 'zustand/middleware/immer'
 
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 
-import type { AdResponse } from '../hooks/use-gravity-ad'
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
 import type { MarkdownPalette } from '../utils/markdown-renderer'
@@ -25,12 +24,7 @@ export interface MessageBlockContext {
   timerStartTime: number | null
   /** Available width for rendering message content. */
   availableWidth: number
-  /**
-   * Ads to intersperse inside assistant responses, keyed by message id.
-   * Populated by the Chat component from the ads hook; empty when ads are
-   * disabled or hidden.
-   */
-  responseAds: Record<string, AdResponse[]>
+
 }
 
 /**
@@ -51,12 +45,6 @@ export interface MessageBlockCallbacks {
     },
   ) => void
   onCloseFeedback: () => void
-  /** Record a click on an interspersed response ad. */
-  onAdClick: (ad: AdResponse) => void
-  /** Record an impression for an interspersed response ad. */
-  onAdImpression: (ad: AdResponse) => void
-  /** Ensure the response has fetched ads for every currently eligible slot. */
-  onResponseAdsNeeded: (messageId: string, count: number) => void
 }
 
 interface MessageBlockStoreState {
@@ -95,7 +83,6 @@ const initialContext: MessageBlockContext = {
   isWaitingForResponse: false,
   timerStartTime: null,
   availableWidth: 80,
-  responseAds: {},
 }
 
 const initialCallbacks: MessageBlockCallbacks = {
@@ -105,9 +92,6 @@ const initialCallbacks: MessageBlockCallbacks = {
   onBuildLite: noop,
   onFeedback: noopFeedback,
   onCloseFeedback: noop,
-  onAdClick: noop,
-  onAdImpression: noop,
-  onResponseAdsNeeded: noop,
 }
 
 const initialState: MessageBlockStoreState = {

@@ -2,7 +2,6 @@ import { getActiveTerminalCommandProcesses } from '@codebuff/sdk'
 
 import { getTerminalWatchdogDiagnostics } from '../utils/terminal-watchdog'
 import { getCliEnv } from '../utils/env'
-import { IS_FREEBUFF } from '../utils/constants'
 
 export type ProcessDiagnosticsSnapshot = {
   product: string
@@ -100,7 +99,7 @@ export function formatProcessDiagnostics(
 export function collectProcessDiagnostics(): ProcessDiagnosticsSnapshot {
   const cpuUsage = process.cpuUsage()
   return {
-    product: IS_FREEBUFF ? 'Freebuff' : 'Codewolf',
+    product: 'Codewolf',
     version: getCliEnv().CODEBUFF_CLI_VERSION ?? 'dev',
     runtime:
       typeof Bun !== 'undefined'

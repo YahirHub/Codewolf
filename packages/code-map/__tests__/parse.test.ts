@@ -14,7 +14,7 @@ import {
   type FileTokenData,
 } from '../src/parse'
 
-import type { LanguageConfig } from '../src/languages-common'
+import type { LanguageConfig } from '../src/languages'
 
 describe('parse module', () => {
   describe('parseTokens', () => {

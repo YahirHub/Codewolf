@@ -80,9 +80,9 @@ const runtimeAttributionFields = {
       'Stable Codewolf session ID for Gravity API key attribution. Codewolf usually fills this automatically.',
     ),
   // Raw, stable per-end-user identifier for Gravity attribution + payout
-  // matching. Surfaces that run under a shared service account (e.g. Freebuff
-  // Web) set this to the real end user so conversions don't all collapse onto
-  // the service account. The server hashes it before sending it to Gravity.
+  // matching. Surfaces that run under a shared service account set this to
+  // the real end user so conversions do not all collapse onto the service
+  // account. The server hashes it before sending it to Gravity.
   // Codewolf usually fills this automatically.
   external_user_id: z
     .string()

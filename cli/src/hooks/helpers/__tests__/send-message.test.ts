@@ -841,7 +841,7 @@ describe('handleRunError', () => {
     expect(timerController.stopCalls).toContain('error')
   })
 
-  test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
+  test('Payment required errors remain ordinary provider errors in Codewolf', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -889,8 +889,9 @@ describe('handleRunError', () => {
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
 
-    // Input mode should switch to outOfCredits
-    expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
+    // Codewolf has no commercial out-of-credits mode. Provider errors remain
+    // visible on the message without changing the input surface.
+    expect(setInputModeMock).not.toHaveBeenCalled()
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')
@@ -1683,157 +1684,5 @@ describe('resetEarlyReturnState', () => {
       // Processing lock is released though
       expect(isProcessingQueueRef.current).toBe(false)
     })
-  })
-})
-
-describe('freebuff gate errors', () => {
-  const makeUpdater = (messages: ChatMessage[]) => {
-    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
-      const next = fn(messages)
-      messages.length = 0
-      messages.push(...next)
-    })
-    return updater
-  }
-
-  const baseMessage = (): ChatMessage[] => [
-    {
-      id: 'ai-1',
-      variant: 'ai',
-      content: '',
-      blocks: [],
-      timestamp: 'now',
-    },
-  ]
-
-  const gateError = (kind: string, statusCode: number) => ({
-    error: kind,
-    statusCode,
-    message: 'server said so',
-  })
-
-  test('handleRunError maps 409 session_superseded to the restart-required message', () => {
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    handleRunError({
-      error: gateError('session_superseded', 409),
-      timerController: createMockTimerController(),
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-    updater.flush()
-    expect(messages[0].userError).toContain('Another freebuff CLI took over')
-  })
-
-  test('handleRunError suppresses the inline error for 410 session_expired (ended banner takes over)', () => {
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    handleRunError({
-      error: gateError('session_expired', 410),
-      timerController: createMockTimerController(),
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-    updater.flush()
-    // New contract: the gate handler flips the session store into `ended`
-    // and the session-ended banner is the user-facing signal, so we do NOT
-    // also surface an inline userError inside the chat transcript.
-    expect(messages[0].userError).toBeUndefined()
-  })
-
-  test('handleRunError suppresses the inline error for 428 waiting_room_required (ended banner takes over)', () => {
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    handleRunError({
-      error: gateError('waiting_room_required', 428),
-      timerController: createMockTimerController(),
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-    updater.flush()
-    expect(messages[0].userError).toBeUndefined()
-  })
-
-  test('handleRunError maps 429 waiting_room_queued to the session-pending message', () => {
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    handleRunError({
-      error: gateError('waiting_room_queued', 429),
-      timerController: createMockTimerController(),
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-    updater.flush()
-    expect(messages[0].userError).toContain('still being set up')
-  })
-
-  test('handleRunError ignores gate-shaped errors with non-matching status code', () => {
-    // An error body with error: 'session_superseded' but a 500 status should
-    // NOT be classified as a gate error (prevents generic 5xx from mimicking
-    // the structured gate responses).
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    const err = Object.assign(new Error('oops'), {
-      error: 'session_superseded',
-      statusCode: 500,
-    })
-    handleRunError({
-      error: err,
-      timerController: createMockTimerController(),
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-    updater.flush()
-    expect(messages[0].userError).toBe('oops')
-    expect(messages[0].userError).not.toContain('took over')
-  })
-
-  test('handleRunCompletion with gate error output routes through the gate handler', () => {
-    const messages = baseMessage()
-    const updater = makeUpdater(messages)
-    const runState: RunState = {
-      traceSessionId: 'trace-test',
-      sessionState: undefined as any,
-      output: {
-        type: 'error',
-        message: 'server said so',
-        error: 'session_expired',
-        statusCode: 410,
-      } as any,
-    }
-    handleRunCompletion({
-      runState,
-      actualCredits: undefined,
-      agentMode: 'LITE',
-      timerController: createMockTimerController(),
-      updater,
-      aiMessageId: 'ai-1',
-      wasAbortedByUser: false,
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-      setHasReceivedPlanResponse: () => {},
-    })
-    updater.flush()
-    // 410 is now handled by the ended banner, not an inline error. The
-    // assertion here just confirms routing happened via the gate handler
-    // (which swallows the userError) rather than the generic error path
-    // (which would set a userError from the message).
-    expect(messages[0].userError).toBeUndefined()
   })
 })

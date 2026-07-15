@@ -8,7 +8,6 @@ const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
   [AnalyticsEvent.CLI_LOG]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FEEDBACK_BUTTON_HOVERED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.FOLLOWUP_CLICKED]: DEFAULT_SAMPLED_RATE,
-  [AnalyticsEvent.CLI_INLINE_AD_SLOT_ELIGIBLE]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.SLASH_COMMAND_USED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.SLASH_MENU_ACTIVATED]: DEFAULT_SAMPLED_RATE,
   [AnalyticsEvent.TOOL_USE]: DEFAULT_SAMPLED_RATE,
@@ -17,8 +16,6 @@ const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
 const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // DAU is measured from MESSAGE_SENT, so it must never be sampled.
   AnalyticsEvent.MESSAGE_SENT,
-  // Engaged-time is summed from event counts, so it must never be sampled.
-  AnalyticsEvent.PRODUCT_ACTIVE_MINUTE,
   AnalyticsEvent.APP_LAUNCHED,
   AnalyticsEvent.CHANGE_DIRECTORY,
   AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,

@@ -38,6 +38,11 @@ import contextPruner from '../context-pruner'
 
 import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
 
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
+
 /**
  * Type guard to check if a content part is a tool-call part with toolCallId.
  */
@@ -303,7 +308,7 @@ function verifyToolCallPairIntegrity(messages: Message[]) {
   }
 }
 
-describe('Context Pruning Threshold E2E', () => {
+liveDescribe('Context Pruning Threshold E2E', () => {
   it(
     'should NOT prune when token count is well below the limit',
     async () => {

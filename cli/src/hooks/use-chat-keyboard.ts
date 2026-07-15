@@ -3,6 +3,8 @@ import { statSync } from 'fs'
 import { useKeyboard } from '@opentui/react'
 import { useCallback, useRef } from 'react'
 
+import { stripAnsi } from '@codebuff/common/util/string'
+
 import { getProjectRoot } from '../project-files'
 import { reportActivity } from '../utils/activity-tracker'
 import { hasClipboardImage, readClipboardText, readClipboardFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
@@ -217,7 +219,7 @@ function dispatchAction(
       // This handles the case where a file is dragged/dropped - we want to use
       // the file path, not any stale image data that might be in the clipboard
       const rawText = readClipboardText()
-      const text = rawText ? Bun.stripANSI(rawText) : null
+      const text = rawText ? stripAnsi(rawText) : null
       if (text) {
         // Check if the text is a path to an image file
         const imagePath = getImageFilePathFromText(text, cwd)

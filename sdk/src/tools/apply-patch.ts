@@ -1,6 +1,4 @@
-import path from 'path'
-
-import { resolveFilePath } from './path-utils'
+import { dirnameForResolvedPath, resolveFilePath } from './path-utils'
 
 import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -614,7 +612,7 @@ export async function applyPatchTool(params: {
       const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)
       const { result: content } = applyDiff('', sanitizedDiff, 'create')
 
-      await fs.mkdir(path.dirname(fullPath), { recursive: true })
+      await fs.mkdir(dirnameForResolvedPath(fullPath), { recursive: true })
       await fs.writeFile(fullPath, content)
 
       return [successResult(operation.path, 'add')]

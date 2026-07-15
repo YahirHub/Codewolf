@@ -1,7 +1,13 @@
 import { existsSync, statSync } from 'fs'
-import path from 'path'
 
 import { useCallback } from 'react'
+
+import {
+  getPathApi,
+  isPathOutsideRoot,
+  joinPath,
+  relativePath,
+} from '@codebuff/common/util/path-flavor'
 
 import { getPathCompletion } from '../utils/path-completion'
 
@@ -23,6 +29,26 @@ export interface UsePathTabCompletionReturn {
   handleTabCompletion: () => boolean
 }
 
+export function toRelativeCompletionPath(
+  completed: string,
+  currentPath: string,
+): string | null {
+  const relative = relativePath(currentPath, completed)
+  if (relative === null || relative === '') return null
+  const pathApi = getPathApi(currentPath)
+  if (
+    isPathOutsideRoot(currentPath, completed) ||
+    pathApi.isAbsolute(relative)
+  ) {
+    return null
+  }
+  return relative
+}
+
+function hasTrailingSeparator(value: string): boolean {
+  return value.endsWith('/') || value.endsWith('\\')
+}
+
 /**
  * Hook for path tab completion.
  * Handles both absolute (/, ~) and relative path completion.
@@ -41,7 +67,7 @@ export function usePathTabCompletion({
       const completed = getPathCompletion(searchQuery)
       if (completed) {
         // If completion is a full directory (ends with /), navigate there and keep the path in input
-        if (completed.endsWith('/')) {
+        if (hasTrailingSeparator(completed)) {
           const dirPath = expandPath(completed.slice(0, -1))
           try {
             if (existsSync(dirPath) && statSync(dirPath).isDirectory()) {
@@ -57,11 +83,11 @@ export function usePathTabCompletion({
       }
     } else if (searchQuery.length > 0) {
       // Relative path completion - try from current directory
-      const relativePath = path.join(currentPath, searchQuery)
-      const completed = getPathCompletion(relativePath)
+      const candidatePath = joinPath(currentPath, searchQuery)
+      const completed = getPathCompletion(candidatePath)
       if (completed) {
         // If completion is a full directory (ends with /), navigate there and keep the path in input
-        if (completed.endsWith('/')) {
+        if (hasTrailingSeparator(completed)) {
           try {
             const dirPath = completed.slice(0, -1)
             if (existsSync(dirPath) && statSync(dirPath).isDirectory()) {
@@ -73,12 +99,11 @@ export function usePathTabCompletion({
             // Fall through to just set the query
           }
         }
-        // Convert back to relative path for display
-        if (completed.startsWith(currentPath + path.sep)) {
-          setSearchQuery(completed.slice(currentPath.length + 1))
-        } else {
-          setSearchQuery(completed)
-        }
+        // Convert back to a relative path only when the completion is inside
+        // the active directory. Keep external completions unchanged.
+        setSearchQuery(
+          toRelativeCompletionPath(completed, currentPath) ?? completed,
+        )
       }
     }
     return true

@@ -2,8 +2,12 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { CodebuffClient } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
 
 /**
  * Integration tests for the editor-best-of-n-max agent.
@@ -13,7 +17,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
  * 3. Uses a selector agent to choose the best implementation
  * 4. Applies the chosen implementation
  */
-describe('Editor Best-of-N Max Agent Integration', () => {
+liveDescribe('Editor Best-of-N Max Agent Integration', () => {
   it(
     'should generate and select the best implementation for a simple edit',
     async () => {
@@ -35,6 +39,7 @@ export function subtract(a: number, b: number): number {
 `,
         'src/index.ts': `
 import { add, subtract } from './utils/math'
+
 
 console.log(add(1, 2))
 console.log(subtract(5, 3))
@@ -82,7 +87,7 @@ console.log(subtract(5, 3))
       // Check both output and sessionState since the agent output structure varies
       const sessionStr = JSON.stringify(run.sessionState)
       const allContent = (outputStr + sessionStr).toLowerCase()
-      
+
       const relevantTerms = [
         'multiply',
         'product',

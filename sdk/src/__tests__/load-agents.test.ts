@@ -437,6 +437,38 @@ describe('loadLocalAgents', () => {
       expect(result['throwing-agent']).toBeUndefined()
     })
 
+    test('silently ignores helper modules that are not agent definitions', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'constants.ts',
+        `
+          export const publisher = 'example'
+        `,
+      )
+      writeAgentFile(
+        agentsDir,
+        'helper.ts',
+        `
+          export default function helper() {
+            return 'ok'
+          }
+        `,
+      )
+
+      const consoleErrorSpy = spyOn(console, 'error').mockImplementation(
+        () => {},
+      )
+
+      const result = await loadLocalAgents({
+        agentsPath: agentsDir,
+        verbose: true,
+      })
+
+      expect(result).toEqual({})
+      expect(consoleErrorSpy).not.toHaveBeenCalled()
+    })
+
     test('logs errors when verbose is true', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(

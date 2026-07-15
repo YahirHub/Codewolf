@@ -126,11 +126,9 @@ describe('writeFileAtomicAsync', () => {
       writeFileAtomicAsync(target, 'third'),
     ])
 
-    // Whichever rename lands last wins, but the file is always one intact
-    // value — never a torn mix — and no temp files remain.
-    expect(['first', 'second', 'third']).toContain(
-      fs.readFileSync(target, 'utf8'),
-    )
+    // Writes are serialized per target, so invocation order is preserved and
+    // the final value is never a torn mix.
+    expect(fs.readFileSync(target, 'utf8')).toBe('third')
     expect(fs.readdirSync(tempDir)).toEqual(['out.json'])
   })
 })

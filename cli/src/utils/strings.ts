@@ -1,3 +1,4 @@
+import { stripAnsi } from '@codebuff/common/util/string'
 import path from 'path'
 
 /** Max number of lines to show in collapsed previews */
@@ -91,7 +92,7 @@ export function createTextPasteHandler(
   return (eventText) => {
     const rawPaste = eventText || readClipboardText()
     if (!rawPaste) return
-    const pasteText = Bun.stripANSI(rawPaste)
+    const pasteText = stripAnsi(rawPaste)
     if (!pasteText) return
     const { newText, newCursor } = insertTextAtCursor(
       text,
@@ -140,7 +141,7 @@ export function createPasteHandler(options: {
     // Strip ANSI escape sequences from pasted text — terminal paste events
     // (bracketed paste) may include ANSI sequences from the source content.
     if (eventText) {
-      eventText = Bun.stripANSI(eventText)
+      eventText = stripAnsi(eventText)
     }
 
     // If we have direct input text from the paste event (e.g., from terminal paste),
@@ -231,7 +232,7 @@ export function createPasteHandler(options: {
     }
 
     const rawClipboardText = readClipboardText()
-    const clipboardText = rawClipboardText ? Bun.stripANSI(rawClipboardText) : null
+    const clipboardText = rawClipboardText ? stripAnsi(rawClipboardText) : null
 
     // Check if clipboard text is a path to an image file
     if (clipboardText && onPasteImagePath && cwd) {

@@ -10,8 +10,12 @@ import {
 } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-
 import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
+
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
 
 /**
  * Type guard to check if a content part is a tool-call part with toolCallId.
@@ -44,7 +48,7 @@ function isToolMessageWithId(
  * These tests verify that context-pruner correctly prunes message history
  * while maintaining tool-call/tool-result pair integrity for Anthropic API compliance.
  */
-describe('Context Pruner Agent Integration', () => {
+liveDescribe('Context Pruner Agent Integration', () => {
   // Helper to create a text message
   const createMessage = (
     role: 'user' | 'assistant',

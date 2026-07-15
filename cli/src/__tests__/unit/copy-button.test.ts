@@ -34,17 +34,17 @@ describe('CopyButton - CopyIcon text rendering', () => {
 
     test('renders expanded text when hovered', () => {
       const text = getCopyIconText(false, true, true)
-      expect(text).toBe(' [⎘ copy]')
+      expect(text).toBe(' [⎘ copiar]')
     })
 
     test('renders copied text when copied', () => {
       const text = getCopyIconText(true, false, true)
-      expect(text).toBe(' [✔ copied]')
+      expect(text).toBe(' [✔ copiado]')
     })
 
     test('renders copied text even when hovered (copied takes priority)', () => {
       const text = getCopyIconText(true, true, true)
-      expect(text).toBe(' [✔ copied]')
+      expect(text).toBe(' [✔ copiado]')
     })
   })
 
@@ -56,12 +56,12 @@ describe('CopyButton - CopyIcon text rendering', () => {
 
     test('renders expanded text without leading space', () => {
       const text = getCopyIconText(false, true, false)
-      expect(text).toBe('[⎘ copy]')
+      expect(text).toBe('[⎘ copiar]')
     })
 
     test('renders copied text without leading space', () => {
       const text = getCopyIconText(true, false, false)
-      expect(text).toBe('[✔ copied]')
+      expect(text).toBe('[✔ copiado]')
     })
   })
 })
@@ -98,8 +98,8 @@ describe('CopyButton - exported constants', () => {
 
   test('icon constants are defined', () => {
     expect(COPY_ICON_COLLAPSED).toBe('⎘')
-    expect(COPY_ICON_EXPANDED).toBe('[⎘ copy]')
-    expect(COPY_ICON_COPIED).toBe('[✔ copied]')
+    expect(COPY_ICON_EXPANDED).toBe('[⎘ copiar]')
+    expect(COPY_ICON_COPIED).toBe('[✔ copiado]')
   })
 })
 
@@ -145,7 +145,10 @@ describe('CopyButton - copied state reset timing', () => {
         clearTimeout(currentTimerId)
       }
       copyButtonHandlers.handleCopy()
-      currentTimerId = setTimeout(() => {}, COPIED_RESET_DELAY_MS) as unknown as number
+      currentTimerId = setTimeout(
+        () => {},
+        COPIED_RESET_DELAY_MS,
+      ) as unknown as number
     }
 
     handleCopy()

@@ -2,9 +2,8 @@
  * Direnv initialization - loads environment variables from .envrc at CLI startup.
  */
 
-import { spawnSync } from 'child_process'
+import * as childProcess from 'child_process'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 import { logger } from '../utils/logger'
@@ -49,25 +48,24 @@ export function findEnvrcDirectory(startDir: string): string | null {
 
 /** @internal */
 export function isDirenvAvailable(): boolean {
-  if (os.platform() === 'win32') {
-    return false
-  }
-
   try {
-    const result = spawnSync('sh', ['-c', 'command -v direnv'], {
+    const result = childProcess.spawnSync('direnv', ['version'], {
       encoding: 'utf-8',
       timeout: 2000,
+      windowsHide: true,
     })
-    return result.status === 0 && result.stdout.trim().length > 0
+    return result.status === 0
   } catch {
     return false
   }
 }
 
 /** @internal */
-export function getDirenvExport(envrcDir: string): Record<string, string | null> | null {
+export function getDirenvExport(
+  envrcDir: string,
+): Record<string, string | null> | null {
   try {
-    const result = spawnSync('direnv', ['export', 'json'], {
+    const result = childProcess.spawnSync('direnv', ['export', 'json'], {
       cwd: envrcDir,
       encoding: 'utf-8',
       timeout: 10000,
@@ -76,9 +74,7 @@ export function getDirenvExport(envrcDir: string): Record<string, string | null>
 
     if (result.status !== 0) {
       if (result.stderr?.includes('is blocked')) {
-        logger.warn(
-          'direnv: .envrc is blocked. Run `direnv allow` to enable.',
-        )
+        logger.warn('direnv: .envrc is blocked. Run `direnv allow` to enable.')
       }
       return null
     }

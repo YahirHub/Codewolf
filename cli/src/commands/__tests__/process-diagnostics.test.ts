@@ -8,7 +8,7 @@ import {
 import type { ProcessDiagnosticsSnapshot } from '../process-diagnostics'
 
 const snapshot: ProcessDiagnosticsSnapshot = {
-  product: 'Freebuff',
+  product: 'Codewolf',
   version: '1.2.3',
   runtime: 'Bun 1.3.14',
   platform: 'darwin',
@@ -33,7 +33,7 @@ describe('process diagnostics', () => {
   test('formats owned process IDs without sensitive command data', () => {
     const output = formatProcessDiagnostics(snapshot)
 
-    expect(output).toContain('### Diagnóstico de procesos de Freebuff')
+    expect(output).toContain('### Diagnóstico de procesos de Codewolf')
     expect(output).toContain('Tiempo activo del CLI: 01:01:01')
     expect(output).toContain('proceso padre/contenedor: PID 100')
     expect(output).toContain('binario del CLI: PID 200')

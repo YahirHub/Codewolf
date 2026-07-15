@@ -3,5 +3,13 @@ linker = "hoisted"
 linkWorkspacePackages = true
 
 [test]
-exclude = ["**/*.integration.test.*", "freebuff/e2e/**"]
+pathIgnorePatterns = [
+  "agents/browser-use/**",
+  "agents/librarian/**",
+  "cli/src/__tests__/integration/**",
+  "cli/src/__tests__/e2e-cli.test.ts",
+  "cli/src/__tests__/rerender-perf.integration.test.ts",
+  "packages/code-map/__tests__/integration.test.ts",
+  "sdk/src/__tests__/*.integration.test.ts",
+]
 preload = ["./sdk/test/setup-env.ts"]

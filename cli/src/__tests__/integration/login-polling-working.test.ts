@@ -280,6 +280,6 @@ describe('Login Polling (Working)', () => {
         { logger, apiClient },
         { baseUrl: 'https://cli.test', fingerprintId: 'finger-login' },
       ),
-    ).rejects.toThrow('Failed to get login URL')
+    ).rejects.toThrow('No se pudo obtener la URL de inicio de sesión')
   })
 })

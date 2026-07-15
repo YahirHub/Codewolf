@@ -18,14 +18,7 @@ export const useMessageQueue = (
   sendMessage: (message: QueuedMessage) => Promise<void>,
   isChainInProgressRef: React.MutableRefObject<boolean>,
   activeAgentStreamsRef: React.MutableRefObject<number>,
-  opts: {
-    /** External hold on dequeuing (e.g. the freebuff session ended and new
-     *  requests would be rejected). Queued messages are kept, not dropped;
-     *  processing resumes automatically when this flips back to false. */
-    sendBlocked?: boolean
-  } = {},
 ) => {
-  const sendBlocked = opts.sendBlocked ?? false
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([])
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle')
   const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
@@ -87,16 +80,6 @@ export const useMessageQueue = (
         { queueLength },
         '[message-queue] Queue blocked: user paused',
       )
-      return
-    }
-
-    // External hold: sending is currently pointless (e.g. freebuff session
-    // fully ended — requests without a live session are rejected). Leave the
-    // messages queued; the effect below re-runs when sendBlocked flips false.
-    // No log here: unlike the transient busy branches above, this state can
-    // persist for the whole hold, and this path re-runs on every render —
-    // the transition is logged once by the caller instead.
-    if (sendBlocked) {
       return
     }
 
@@ -210,7 +193,6 @@ export const useMessageQueue = (
     canProcessQueue,
     streamStatus,
     sendMessage,
-    sendBlocked,
     isChainInProgressRef,
     activeAgentStreamsRef,
   ])
@@ -232,17 +214,6 @@ export const useMessageQueue = (
     [],
   )
 
-  /** Put a message back at the HEAD of the queue. Used when a send was
-   *  aborted before it did anything (e.g. the freebuff session ended between
-   *  dequeue and run start) so the message keeps its place instead of being
-   *  consumed. */
-  const addToQueueFront = useCallback((message: QueuedMessage) => {
-    setQueuedMessages((prev) => {
-      const newQueue = [message, ...prev]
-      queuedMessagesRef.current = newQueue
-      return newQueue
-    })
-  }, [])
 
   const pauseQueue = useCallback(() => {
     isQueuePausedRef.current = true
@@ -280,7 +251,6 @@ export const useMessageQueue = (
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    addToQueueFront,
     startStreaming,
     stopStreaming,
     setStreamStatus,

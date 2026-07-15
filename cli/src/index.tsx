@@ -33,13 +33,11 @@ import { trackEvent } from './utils/analytics'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
-import { IS_FREEBUFF } from './utils/constants'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
-import { startEngagementTracking } from './utils/engagement'
 import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
 import { TERMINAL_RESET_SEQUENCES } from './utils/terminal-reset-sequences'
 import {
@@ -221,7 +219,6 @@ async function main(): Promise<void> {
     hasAgentOverride: hasAgentOverride,
     continueChat,
     initialMode: initialMode ?? 'DEFAULT',
-    isFreeBuff: IS_FREEBUFF,
   })
 
   // Initialize agent registry (loads user agents via SDK).
@@ -283,15 +280,9 @@ async function main(): Promise<void> {
       const apiKey = getAuthTokenDetails().token ?? ''
 
       // The full editor always opens so /login can configure a provider
-      // interactively, even on a fresh installation without Codebuff credentials.
-      if (!IS_FREEBUFF) {
-        setHasInvalidCredentials(false)
-        setRequireAuth(false)
-        return
-      }
-
-      setHasInvalidCredentials(Boolean(apiKey))
-      setRequireAuth(!apiKey)
+      // interactively, even on a fresh installation without credentials.
+      setHasInvalidCredentials(false)
+      setRequireAuth(false)
     }, [])
 
     const loadFileTree = React.useCallback(async (root: string) => {
@@ -411,14 +402,6 @@ async function main(): Promise<void> {
   process.removeListener('uncaughtException', earlyFatalHandler)
   process.removeListener('unhandledRejection', earlyFatalHandler)
   installProcessCleanupHandlers(renderer)
-
-  // Start the engaged-time heartbeat only once the interactive TUI is actually
-  // live — reaching renderer creation means this is a real session (the
-  // login/publish/smoke-test commands all exit earlier). Freebuff-only, matching
-  // the MESSAGE_SENT DAU signal. Stopped in exitFreebuffCleanly().
-  if (IS_FREEBUFF) {
-    startEngagementTracking()
-  }
 
   createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>

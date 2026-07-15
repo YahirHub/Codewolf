@@ -9,7 +9,7 @@
  *
  * POSIX:
  * - We spawn a detached `/bin/sh` whose stdin is a pipe from this process.
- *   `sh` isn't named node/bun/codebuff/freebuff, so process-name kill sweeps
+ *   `sh` isn't named node/bun/codewolf, so process-name kill sweeps
  *   miss it, and `detached` puts it in its own session so process-group kills
  *   miss it too.
  * - The watchdog blocks on `cat` until the pipe hits EOF — which only happens

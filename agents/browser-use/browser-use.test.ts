@@ -5,6 +5,8 @@
  * to files for analysis. Each task produces a trace file in debug/browser-agent-traces/.
  *
  * Usage:
+ *   $env:RUN_CODEBUFF_E2E = "true"
+ *   $env:CODEBUFF_API_KEY = "..."
  *   bun agents/browser-use/browser-use.test.ts [taskIndex]
  *
  * If taskIndex is provided, runs only that task (0-based). Otherwise runs all tasks.
@@ -190,9 +192,14 @@ async function main() {
   console.log(`\n${passed}/${results.length} tasks passed`)
 }
 
-if (import.meta.main) {
-  main().catch((err) => {
-    console.error('Fatal error:', err)
-    process.exit(1)
-  })
+if (import.meta.main && process.env.RUN_CODEBUFF_E2E === 'true') {
+  if (!process.env.CODEBUFF_API_KEY) {
+    console.error('CODEBUFF_API_KEY is required when RUN_CODEBUFF_E2E=true.')
+    process.exitCode = 1
+  } else {
+    main().catch((err) => {
+      console.error('Fatal error:', err)
+      process.exitCode = 1
+    })
+  }
 }

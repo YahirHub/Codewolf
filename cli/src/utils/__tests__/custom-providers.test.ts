@@ -55,7 +55,9 @@ describe('custom providers', () => {
   })
 
   test('creates a stable provider id from its display name', () => {
-    expect(createCustomProviderId('Mi Proveedor Ágil')).toBe('mi-proveedor-agil')
+    expect(createCustomProviderId('Mi Proveedor Ágil')).toBe(
+      'mi-proveedor-agil',
+    )
   })
 
   test('accepts comma-separated and newline-separated model ids', () => {
@@ -204,7 +206,7 @@ describe('custom providers', () => {
           { id: 'large', context_window: '1_000_000' },
           { id: 'small', max_model_len: 131072 },
         ],
-      })) as typeof fetch
+      })) as unknown as typeof fetch
 
     await expect(
       discoverCustomProviderModels({
@@ -263,7 +265,6 @@ describe('custom providers', () => {
     disableCustomProvider(configDir)
     expect(getActiveCustomProviderRuntimeConfig(configDir)).toBeUndefined()
   })
-
 
   test('edits provider metadata and models without exposing or replacing its key', () => {
     upsertCustomProvider({

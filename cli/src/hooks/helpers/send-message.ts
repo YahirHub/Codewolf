@@ -1,23 +1,9 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 
-import {
-  markFreebuffSessionCountryBlocked,
-  markFreebuffSessionEnded,
-  markFreebuffSessionSuperseded,
-  refreshFreebuffSession,
-} from '../use-freebuff-session'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
-import { IS_FREEBUFF } from '../../utils/constants'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
-import {
-  getCountryBlockFromFreeModeError,
-  getFreeModeUnavailableErrorMessage,
-  getFreebuffGateErrorKind,
-  getFreebuffRateLimitErrorMessage,
-  isFreeModeUnavailableError,
-} from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
@@ -333,10 +319,6 @@ export const handleRunCompletion = (params: {
   updater: BatchedMessageUpdater
   aiMessageId: string
   wasAbortedByUser: boolean
-  /** Whether the run streamed any content before finishing. A freebuff gate
-   *  rejection with no content means the prompt was consumed unprocessed —
-   *  surfaced as an inline error instead of silently looking sent. */
-  hasReceivedContent?: boolean
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   updateChainInProgress: (value: boolean) => void
@@ -390,38 +372,6 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
-
-    if (isFreeModeUnavailableError(output)) {
-      updater.setError(getFreeModeUnavailableErrorMessage(output))
-      if (IS_FREEBUFF) {
-        markFreebuffSessionCountryBlocked(
-          getCountryBlockFromFreeModeError(output) ?? {
-            countryCode: 'UNKNOWN',
-          },
-        )
-      }
-      finalizeAfterError()
-      return
-    }
-
-    const gateKind = getFreebuffGateErrorKind(output)
-    if (gateKind) {
-      handleFreebuffGateError(gateKind, updater, {
-        messageWasDropped: params.hasReceivedContent === false,
-      })
-      finalizeAfterError()
-      return
-    }
-
-    const freebuffRateLimitMessage = IS_FREEBUFF
-      ? getFreebuffRateLimitErrorMessage(output)
-      : null
-    if (freebuffRateLimitMessage) {
-      updater.setError(freebuffRateLimitMessage)
-      finalizeAfterError()
-      return
-    }
-
     // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
     updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
@@ -469,8 +419,6 @@ export const handleRunError = (params: {
   updateChainInProgress: (value: boolean) => void
   isProcessingQueueRef?: MutableRefObject<boolean>
   isQueuePausedRef?: MutableRefObject<boolean>
-  /** See handleRunCompletion — flags an unprocessed prompt on gate errors. */
-  hasReceivedContent?: boolean
 }) => {
   const {
     error,
@@ -482,7 +430,6 @@ export const handleRunError = (params: {
     updateChainInProgress,
     isProcessingQueueRef,
     isQueuePausedRef,
-    hasReceivedContent,
   } = params
 
   const errorInfo = getErrorObject(error, { includeRawError: true })
@@ -498,93 +445,7 @@ export const handleRunError = (params: {
   })
   timerController.stop('error')
 
-  if (isFreeModeUnavailableError(error)) {
-    updater.setError(getFreeModeUnavailableErrorMessage(error))
-    if (IS_FREEBUFF) {
-      markFreebuffSessionCountryBlocked(
-        getCountryBlockFromFreeModeError(error) ?? {
-          countryCode: 'UNKNOWN',
-        },
-      )
-    }
-    return
-  }
-
-  const gateKind = getFreebuffGateErrorKind(error)
-  if (gateKind) {
-    handleFreebuffGateError(gateKind, updater, {
-      messageWasDropped: hasReceivedContent === false,
-    })
-    return
-  }
-
-  const freebuffRateLimitMessage = IS_FREEBUFF
-    ? getFreebuffRateLimitErrorMessage(error)
-    : null
-  if (freebuffRateLimitMessage) {
-    updater.setError(freebuffRateLimitMessage)
-    return
-  }
-
   // Use setError for all errors so they display in UserErrorBanner consistently
   const errorMessage = errorInfo.message || 'Ocurrió un error inesperado'
   updater.setError(errorMessage)
-}
-
-/**
- * Surface + recover from a session gate rejection. The server rejected
- * the request because our session is no longer valid; update local state so
- * the UI reflects reality and we stop sending requests until we re-admit.
- */
-function handleFreebuffGateError(
-  kind: ReturnType<typeof getFreebuffGateErrorKind>,
-  updater: BatchedMessageUpdater,
-  opts: { messageWasDropped?: boolean } = {},
-) {
-  switch (kind) {
-    case 'session_expired':
-    case 'waiting_room_required':
-    case 'session_model_mismatch':
-      // Our seat is gone mid-chat. Finalize the AI message so its streaming
-      // indicator stops — otherwise `isComplete` stays false and the message
-      // keeps rendering a blinking cursor forever, making the user think the
-      // agent is still working even though the SessionEndedBanner is visible
-      // and actionable. Also disposes the batched-updater flush interval.
-      updater.markComplete()
-      // Rejected before producing anything (the run-start guard missed
-      // because only the server knew the slot was gone): the prompt won't be
-      // processed and isn't re-queued, so say so instead of leaving it
-      // looking sent. Runs that got partway keep the quieter banner-only UX.
-      if (opts.messageWasDropped) {
-        updater.setError(
-          'Tu sesión gratuita terminó antes de procesar este mensaje. Envíalo de nuevo después de iniciar otra sesión.',
-        )
-      }
-      // Flip to `ended` instead of auto re-queuing: the Chat surface stays
-      // mounted so any in-flight agent work can finish under the server-side
-      // grace period, and the session-ended banner prompts the user to press
-      // Enter when they're ready to rejoin.
-      markFreebuffSessionEnded()
-      return
-    case 'waiting_room_queued':
-      // Legacy error code: sessions are admitted immediately now, so this is
-      // only reachable in a transient race with a concurrent session request.
-      updater.setError(
-        'Tu sesión gratuita todavía se está preparando. Inténtalo de nuevo en un momento.',
-      )
-      // Re-sync without resetting chat — this is a "we'll wait", not a
-      // "let's start fresh".
-      refreshFreebuffSession().catch(() => {})
-      return
-    case 'session_superseded':
-      updater.setError(
-        'Otra instancia del CLI de Freebuff tomó el control de esta cuenta. Cierra la otra instancia y reinicia.',
-      )
-      // Terminal state: stop polling and flip UI to a "please restart" screen
-      // so we don't silently fight the other instance for the seat.
-      markFreebuffSessionSuperseded()
-      return
-    default:
-      return
-  }
 }

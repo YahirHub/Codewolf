@@ -1,4 +1,3 @@
-import { getFreebuffModel } from '@codebuff/common/constants/freebuff-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -6,7 +5,6 @@ import { Button } from './button'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
 
-import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useChatStore } from '../state/chat-store'
 import { useCustomProviderStore } from '../state/custom-provider-store'
 import { useTheme } from '../hooks/use-theme'
@@ -16,16 +14,9 @@ import {
 } from '../utils/context-window'
 import { resolveCustomModelMaxContextTokens } from '../utils/custom-providers'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
-import {
-  FREEBUFF_COUNTDOWN_VISIBLE_MS,
-  formatFreebuffSessionCountdown,
-  formatFreebuffSessionRemaining,
-} from '../utils/freebuff-session-display'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
-/** A small status-bar action button with hover-bold styling. */
 const StatusActionButton = ({
   children,
   onClick,
@@ -63,8 +54,6 @@ interface StatusBarProps {
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
   onStop?: () => void
-  onEndSession?: () => void
-  freebuffSession: FreebuffSessionResponse | null
 }
 
 export const StatusBar = ({
@@ -73,8 +62,6 @@ export const StatusBar = ({
   scrollToLatest,
   statusIndicatorState,
   onStop,
-  onEndSession,
-  freebuffSession,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -100,12 +87,10 @@ export const StatusBar = ({
     ? `Contexto ${formatContextTokens(contextProgress.usedTokens)}/${formatContextTokens(contextProgress.maxTokens)} · ${contextProgress.usedPercent}%`
     : null
 
-  // Show timer when actively working (streaming or waiting for response) or paused (ask_user)
-  // This uses statusIndicatorState as the single source of truth for "is the LLM working?"
   const shouldShowTimer =
-    statusIndicatorState?.kind === 'waiting' ||
-    statusIndicatorState?.kind === 'streaming' ||
-    statusIndicatorState?.kind === 'paused'
+    statusIndicatorState.kind === 'waiting' ||
+    statusIndicatorState.kind === 'streaming' ||
+    statusIndicatorState.kind === 'paused'
 
   useEffect(() => {
     if (!timerStartTime || !shouldShowTimer) {
@@ -113,60 +98,39 @@ export const StatusBar = ({
       return
     }
 
-    // When paused, don't update the timer - just keep the frozen value
-    if (statusIndicatorState?.kind === 'paused') {
-      // Calculate current elapsed time once and freeze it
-      const now = Date.now()
-      const elapsed = Math.floor((now - timerStartTime) / 1000)
-      setElapsedSeconds(elapsed)
-      return
-    }
-
     const updateElapsed = () => {
-      const now = Date.now()
-      const elapsed = Math.floor((now - timerStartTime) / 1000)
-      setElapsedSeconds(elapsed)
+      setElapsedSeconds(Math.floor((Date.now() - timerStartTime) / 1000))
     }
 
     updateElapsed()
+    if (statusIndicatorState.kind === 'paused') return
+
     const interval = setInterval(updateElapsed, 1000)
-
     return () => clearInterval(interval)
-  }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
+  }, [timerStartTime, shouldShowTimer, statusIndicatorState.kind])
 
-  const sessionProgress = useFreebuffSessionProgress(freebuffSession)
-  const isUnlimited =
-    freebuffSession?.status === 'active' && !freebuffSession.rateLimit
-
-  const renderStatusIndicator = () => {
+  const statusIndicatorContent = (() => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
-        return (
-          <span fg={theme.secondary}>Pulsa Ctrl+C otra vez para salir</span>
-        )
-
+        return <span fg={theme.secondary}>Pulsa Ctrl+C otra vez para salir</span>
       case 'clipboard':
-        // Use green color for feedback success messages
-        const isFeedbackSuccess = statusIndicatorState.message.includes(
-          'Comentarios enviados',
-        )
         return (
-          <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
+          <span
+            fg={
+              statusIndicatorState.message.includes('Comentarios enviados')
+                ? theme.success
+                : theme.primary
+            }
+          >
             {statusIndicatorState.message}
           </span>
         )
-
       case 'reconnected':
         return <span fg={theme.success}>Reconectado</span>
-
       case 'retrying':
-        return (
-          <ShimmerText text="reintentando..." primaryColor={theme.warning} />
-        )
-
+        return <ShimmerText text="reintentando..." primaryColor={theme.warning} />
       case 'connecting':
         return <ShimmerText text="conectando..." />
-
       case 'waiting':
         return (
           <ShimmerText
@@ -175,7 +139,6 @@ export const StatusBar = ({
             primaryColor={theme.secondary}
           />
         )
-
       case 'streaming':
         return (
           <ShimmerText
@@ -184,76 +147,28 @@ export const StatusBar = ({
             primaryColor={theme.secondary}
           />
         )
-
       case 'paused':
-        return null
-
       case 'idle':
-        if (sessionProgress !== null) {
-          const isUrgent =
-            sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS
-          const modelName =
-            freebuffSession?.status === 'active'
-              ? getFreebuffModel(freebuffSession.model).displayName
-              : null
-          return (
-            <span
-              fg={
-                isUnlimited
-                  ? theme.secondary
-                  : isUrgent
-                    ? theme.warning
-                    : theme.secondary
-              }
-            >
-              {modelName ? `${modelName} · ` : ''}
-              {isUnlimited
-                ? 'sin límite'
-                : formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
-            </span>
-          )
-        }
         return null
     }
-  }
+  })()
 
-  const renderElapsedTime = () => {
-    if (!shouldShowTimer || elapsedSeconds === 0) {
-      return null
-    }
-
-    return <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
-  }
-
-  const statusIndicatorContent = renderStatusIndicator()
-  const elapsedTimeContent = renderElapsedTime()
-
-  // Show gray background when there's status indicator, timer, or when the
-  // freebuff session fill is visible (otherwise the fill would float over
-  // transparent space).
-  const hasContent =
+  const elapsedTimeContent =
+    shouldShowTimer && elapsedSeconds > 0 ? (
+      <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
+    ) : null
+  const hasContent = Boolean(
     statusIndicatorContent ||
-    elapsedTimeContent ||
-    sessionProgress !== null ||
-    customProviderLabel !== null ||
-    contextLabel !== null
-
-  const backgroundProgress =
-    sessionProgress?.fraction ?? contextProgress?.remainingFraction ?? null
+      elapsedTimeContent ||
+      customProviderLabel ||
+      contextLabel,
+  )
   const contextColor =
     contextProgress?.level === 'critical'
       ? theme.error
       : contextProgress?.level === 'warning'
         ? theme.warning
         : theme.secondary
-  const backgroundProgressColor =
-    sessionProgress !== null
-      ? theme.surfaceHover
-      : contextProgress?.level === 'critical'
-        ? theme.error
-        : contextProgress?.level === 'warning'
-          ? theme.warning
-          : theme.surfaceHover
 
   return (
     <box
@@ -267,27 +182,24 @@ export const StatusBar = ({
         backgroundColor: hasContent ? theme.surface : 'transparent',
       }}
     >
-      {backgroundProgress !== null && (
+      {contextProgress && (
         <box
           style={{
             position: 'absolute',
             left: 0,
             top: 0,
             bottom: 0,
-            // The filled background represents capacity remaining. It starts
-            // full and drains from right to left as the context is consumed.
-            width: `${backgroundProgress * 100}%`,
-            backgroundColor: backgroundProgressColor,
+            width: `${contextProgress.remainingFraction * 100}%`,
+            backgroundColor:
+              contextProgress.level === 'critical'
+                ? theme.error
+                : contextProgress.level === 'warning'
+                  ? theme.warning
+                  : theme.surfaceHover,
           }}
         />
       )}
-      <box
-        style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 0,
-        }}
-      >
+      <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
         <text style={{ wrapMode: 'none' }}>{statusIndicatorContent}</text>
       </box>
 
@@ -333,23 +245,6 @@ export const StatusBar = ({
           (statusIndicatorState.kind === 'waiting' ||
             statusIndicatorState.kind === 'streaming') && (
             <StatusActionButton onClick={onStop}>■ Esc</StatusActionButton>
-          )}
-        {onEndSession &&
-          statusIndicatorState.kind === 'idle' &&
-          freebuffSession?.status === 'active' && (
-            <StatusActionButton onClick={onEndSession}>
-              ✕ Finalizar sesión
-            </StatusActionButton>
-          )}
-        {sessionProgress !== null &&
-          sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS &&
-          statusIndicatorState.kind !== 'idle' &&
-          !isUnlimited && (
-            <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.warning} attributes={TextAttributes.BOLD}>
-                {formatFreebuffSessionCountdown(sessionProgress.remainingMs)}
-              </span>
-            </text>
           )}
       </box>
     </box>

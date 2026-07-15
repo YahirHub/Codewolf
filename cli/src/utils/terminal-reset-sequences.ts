@@ -5,9 +5,7 @@
  *
  * Keep this list in sync with the modes OpenTUI enables (see the enable
  * sequences in @opentui/core's native lib) and with
- * SAFE_TERMINAL_RESET_SEQUENCES in the npm wrapper release scripts
- * (cli/release/index.js, cli/release-staging/index.js,
- * freebuff/cli/release/index.js).
+ * the terminal reset logic used by the compiled CLI wrapper.
  *
  * Sequences:
  * - \x1b[?1049l: Exit alternate screen buffer (restores main screen)

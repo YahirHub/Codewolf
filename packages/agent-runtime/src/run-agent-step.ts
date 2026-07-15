@@ -1,9 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
-  isFreeMode,
-  shouldUseLocalTokenCountForFreebuffDeepseekFlash,
-} from '@codebuff/common/constants/free-agents'
-import {
   supportsAssistantPrefill,
   supportsCacheControl,
 } from '@codebuff/common/old-constants'
@@ -889,11 +885,7 @@ export async function loopAgentSteps(
 
   const shouldUseLocalContextTokenCount =
     Boolean(params.customProvider) ||
-    isFreeMode(params.costMode) ||
-    shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-      agentId: agentTemplate.id,
-      model: agentTemplate.model,
-    })
+    params.costMode === 'free'
   const estimatePersistedContextTokensLocally = (state: AgentState) =>
     countTokensMessages(state.messageHistory) +
     countTokens(system) +
@@ -943,7 +935,7 @@ export async function loopAgentSteps(
         countTokens(system) +
         countTokensJson(toolsForTokenCount)
 
-      // Free (freebuff) and custom-provider runs never call the Codebuff
+      // LITE and custom-provider runs never call the Codebuff
       // token-count web API. Custom providers are intentionally independent
       // from Codebuff credentials/services, and a local estimate is sufficient
       // for context pruning across OpenAI-compatible endpoints.

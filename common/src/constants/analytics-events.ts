@@ -2,28 +2,8 @@
  * Enum of analytics event types used throughout the application
  */
 export enum AnalyticsEvent {
-  // Cross-surface — DAU
-  // Emitted exactly once per user-submitted message/prompt, on each surface,
-  // and never sampled. `distinct_id` is the canonical codebuff Postgres user
-  // id on every surface, so unique-users of this event gives accurate
-  // per-surface DAU (filter on the `surface` property) and a combined DAU (no
-  // filter). The `surface` property is one of: cli, web, chat, desktop, cloud
-  // (web = the freebuff.com builder, cloud = connected-repo builder projects).
-  // Emission points: cli client analytics; chat's stream route (server-side);
-  // desktop's analytics module; web/cloud via the Convex send mutation
-  // (PostHog + Axiom, both direct from Convex — see convex/analytics.ts).
+  // Cross-surface — DAU. Emitted once per user-submitted prompt.
   MESSAGE_SENT = 'message_sent',
-
-  // Cross-surface — engaged time
-  // Emitted once per minute of *active engagement* on each surface (cli / web /
-  // chat / cloud / desktop) while the user is present (visible+focused for
-  // browser surfaces, recently-active for the CLI) and not idle. Never sampled.
-  // `distinct_id` is the canonical user id where available (anonymous/device id
-  // otherwise). Because interval = 1 minute, a raw event COUNT equals minutes
-  // spent: sum per product = Total count broken down by `surface`; average per
-  // user = "Average count per user" broken down by `surface`. See
-  // common/src/util/engagement-tracker.ts.
-  PRODUCT_ACTIVE_MINUTE = 'product_active_minute',
 
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
@@ -48,12 +28,7 @@ export enum AnalyticsEvent {
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
   SUGGESTED_PROMPT_SHOWN = 'cli.suggested_prompt_shown',
   SUGGESTED_PROMPT_CLICKED = 'cli.suggested_prompt_clicked',
-  // Sampled per eligible transcript slot; use response_id to recover the
-  // response-length distribution without ingesting every user's full stream.
-  CLI_INLINE_AD_SLOT_ELIGIBLE = 'cli.inline_ad_slot_eligible',
-  // Emitted once when a response needs a fifth slot and starts reusing its
-  // four-ad pool.
-  CLI_INLINE_AD_POOL_REUSED = 'cli.inline_ad_pool_reused',
+
 
   // Backend
   AGENT_STEP = 'backend.agent_step',
@@ -176,12 +151,6 @@ export enum AnalyticsEvent {
   LOGS_INGEST_AUTH_ERROR = 'api.logs_ingest_auth_error',
   LOGS_INGEST_VALIDATION_ERROR = 'api.logs_ingest_validation_error',
 
-  // Web - Ads API
-  ADS_API_AUTH_ERROR = 'api.ads_auth_error',
-  ADS_FETCH_COMPLETED = 'ads.fetch_completed',
-  ADS_IMPRESSION_RECORDED = 'ads.impression_recorded',
-  ADS_CLICKED = 'ads.clicked',
-
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',
   TOKEN_COUNT_AUTH_ERROR = 'api.token_count_auth_error',
@@ -193,101 +162,7 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
 
-  // Freebuff - Creator Attribution
-  FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
-
-  // Freebuff - Referral program server lifecycle (emitted from packages/billing
-  // via the server logger → Axiom `event` column). Funnel: redeemed → completed
-  // (both low-volume per-referral transitions). The "why is this still pending"
-  // breakdown (account_too_new / no_github_account / not_activated) is NOT a
-  // per-evaluation event — that would fire on every live trigger and dominate
-  // ingest; it rides on `sweep`, which aggregates outcomes across the whole
-  // pending population once per run (see ReferralSweepResult.outcomes).
-  FREEBUFF_REFERRAL_REDEEMED = 'freebuff.referral.redeemed',
-  // A redemption attempt that hit one of the one-shot eligibility guards
-  // (signup_too_old, user_banned, referrer_limit_reached, reverse_referral,
-  // self_referral). Deliberately EXCLUDES the two repeat-prone errors —
-  // invalid_code (cookie intentionally kept for legacy codes) and
-  // already_referred (cookie can outlive redemption on the /onboard RSC hop)
-  // — which would otherwise re-fire on every <=10-min token mint; those log
-  // at debug only. Without this event, a "my friend's invite didn't count"
-  // support case is undiagnosable — the guards otherwise return silently.
-  FREEBUFF_REFERRAL_REDEEM_FAILED = 'freebuff.referral.redeem_failed',
-  // Attribution went through and the referred user redeemed from an IP or
-  // browser the REFERRER was recently seen on. Evidence, NOT a verdict: this
-  // is also exactly what a genuine in-person referral looks like ("try it,
-  // here's my laptop" — a sibling on the family computer shares both). Only
-  // suspicious when corroborated by real farm signals (dormant GitHub, burst
-  // velocity, no product use); the sweep + scripts do that weighing.
-  FREEBUFF_REFERRAL_SOCK_SIGNAL = 'freebuff.referral.sock_signal',
-  FREEBUFF_REFERRAL_COMPLETED = 'freebuff.referral.completed',
-  FREEBUFF_REFERRAL_SWEEP = 'freebuff.referral.sweep',
-
-  // Freebuff - Get Started Page (referral onboarding funnel, in order:
-  //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
-  //   [connect_github_clicked] → install_command_copied | web_clicked).
-  // Every event carries a `referrer` prop (the inviter's name) for per-referrer
-  // funnel breakdowns.
-  FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
-  FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
-  FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
-  FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
-  FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
-  FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
-  FREEBUFF_GET_STARTED_WEB_CLICKED = 'freebuff.get_started_web_clicked',
-  // Deprecated (previous get-started design — no longer fired):
-  FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
-  FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
-
-  // Freebuff - Chat
-  // Emitted once per new-thread title generation attempt (server-side). The
-  // `outcome` property is one of: generated | empty | unknown_model | error |
-  // aborted. Carries `latencyMs`, `model`, and `titleLength` so the failure/
-  // fallback rate and added latency are queryable.
-  FREEBUFF_CHAT_TITLE_GENERATED = 'freebuff.chat_title_generated',
-
-  // Freebuff - CLI landing page (/cli). Fired when the install command is
-  // copied; `location` distinguishes hero vs install section. Lets us measure
-  // install intent per campaign (utm_* ride along as super-properties) — the
-  // best proxy conversion for CLI traffic, since CLI activation happens in a
-  // separate identity space with no key back to the web landing.
-  FREEBUFF_CLI_INSTALL_COMMAND_COPIED = 'freebuff.cli_install_command_copied',
-
-  // Freebuff - Cloud landing page (/cloud). Fired when a logged-out visitor
-  // clicks a "Continue with GitHub" / "Connect your repo" CTA; `location`
-  // distinguishes hero vs the migration/lovable section vs the final CTA. Best
-  // proxy for cloud sign-up intent (utm_* ride along as super-properties).
-  FREEBUFF_CLOUD_CONNECT_REPO_CLICKED = 'freebuff.cloud_connect_repo_clicked',
-
-  // Freebuff - Home Page
-  FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',
-  FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',
-  FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
-  FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
-
-  // Freebuff - acquisition attribution (UTM / ad-click params captured as
-  // super-properties; filter by utm_source, reddit_click_id, is_reddit_traffic)
-  FREEBUFF_ATTRIBUTED = 'freebuff.attributed',
-  // Freebuff - Reddit ad funnel (filter in PostHog by reddit_click_id / utm_source)
-  FREEBUFF_REDDIT_FUNNEL_CLI_INSTALLED = 'freebuff.reddit_funnel.cli_installed',
-  FREEBUFF_REDDIT_FUNNEL_LOGIN = 'freebuff.reddit_funnel.login',
-  FREEBUFF_REDDIT_FUNNEL_SIGN_UP = 'freebuff.reddit_funnel.sign_up',
-  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_CLI = 'freebuff.reddit_funnel.first_prompt_cli',
-  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_WEB = 'freebuff.reddit_funnel.first_prompt_web',
-  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_CHAT = 'freebuff.reddit_funnel.first_prompt_chat',
-  FREEBUFF_REDDIT_FUNNEL_RETENTION_1D_CLI = 'freebuff.reddit_funnel.retention_1d_cli',
-  FREEBUFF_REDDIT_FUNNEL_RETENTION_7D_CLI = 'freebuff.reddit_funnel.retention_7d_cli',
-  FREEBUFF_REDDIT_FUNNEL_RETENTION_24D_CLI = 'freebuff.reddit_funnel.retention_24d_cli',
-  FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
-
-  // Freebuff web /chat ads experiment (server-rendered Gravity ads vs the
-  // existing @gravity-ai/react inline slot; bucketed by user id — see
-  // freebuff/web/src/app/chat/_components/ad-experiment.ts). Both events carry
-  // `experiment` + `variant` so PostHog can break down exposure and CTR by arm.
-  FREEBUFF_CHAT_ADS_EXPERIMENT_EXPOSED = 'freebuff.chat_ads.experiment_exposed',
-  FREEBUFF_CHAT_ADS_AD_SHOWN = 'freebuff.chat_ads.ad_shown',
-
-  // Freebuff Desktop (Electron app)
+  // Desktop (Electron app)
   // Mirrors the CLI's surface events so the desktop shows up in the same DAU /
   // login funnels. `message_sent` (above) is reused with `surface: 'desktop'`;
   // these capture the launch, auth, and per-turn activity unique to the app.
@@ -302,13 +177,7 @@ export enum AnalyticsEvent {
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
   DESKTOP_QUEUE_SEND_NOW = 'desktop.queue_send_now',
-  // Sponsored ads interspersed into the transcript (server-side ads_* events
-  // in web/api/v1/ads capture the fetch/impression/click ledger; these are the
-  // desktop-surface funnels).
-  DESKTOP_AD_SHOWN = 'desktop.ad_shown',
-  DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
-  DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
-  DESKTOP_INLINE_AD_POOL_REUSED = 'desktop.inline_ad_pool_reused',
+
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',

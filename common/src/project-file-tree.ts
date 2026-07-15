@@ -1,10 +1,9 @@
-import path from 'path'
-
 import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './constants/paths'
 import { fileExists, isValidProjectRoot } from './util/file'
+import { getPathApi, toIgnorePath } from './util/path-flavor'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
@@ -79,8 +78,11 @@ export async function getProjectFileTree(params: {
     maxDirs = SHALLOW_SCAN_MAX_DIRS
   }
 
+  const pathApi = getPathApi(projectRoot)
+  const normalizedProjectRoot = pathApi.resolve(projectRoot)
+
   const root: DirectoryNode = {
-    name: path.basename(projectRoot),
+    name: pathApi.basename(normalizedProjectRoot),
     type: 'directory',
     children: [],
     filePath: '',
@@ -93,7 +95,7 @@ export async function getProjectFileTree(params: {
   }[] = [
     {
       node: root,
-      fullPath: projectRoot,
+      fullPath: normalizedProjectRoot,
       ignore: defaultIgnore,
       depth: 0,
     },
@@ -106,7 +108,7 @@ export async function getProjectFileTree(params: {
     dirsScanned++
     const parsedIgnore = await parseGitignore({
       fullDirPath: fullPath,
-      projectRoot,
+      projectRoot: normalizedProjectRoot,
       fs,
     })
     const mergedIgnore = ignore
@@ -119,10 +121,13 @@ export async function getProjectFileTree(params: {
       for (const file of files) {
         if (totalFiles >= maxFiles) break
 
-        const filePath = path.join(fullPath, file)
-        const relativeFilePath = path.relative(projectRoot, filePath)
+        const filePath = pathApi.join(fullPath, file)
+        const relativeFilePath = pathApi.relative(
+          normalizedProjectRoot,
+          filePath,
+        )
 
-        if (mergedIgnore.ignores(relativeFilePath)) continue
+        if (mergedIgnore.ignores(toIgnorePath(relativeFilePath))) continue
 
         try {
           const stats = await fs.stat(filePath)
@@ -225,13 +230,14 @@ export async function parseGitignore(params: {
   const { fullDirPath, projectRoot, fs } = params
 
   const ig = ignore.default()
-  const relativeDirPath = path.relative(projectRoot, fullDirPath)
+  const pathApi = getPathApi(projectRoot)
+  const relativeDirPath = pathApi.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
-    path.join(fullDirPath, '.gitignore'),
-    path.join(fullDirPath, '.codewolfignore'),
+    pathApi.join(fullDirPath, '.gitignore'),
+    pathApi.join(fullDirPath, '.codewolfignore'),
     // Legacy compatibility for projects created before the Codewolf rename.
-    path.join(fullDirPath, '.codebuffignore'),
-    path.join(fullDirPath, '.manicodeignore'), // Legacy support
+    pathApi.join(fullDirPath, '.codebuffignore'),
+    pathApi.join(fullDirPath, '.manicodeignore'), // Legacy support
   ]
 
   for (const ignoreFilePath of ignoreFiles) {
@@ -261,16 +267,12 @@ export async function parseGitignore(params: {
   return ig
 }
 
-export function getAllFilePaths(
-  nodes: FileTreeNode[],
-  basePath: string = '',
-): string[] {
-  return nodes.flatMap((node) => {
-    if (node.type === 'file') {
-      return [path.join(basePath, node.name)]
-    }
-    return getAllFilePaths(node.children || [], path.join(basePath, node.name))
-  })
+export function getAllFilePaths(nodes: FileTreeNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.type === 'file'
+      ? [node.filePath]
+      : getAllFilePaths(node.children || []),
+  )
 }
 
 export interface PathInfo {
@@ -280,17 +282,13 @@ export interface PathInfo {
 
 export function getAllPathsWithDirectories(
   nodes: FileTreeNode[],
-  basePath: string = '',
 ): PathInfo[] {
   return nodes.flatMap((node) => {
-    const nodePath = basePath ? path.join(basePath, node.name) : node.name
     if (node.type === 'file') {
-      return [{ path: nodePath, isDirectory: false }]
+      return [{ path: node.filePath, isDirectory: false }]
     }
-    // Include the directory itself, plus recurse into children
-    const dirEntry: PathInfo = { path: nodePath, isDirectory: true }
-    const children = getAllPathsWithDirectories(node.children || [], nodePath)
-    return [dirEntry, ...children]
+    const dirEntry: PathInfo = { path: node.filePath, isDirectory: true }
+    return [dirEntry, ...getAllPathsWithDirectories(node.children || [])]
   })
 }
 
@@ -322,26 +320,42 @@ export async function isFileIgnored(params: {
   fs: CodebuffFileSystem
 }): Promise<boolean> {
   const { filePath, projectRoot, fs } = params
+  const pathApi = getPathApi(projectRoot)
+  const normalizedRoot = pathApi.resolve(projectRoot)
+  const fullPath = pathApi.resolve(normalizedRoot, filePath)
+  const relativeFilePath = toIgnorePath(
+    pathApi.relative(normalizedRoot, fullPath),
+  )
 
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
   }
 
-  const relativeFilePath = path.relative(
-    projectRoot,
-    path.join(projectRoot, filePath),
-  )
-  const dirPath = path.dirname(path.join(projectRoot, filePath))
-
-  // Get ignore patterns from the directory containing the file and all parent directories
   const mergedIgnore = ignore.default().add(defaultIgnore)
-  let currentDir = dirPath
-  while (currentDir.startsWith(projectRoot)) {
+  let currentDir = pathApi.dirname(fullPath)
+  while (true) {
+    const relativeDir = pathApi.relative(normalizedRoot, currentDir)
+    if (
+      relativeDir === '..' ||
+      relativeDir.startsWith(`..${pathApi.sep}`) ||
+      pathApi.isAbsolute(relativeDir)
+    ) {
+      break
+    }
+
     mergedIgnore.add(
-      await parseGitignore({ fullDirPath: currentDir, projectRoot, fs }),
+      await parseGitignore({
+        fullDirPath: currentDir,
+        projectRoot: normalizedRoot,
+        fs,
+      }),
     )
-    currentDir = path.dirname(currentDir)
+
+    if (currentDir === normalizedRoot) break
+    const parent = pathApi.dirname(currentDir)
+    if (parent === currentDir) break
+    currentDir = parent
   }
 
   return mergedIgnore.ignores(relativeFilePath)

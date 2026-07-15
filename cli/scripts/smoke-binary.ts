@@ -28,33 +28,15 @@
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
 
-// Any one of these strings appearing in stdout/stderr proves the binary
-// reached its post-init UI: React tree mounted, OpenTUI rendered, async
-// wasm init survived. Strings are static text from rendered components
-// (not shimmer / animated) so they survive ANSI styling as contiguous
-// substrings. Cover the multiple boot states the binary might land on:
-//
-//   - "will run commands on your behalf" — codebuff/freebuff main surface
-//     header (authed + session ready)
-//   - "Press ENTER to login" / "Open this URL" — login modal (no cached
-//     creds — typical CI smoke)
-//   - "Pick a model to start" — freebuff model-picker landing screen
-//   - "Free mode isn't available" — freebuff country-block screen (CI
-//     runners with anonymized-network egress like GitHub Actions land here)
-//   - "Enter a coding task" — chat input prompt
-//   - OpenTUI terminal handshakes such as alternate-screen / Kitty keyboard
-//     protocol enablement. On Windows GitHub Actions, the compiled binary can
-//     emit the OpenTUI setup escape stream but not flush static React text
-//     before the smoke timeout; that still proves the renderer reached the
-//     post-init terminal surface. Tree-sitter is checked separately above, and
-//     fatal markers below still fail the smoke if async startup breaks later.
+// Any one of these strings or terminal handshakes proves the renderer reached
+// the interactive Codewolf surface. Static Spanish labels are preferred; the
+// escape-sequence fallbacks cover headless Windows runners that flush OpenTUI
+// setup before React text.
 const BOOT_SIGNAL_PATTERNS = [
-  /will run commands on your behalf/,
-  /Pick a model to start/,
-  /Free mode isn't available/,
-  /Press ENTER to login/,
-  /Open this URL/,
-  /Enter a coding task/,
+  /Codewolf ejecutará comandos en tu nombre/,
+  /Pulsa ENTER para iniciar sesión/,
+  /Abre esta URL/,
+  /Escribe una tarea de programación/,
   /\x1b\[\?1049h/,
   /\x1b\[\?2031h/,
 ] as const
@@ -68,9 +50,8 @@ const BOOT_SIGNAL_PATTERNS = [
 // startup" (earlyFatalHandler in cli/src/index.tsx, fires while main()
 // is still wiring up) and "Unhandled rejection:" / "Uncaught exception:"
 // (installProcessCleanupHandlers in cli/src/utils/renderer-cleanup.ts,
-// fires after the renderer is up). The wasm-load rejection on freebuff
-// 0.0.62 surfaced through the *late* renderer-cleanup path, after the
-// boot screen had already rendered.
+// fires after the renderer is up). A delayed wasm-load rejection can surface
+// through the late renderer-cleanup path after the first screen rendered.
 const FATAL_PATTERNS = [
   /Fatal error during startup/i,
   /Unhandled rejection:/i,
@@ -82,7 +63,7 @@ const FATAL_PATTERNS = [
 
 // Long enough that an unhandled rejection from the eager Parser.init has
 // time to surface through the renderer-cleanup handler — that path is
-// what tripped freebuff 0.0.62 in the wild while a 5s window let CI pass.
+// delayed parser failures can occur after a shorter CI window has passed.
 // Async wasm rejections can fire >5s after spawn (after React mounts and
 // the renderer is up).
 const DEFAULT_RUN_SECONDS = 10

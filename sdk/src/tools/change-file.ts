@@ -1,10 +1,8 @@
-import path from 'path'
-
 import { fileExists } from '@codebuff/common/util/file'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
-import { resolveFilePath } from './path-utils'
+import { dirnameForResolvedPath, resolveFilePath } from './path-utils'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
@@ -81,7 +79,7 @@ async function applyChange(params: {
   try {
     const exists = await fileExists({ filePath: fullPath, fs })
     if (!exists) {
-      const dirPath = path.dirname(fullPath)
+      const dirPath = dirnameForResolvedPath(fullPath)
       await fs.mkdir(dirPath, { recursive: true })
     }
 

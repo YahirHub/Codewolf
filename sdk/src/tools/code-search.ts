@@ -1,8 +1,8 @@
 import { spawn } from 'child_process'
 import * as fs from 'fs'
-import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
+import { joinPath, resolvePathFromRoot } from '@codebuff/common/util/path-flavor'
 import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -49,8 +49,8 @@ export function codeSearch({
     // Resolve the search directory: absolute `cwd` is honored as-is, relative
     // `cwd` is resolved against the project root. Searches may target any
     // directory on the system.
-    const projectRoot = path.resolve(projectPath)
-    const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
+    const projectRoot = resolvePathFromRoot(projectPath, '.')
+    const searchCwd = cwd ? resolvePathFromRoot(projectRoot, cwd) : projectRoot
 
     // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
     // Deduplicating would break up these pairs and cause errors
@@ -70,7 +70,7 @@ export function codeSearch({
     // Filter out non-existent directories to avoid ripgrep stderr errors
     const existingHiddenDirs = INCLUDED_HIDDEN_DIRS.filter((dir) => {
       try {
-        return fs.statSync(path.join(searchCwd, dir)).isDirectory()
+        return fs.statSync(joinPath(searchCwd, dir)).isDirectory()
       } catch {
         return false
       }

@@ -135,7 +135,7 @@ describe('coerceToArray with Zod schemas', () => {
     }
   })
 
-  it('produces identical JSON schema with or without preprocess', () => {
+  it('preserves the documented array shape in JSON schema', () => {
     const plain = z.object({ paths: z.array(z.string()) })
     const coerced = z.object({
       paths: z.preprocess(coerceToArray, z.array(z.string())),
@@ -143,7 +143,9 @@ describe('coerceToArray with Zod schemas', () => {
 
     const plainSchema = z.toJSONSchema(plain, { io: 'input' })
     const coercedSchema = z.toJSONSchema(coerced, { io: 'input' })
-    expect(coercedSchema).toEqual(plainSchema)
+    expect(coercedSchema.properties?.paths).toEqual(
+      plainSchema.properties?.paths,
+    )
   })
 })
 

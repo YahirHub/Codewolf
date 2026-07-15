@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import {
   getCurrentChatDir,
+  getProjectDataDir,
   setCurrentChatId,
   setProjectRoot,
   tryGetProjectRoot,
@@ -101,7 +102,9 @@ describe('chat transfer', () => {
       version: 1,
       source: { name: 'Auditoría inicial' },
     })
-    expect(records.filter((record) => record.type === 'message')).toHaveLength(2)
+    expect(records.filter((record) => record.type === 'message')).toHaveLength(
+      2,
+    )
     expect(records.at(-1)).toMatchObject({ type: 'run_state' })
 
     const preview = previewChatArchive(`"${output}"`)
@@ -117,15 +120,10 @@ describe('chat transfer', () => {
     expect(imported.messages).toEqual(messages)
     expect(imported.runState).toEqual(runState)
 
-    const importedDir = path.join(
-      tempHome,
-      '.codewolf',
-      'projects',
-      path.basename(projectRoot),
-      'chats',
-      imported.chatId,
+    const importedDir = path.join(getProjectDataDir(), 'chats', imported.chatId)
+    expect(fs.existsSync(path.join(importedDir, 'chat-messages.json'))).toBe(
+      true,
     )
-    expect(fs.existsSync(path.join(importedDir, 'chat-messages.json'))).toBe(true)
     expect(fs.existsSync(path.join(importedDir, 'run-state.json'))).toBe(true)
     expect(readChatMeta(importedDir)).toMatchObject({
       name: 'Auditoría inicial',
@@ -138,13 +136,17 @@ describe('chat transfer', () => {
       '"exports/chat with spaces.jsonl"',
       'import',
     )
-    expect(quoted).toBe(path.join(projectRoot, 'exports', 'chat with spaces.jsonl'))
+    expect(quoted).toBe(
+      path.join(projectRoot, 'exports', 'chat with spaces.jsonl'),
+    )
 
     const apostrophe = resolveChatTransferPath(
       "exports/john's chat.jsonl",
       'import',
     )
-    expect(apostrophe).toBe(path.join(projectRoot, 'exports', "john's chat.jsonl"))
+    expect(apostrophe).toBe(
+      path.join(projectRoot, 'exports', "john's chat.jsonl"),
+    )
   })
 
   test('rejects invalid or empty exports before creating a chat', () => {

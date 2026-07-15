@@ -1,5 +1,6 @@
 import * as os from 'os'
-import path from 'path'
+
+import { dirnamePath, joinPath } from '@codebuff/common/util/path-flavor'
 
 import { getSystemInfo } from '@codebuff/common/util/system-info'
 import {
@@ -215,7 +216,7 @@ function createDiscoveredProjectReader(params: {
   const { cwd, fs, logger } = params
 
   return async (filePath: string) => {
-    const fullPath = path.join(cwd, filePath)
+    const fullPath = joinPath(cwd, filePath)
     try {
       const stats = await fs.stat(fullPath)
       if (getFileSize(stats) > MAX_DISCOVERED_PROJECT_READ_BYTES) {
@@ -391,7 +392,7 @@ export async function loadUserKnowledgeFiles(params: {
   for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
     const actualFileName = candidates.get(priorityName)
     if (actualFileName) {
-      const filePath = path.join(homeDir, actualFileName)
+      const filePath = joinPath(homeDir, actualFileName)
       try {
         const content = await fs.readFile(filePath, 'utf8')
         // Use tilde notation with the actual filename (preserving case)
@@ -422,7 +423,7 @@ export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
   // Group candidates by directory
   const byDirectory = new Map<string, string[]>()
   for (const filePath of knowledgeCandidates) {
-    const dir = path.dirname(filePath)
+    const dir = dirnamePath(filePath)
     if (!byDirectory.has(dir)) {
       byDirectory.set(dir, [])
     }
@@ -472,7 +473,7 @@ async function loadKnowledgeFilesFromPaths(params: {
   for (const filePath of selectedFilePaths) {
     try {
       knowledgeFiles[filePath] = await fs.readFile(
-        path.join(cwd, filePath),
+        joinPath(cwd, filePath),
         'utf8',
       )
     } catch (error) {

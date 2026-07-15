@@ -346,6 +346,32 @@ SHA256SUMS.txt
 Consulta [docs/build-binaries.md](docs/build-binaries.md) para conocer el flujo
 completo y los requisitos para que GitHub muestre el botón manual.
 
+## Validar el proyecto
+
+Las comprobaciones locales no requieren una clave del backend:
+
+```powershell
+bun run --cwd .\common typecheck
+bun run --cwd .\sdk typecheck
+bun run --cwd .\cli typecheck
+bun test
+bun run build:sdk
+bun run build:binary
+```
+
+Las pruebas E2E de agentes que hacen llamadas reales son opcionales. Solo se
+ejecutan cuando se definen explícitamente `RUN_CODEBUFF_E2E=true` y
+`CODEBUFF_API_KEY`; de lo contrario quedan marcadas como omitidas. Los runners
+manuales de `browser-use` y `librarian` están excluidos del descubrimiento
+normal de `bun test`. Consulta [docs/testing.md](docs/testing.md).
+
+La resolución de archivos conserva la sintaxis de la ruta proporcionada por el
+proyecto o filesystem virtual, por lo que la misma suite puede ejecutarse en
+Windows y POSIX sin convertir `/repo/file.ts` en una ruta de unidad de Windows.
+El lockfile se mantiene sincronizado para que `bun install --frozen-lockfile`
+sea la instalación reproducible recomendada.
+La suite también evita depender del `PATH` para lanzar Bun, no requiere Infisical para pruebas locales y serializa escrituras atómicas concurrentes en Windows.
+
 ## Estructura del monorepo
 
 - `cli/`: interfaz TUI y experiencia interactiva.
@@ -359,3 +385,18 @@ completo y los requisitos para que GitHub muestre el botón manual.
 ## Licencia y atribución
 
 Este proyecto conserva los archivos `LICENSE` y `NOTICE` del código base del que deriva. Las atribuciones legales deben mantenerse al redistribuirlo.
+
+## Limpieza de instalaciones anteriores
+
+Esta edición ya no incluye el workspace Freebuff, sesiones gratuitas, anuncios,
+créditos, suscripciones, referidos ni wrappers de release heredados. Si copias
+el ZIP sobre una versión anterior, primero revisa y después ejecuta:
+
+```powershell
+.\scripts\cleanup-codewolf-obsolete.ps1 -WhatIf
+.\scripts\cleanup-codewolf-obsolete.ps1
+```
+
+El script solo elimina rutas auditadas dentro del proyecto. No renombra
+`@codebuff/*`, `CodebuffClient` ni variables `CODEBUFF_*`, porque todavía forman
+parte del contrato interno y público del SDK compatible.

@@ -8,23 +8,28 @@ import {
   getProjectFileTree,
 } from '../project-file-tree'
 import { createMockFs } from '../testing/mocks/filesystem'
+import { getPathApi } from '../util/path-flavor'
 
 /**
  * Builds a mock fs from relative file paths under `root`, inferring
  * intermediate directories.
  */
 function createFsWithFiles(root: string, files: string[]) {
+  const pathApi = getPathApi(root)
+  const normalizedRoot = pathApi.resolve(root)
   const fileRecords: Record<string, string> = {}
-  const dirChildren: Record<string, Set<string>> = { [root]: new Set() }
+  const dirChildren: Record<string, Set<string>> = {
+    [normalizedRoot]: new Set(),
+  }
   for (const file of files) {
-    fileRecords[path.join(root, file)] = ''
-    let child = path.join(root, file)
-    let dir = path.dirname(child)
+    fileRecords[pathApi.join(normalizedRoot, file)] = ''
+    let child = pathApi.join(normalizedRoot, file)
+    let dir = pathApi.dirname(child)
     while (true) {
-      ;(dirChildren[dir] ??= new Set()).add(path.basename(child))
-      if (dir === root) break
+      ;(dirChildren[dir] ??= new Set()).add(pathApi.basename(child))
+      if (dir === normalizedRoot) break
       child = dir
-      dir = path.dirname(dir)
+      dir = pathApi.dirname(dir)
     }
   }
   return createMockFs({
@@ -69,6 +74,6 @@ describe('getProjectFileTree', () => {
     const tree = await getProjectFileTree({ projectRoot: root, fs })
     const paths = getAllPathsWithDirectories(tree).map((p) => p.path)
 
-    expect(paths).toContain(path.join('a', 'b', 'c', 'd', 'e.txt'))
+    expect(paths).toContain('a/b/c/d/e.txt')
   })
 })

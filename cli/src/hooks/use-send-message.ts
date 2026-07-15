@@ -5,12 +5,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import { getProjectRoot, setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
-import {
-  getFreebuffInstanceId,
-  markFreebuffSessionEnded,
-} from './use-freebuff-session'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODE_TO_COST_MODE, AGENT_MODE_TO_ID } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { getActiveCustomProviderCompactionThreshold } from '../utils/custom-providers'
@@ -41,7 +37,6 @@ import {
   recordFileAfterMutation,
   recordFileBeforeMutation,
 } from '../utils/rewind-checkpoints'
-import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { clearActiveRunAborter, setActiveRunAborter } from '../utils/active-run'
@@ -102,13 +97,6 @@ interface UseSendMessageOptions {
   isQueuePausedRef?: React.MutableRefObject<boolean>
   isProcessingQueueRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
-  /** Put a message back at the head of the queue. Used by the freebuff
-   *  run-start guard so a message that can't be sent (session fully over)
-   *  is held for the next session instead of consumed. */
-  requeueMessageAtFront?: (message: {
-    content: string
-    attachments: PendingAttachment[]
-  }) => void
   continueChat: boolean
   continueChatId?: string
   onVerifiedCommitReady?: (pending: PendingVerifiedCommit) => void
@@ -125,7 +113,7 @@ const resolveAgent = (
       ? agentDefinitions.find((definition) => definition.id === agentId)
       : undefined
 
-  return selectedAgentDefinition ?? agentId ?? getAgentIdForMode(agentMode)
+  return selectedAgentDefinition ?? agentId ?? AGENT_MODE_TO_ID[agentMode]
 }
 
 // Respect bash context, but avoid sending empty prompts when only images are attached.
@@ -160,7 +148,6 @@ export const useSendMessage = ({
   isQueuePausedRef,
   isProcessingQueueRef,
   resumeQueue,
-  requeueMessageAtFront,
   continueChat,
   continueChatId,
   onVerifiedCommitReady,
@@ -305,23 +292,6 @@ export const useSendMessage = ({
       updateChainInProgress(true)
       setCanProcessQueue(false)
 
-      // Freebuff run-start guard: without a live session slot the server
-      // rejects the request outright, consuming the message. Hold it at the
-      // head of the queue instead; it resumes when the user rejoins from the
-      // session-ended banner. Catches sends that bypass the queue's
-      // sendBlocked hold (direct review-screen answers) and the dequeue race
-      // where the slot expires between the queue's check and this call.
-      if (IS_FREEBUFF && !getFreebuffInstanceId()) {
-        markFreebuffSessionEnded()
-        requeueMessageAtFront?.({ content, attachments: attachments ?? [] })
-        resetEarlyReturnState({
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
-        return
-      }
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
@@ -500,11 +470,10 @@ export const useSendMessage = ({
           '[send-message] No hay un cliente de Codewolf disponible. Configura un proveedor con /login y selecciona un modelo con /models.',
         )
         // Show error to user instead of silently failing
-        const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codewolf'
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            `⚠️ No se pudo conectar con ${brandName}. Revisa la autenticación e inténtalo de nuevo.`,
+            `⚠️ No se pudo conectar con Codewolf. Revisa la autenticación e inténtalo de nuevo.`,
           ),
         ])
         await yieldToEventLoop()
@@ -673,7 +642,6 @@ export const useSendMessage = ({
           },
         })
 
-        const freebuffInstanceId = getFreebuffInstanceId()
         const runConfig = createRunConfig({
           logger,
           agent: resolvedAgent,
@@ -684,10 +652,6 @@ export const useSendMessage = ({
           eventHandlerState,
           signal: abortController.signal,
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
-          extraCodebuffMetadata:
-            IS_FREEBUFF && freebuffInstanceId
-              ? { freebuff_instance_id: freebuffInstanceId }
-              : undefined,
           maxContextLength: getActiveCustomProviderCompactionThreshold(),
           additionalKnowledgeFiles,
           excludedKnowledgeFilePaths: [
@@ -860,7 +824,6 @@ export const useSendMessage = ({
           updater,
           aiMessageId,
           wasAbortedByUser: abortController.signal.aborted,
-          hasReceivedContent: hasReceivedContentRef.current,
           setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
@@ -944,7 +907,6 @@ export const useSendMessage = ({
             updateChainInProgress,
             isProcessingQueueRef,
             isQueuePausedRef,
-            hasReceivedContent: hasReceivedContentRef.current,
           })
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn. Settle async checkpoints
@@ -1004,7 +966,6 @@ export const useSendMessage = ({
       onVerifiedCommitReady,
       prepareUserMessage,
       removeActiveSubagent,
-      requeueMessageAtFront,
       resumeQueue,
       scrollToLatest,
       setCanProcessQueue,

@@ -1,4 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import type { SpawnSyncReturns } from 'child_process'
 import fs from 'fs'
 import os from 'os'
@@ -11,7 +19,7 @@ import {
   initializeDirenv,
 } from '../init-direnv'
 
-mock.module('../utils/logger', () => ({
+mock.module('../../utils/logger', () => ({
   logger: {
     debug: () => {},
     info: () => {},
@@ -161,7 +169,11 @@ describe('init-direnv', () => {
       fs.writeFileSync(path.join(actualDir, '.envrc'), 'export FOO=bar')
 
       const linkDir = path.join(tempDir, 'link')
-      fs.symlinkSync(actualDir, linkDir)
+      fs.symlinkSync(
+        actualDir,
+        linkDir,
+        os.platform() === 'win32' ? 'junction' : 'dir',
+      )
 
       const result = findEnvrcDirectory(linkDir)
       expect(result).not.toBeNull()
@@ -174,12 +186,8 @@ describe('init-direnv', () => {
       expect(typeof result).toBe('boolean')
     })
 
-    test('returns false on Windows', () => {
-      const result = isDirenvAvailable()
-      expect(typeof result).toBe('boolean')
-      if (os.platform() === 'win32') {
-        expect(result).toBe(false)
-      }
+    test('returns a boolean on every supported platform', () => {
+      expect(typeof isDirenvAvailable()).toBe('boolean')
     })
 
     test('returns consistent results on repeated calls', () => {
@@ -212,7 +220,10 @@ describe('init-direnv', () => {
     test('returns parsed env vars on successful export', () => {
       spawnSyncSpy.mockReturnValue({
         status: 0,
-        stdout: JSON.stringify({ DATABASE_URL: 'postgres://localhost', API_KEY: 'secret' }),
+        stdout: JSON.stringify({
+          DATABASE_URL: 'postgres://localhost',
+          API_KEY: 'secret',
+        }),
         stderr: '',
         pid: 1234,
         output: [],
@@ -264,7 +275,8 @@ describe('init-direnv', () => {
       spawnSyncSpy.mockReturnValue({
         status: 1,
         stdout: '',
-        stderr: 'direnv: error /path/to/.envrc is blocked. Run `direnv allow` to approve its content',
+        stderr:
+          'direnv: error /path/to/.envrc is blocked. Run `direnv allow` to approve its content',
         pid: 1234,
         output: [],
         signal: null,
@@ -381,11 +393,14 @@ describe('init-direnv', () => {
     })
 
     test('sets environment variables from direnv export', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export TEST_VAR=test_value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export TEST_VAR=test_value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+        if (cmd === 'direnv' && args?.[0] === 'version') {
           return {
             status: 0,
             stdout: '/usr/local/bin/direnv',
@@ -405,7 +420,14 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()
@@ -419,7 +441,7 @@ describe('init-direnv', () => {
       process.env.OLD_VAR = 'should_be_removed'
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+        if (cmd === 'direnv' && args?.[0] === 'version') {
           return {
             status: 0,
             stdout: '/usr/local/bin/direnv',
@@ -439,7 +461,14 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()
@@ -448,11 +477,14 @@ describe('init-direnv', () => {
     })
 
     test('does nothing when direnv is not available', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export SHOULD_NOT_SET=value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export SHOULD_NOT_SET=value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+        if (cmd === 'direnv' && args?.[0] === 'version') {
           return {
             status: 1,
             stdout: '',
@@ -474,7 +506,7 @@ describe('init-direnv', () => {
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+        if (cmd === 'direnv' && args?.[0] === 'version') {
           return {
             status: 0,
             stdout: '/usr/local/bin/direnv',
@@ -491,11 +523,14 @@ describe('init-direnv', () => {
     })
 
     test('does nothing when direnv export fails', () => {
-      fs.writeFileSync(path.join(tempDir, '.envrc'), 'export SHOULD_NOT_SET=value')
+      fs.writeFileSync(
+        path.join(tempDir, '.envrc'),
+        'export SHOULD_NOT_SET=value',
+      )
       process.chdir(tempDir)
 
       spawnSyncSpy.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'sh' && args?.[1]?.includes('command -v direnv')) {
+        if (cmd === 'direnv' && args?.[0] === 'version') {
           return {
             status: 0,
             stdout: '/usr/local/bin/direnv',
@@ -515,7 +550,14 @@ describe('init-direnv', () => {
             signal: null,
           } as SpawnSyncReturns<string>
         }
-        return { status: 1, stdout: '', stderr: '', pid: 0, output: [], signal: null } as SpawnSyncReturns<string>
+        return {
+          status: 1,
+          stdout: '',
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+        } as SpawnSyncReturns<string>
       })
 
       initializeDirenv()

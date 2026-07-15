@@ -94,9 +94,6 @@ const defaultCallbacks = {
   onBuildLite: () => {},
   onFeedback: () => {},
   onCloseFeedback: () => {},
-  onAdClick: () => {},
-  onAdImpression: () => {},
-  onResponseAdsNeeded: () => {},
 }
 
 const initializeStore = (
@@ -115,7 +112,6 @@ const initializeStore = (
       isWaitingForResponse: overrides.isWaitingForResponse ?? false,
       timerStartTime: overrides.timerStartTime ?? null,
       availableWidth: overrides.availableWidth ?? 80,
-      responseAds: {},
     },
     callbacks: defaultCallbacks,
   })
@@ -213,10 +209,7 @@ describe('MessageBlockStore', () => {
         onBuildLite: mockBuildFree,
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
-        onAdClick: () => {},
-        onAdImpression: () => {},
-        onResponseAdsNeeded: () => {},
-      })
+                        })
 
       const state = useMessageBlockStore.getState()
       expect(state.callbacks.onToggleCollapsed).toBe(mockToggle)
@@ -268,9 +261,6 @@ describe('MessageBlockStore', () => {
         onBuildLite: mockFn,
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
-        onAdClick: mockFn,
-        onAdImpression: mockFn,
-        onResponseAdsNeeded: mockFn,
       })
 
       useMessageBlockStore.getState().reset()

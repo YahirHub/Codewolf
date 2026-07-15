@@ -19,7 +19,6 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `packages/agent-runtime/` - agent runtime and tool handling
 - `packages/code-map/` - source parsing helpers
 - `packages/llm-providers/` - public LLM provider shims
-- `freebuff/` - Freebuff CLI, release files, and e2e tests
 - `scripts/tmux/` - tmux helpers for CLI testing
 
 ## Conventions
@@ -27,6 +26,8 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Use `bun install` and `bun run`.
 - Prefer dependency injection over module mocking.
 - Run interactive CLI tests in tmux.
+- Keep `bun test` deterministic and credential-free. Live agent E2E suites require explicit `RUN_CODEBUFF_E2E=true` plus `CODEBUFF_API_KEY`; manual trace runners must not execute during default test discovery.
+- File operations that receive an injected filesystem must choose path semantics from the supplied root/path. Do not use the host-native `path` implementation blindly for virtual POSIX paths on Windows or Windows paths on POSIX hosts; reuse `common/src/util/path-flavor.ts`.
 - Do not force-push `main`.
 
 ## Docs
@@ -46,7 +47,6 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 - Codewolf does not expose ads, credits, subscriptions, purchase links, or commercial rate-limit dialogs. Do not register `/subscribe`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`. `/usage` is reserved exclusively for local technical token statistics and must never query billing, balances, quotas, or prices.
 - The chat must not query subscription/usage endpoints, request ads, display credit counters, or replace the editor with a purchase banner. Provider errors stay ordinary actionable errors.
-- Upstream compatibility modules may remain temporarily if shared packages still reference them, but they must be unreachable from the Codewolf CLI. Remove them only in a dedicated tested cleanup.
 
 ## Local Token Usage Architecture
 
@@ -68,7 +68,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `/agent` is the only public shortcut for the bundled generic auxiliary agent. It inserts `@Agent ` and must inherit the global provider/model selected through `/models`; do not add model names, a per-agent selector, or separate provider/model persistence. The stable bundled ID is `agent` and the display name is `Agent`.
 - Direct-provider mode must not send Codebuff/OpenRouter-only request options or call Codebuff user validation, billing, remote agent lookup, or run persistence.
 - Provider configuration is editor-only: `/login` opens the provider wizard and `/models` opens the grouped selector. Do not reintroduce standalone `codebuff provider` or `codebuff model` management commands.
-- The full editor must remain reachable without prior credentials so a fresh installation can configure its first provider; Freebuff keeps its existing authentication/session gate and does not expose these flows.
+- The full editor must remain reachable without prior credentials so a fresh installation can configure its first provider.
 - Preserve the original backend behavior when no custom provider is active.
 - Update `docs/custom-providers.md` and `contexto/` when this architecture or its command surface changes.
 - Every `RunState` returned by the SDK must be plain JSON data. Never retain live Zod/tool schema instances in `AgentState.toolDefinitions`; convert them to JSON Schema before storage and normalize the final `prompt-response` session at the SDK boundary so a later `previousRun` cannot fail on circular references.
@@ -165,7 +165,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 ## Optional Project Methodology and Verified Commits
 
-- `/config` is the single interactive surface for `projectContextEnabled` and `verifiedCommitsEnabled`. Keep both options independent, globally persisted in `~/.codewolf/settings.json`, and disabled by default for backward compatibility. Freebuff must not expose this editor-only command.
+- `/config` is the single interactive surface for `projectContextEnabled` and `verifiedCommitsEnabled`. Keep both options independent, globally persisted in `~/.codewolf/settings.json`, and disabled by default for backward compatibility.
 - When project context is enabled, discover only Markdown files directly under `<project>/contexto`, order numeric prefixes first, and summarize them with the read-only structured agent in `cli/src/utils/project-context.ts`. The automatic read is capped at 200 files/320,000 bytes, must preserve prefix 000 and prioritize the newest records under that cap, and must calculate the next prefix from every filename to prevent collisions. Cache by a fingerprint that covers all names/metadata plus selected content under the project's Codewolf data directory; unchanged context must not trigger another model call.
 - Inject the methodology and summary as additive virtual knowledge files. Never replace auto-discovered knowledge and never write the virtual `.codewolf/metodologia-desarrollo.md` or `.codewolf/contexto-resumen.md` paths into the user's repository.
 - The main agent must inspect relevant source context before important changes. After every successful implementation with real file mutations, the CLI must guarantee that a numbered `contexto/*.md` record and `000-contexto-maestro.md` are created or updated. Routine records are generated deterministically and locally without an extra provider call; `/init` may use one structured enrichment call with a local fallback. Titles must be technical, no longer than 72 characters, and must never copy the request. Never paste the final answer, reasoning, tables, or tool output into context files. Omit optional sections when there is no confirmed information instead of writing filler. Context files must not contain credentials or secrets.
@@ -179,3 +179,17 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `run_terminal_command` always uses Bash-compatible syntax from the selected cwd. Prefer relative paths, remove redundant project-root `cd` wrappers, normalize Windows paths only when Git Bash/WSL semantics are known, and expose `executedCommand`, `startingCwd`, and `shell` when relevant.
 - `basher` must return the terminal result deterministically without a second LLM step. OpenAI-compatible error parsing must accept common gateway envelopes and mark transient upstream/rate-limit/5xx failures retryable while honoring explicit `x-should-retry` headers.
 - Update `docs/project-methodology.md`, the bundled methodology document, focused tests, and `contexto/` whenever these contracts change.
+
+## Cleanup boundary
+
+- The `freebuff/` workspace and its CLI/session/ads/subscription/referral surfaces are obsolete and must not be reintroduced.
+- `@codebuff/*`, `CodebuffClient`, `CODEBUFF_*`, and the Apache attribution are still active compatibility or legal identifiers. Do not rename or remove them as cosmetic cleanup; require a separately planned migration with aliases and consumer tests.
+- When a ZIP is overlaid on an older tree, use `scripts/cleanup-codewolf-obsolete.ps1` so files deleted by the archive replacement are also removed from disk.
+
+## Local Test Portability
+
+- `bun test` must run without Infisical, backend credentials, tmux, macOS clipboard access, or live browser runners. Keep those integrations opt-in or excluded by explicit directory patterns in `bunfig.toml`.
+- Child-process tests that need Bun must launch `process.execPath`, never the bare `bun` command, so Windows installations without Bun in the inherited `PATH` remain valid.
+- Tests using injected filesystems must preserve the path syntax supplied by the fixture. Use `common/src/util/path-flavor.ts` instead of host-native path operations for `/project`, Windows drive roots, or UNC roots.
+- User-visible Spanish labels are the current contract. Do not keep tests expecting removed credit surfaces or stale English labels.
+- Async atomic writes to the same target must stay serialized per path; a failed write must not poison later writes or leave an unhandled rejected cleanup promise.

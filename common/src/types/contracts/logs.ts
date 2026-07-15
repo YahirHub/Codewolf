@@ -17,7 +17,7 @@ export type LogRow = {
   timestamp: Date
   level: LogLevel
   source: LogSource
-  /** Emitting service, e.g. 'web', 'agent-runtime', 'freebuff-web', 'cli'. */
+  /** Emitting service, e.g. 'web', 'agent-runtime', 'cli'. */
   service?: string | null
   /** Deploy environment: 'dev' | 'test' | 'prod'. */
   env: string

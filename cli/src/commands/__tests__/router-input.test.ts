@@ -242,7 +242,9 @@ describe('command-registry', () => {
       expect(findCommand('agent:gpt-5')).toBeUndefined()
       expect(findCommand('gpt-5-agent')).toBeUndefined()
       expect(findCommand('plan')).toBeUndefined()
-      expect(SLASH_COMMANDS.some((command) => command.id === 'plan')).toBe(false)
+      expect(SLASH_COMMANDS.some((command) => command.id === 'plan')).toBe(
+        false,
+      )
     })
 
     test('is case insensitive', () => {
@@ -335,16 +337,15 @@ describe('command-registry', () => {
       }
     })
 
-    test('connect command is not available in codebuff (freebuff-only)', () => {
-      const hasConnectSlashCommand = SLASH_COMMANDS.some(
-        (cmd) => cmd.id === 'connect',
-      )
-      expect(hasConnectSlashCommand).toBe(false)
+    test('connect command is available when ChatGPT OAuth is enabled', () => {
+      const command = SLASH_COMMANDS.find((cmd) => cmd.id === 'connect')
+      expect(command).toBeDefined()
+      expect(findCommand('connect')?.name).toBe('connect')
     })
 
-    test('connect:chatgpt command is not available in codebuff (freebuff-only)', () => {
+    test('connect:chatgpt resolves to the connect command', () => {
       const command = findCommand('connect:chatgpt')
-      expect(command).toBeUndefined()
+      expect(command?.name).toBe('connect')
     })
   })
 })

@@ -10,12 +10,9 @@ import {
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
-import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
-import { IS_FREEBUFF, type AgentMode } from './constants'
-import { getAgentIdForMode } from './freebuff-agent-selection'
+import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
 import { logger } from './logger'
-import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -176,12 +173,41 @@ const getUserAgentDefinitions = (): AgentDefinition[] => {
 // Bundled agents loading (generated at build time by prebuild-agents.ts)
 // ============================================================================
 
+type BundledAgentsModule = {
+  bundledAgents?: Record<string, AgentDefinition>
+  getBundledAgentsAsLocalInfo?: () => LocalAgentInfo[]
+}
+
+// The generated module is present in production builds, but it may be absent
+// in a clean source checkout before prebuild:agents runs. Loading it lazily
+// keeps unit tests and source-only workflows usable without weakening binary
+// bundling: build-binary generates the module before Bun compiles the CLI.
+const loadBundledAgentsModule = (): BundledAgentsModule => {
+  try {
+    return require('../agents/bundled-agents.generated') as BundledAgentsModule
+  } catch (error) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String(error.code)
+        : ''
+    const message = error instanceof Error ? error.message : String(error)
+
+    if (
+      code !== 'MODULE_NOT_FOUND' &&
+      !message.includes('bundled-agents.generated')
+    ) {
+      logger.warn({ error }, 'Failed to load bundled agent definitions')
+    }
+    return {}
+  }
+}
+
 const getBundledAgents = (): Record<string, AgentDefinition> => {
-  return bundledAgentsModule.bundledAgents ?? {}
+  return loadBundledAgentsModule().bundledAgents ?? {}
 }
 
 const getBundledAgentsAsLocalInfo = (): LocalAgentInfo[] => {
-  return bundledAgentsModule.getBundledAgentsAsLocalInfo?.() ?? []
+  return loadBundledAgentsModule().getBundledAgentsAsLocalInfo?.() ?? []
 }
 
 // ============================================================================
@@ -250,10 +276,7 @@ const cachedAgentsByMode: Map<string, LocalAgentInfo[]> = new Map()
 export const loadLocalAgents = (
   currentAgentMode?: AgentMode,
 ): LocalAgentInfo[] => {
-  const selectedFreebuffModel = IS_FREEBUFF ? getSelectedFreebuffModel() : null
-  const cacheKey = selectedFreebuffModel
-    ? `${currentAgentMode ?? 'all'}:${selectedFreebuffModel}`
-    : (currentAgentMode ?? 'all')
+  const cacheKey = currentAgentMode ?? 'all'
   const cached = cachedAgentsByMode.get(cacheKey)
   if (cached) {
     return cached
@@ -267,7 +290,7 @@ export const loadLocalAgents = (
   // Filter bundled agents to only include subagents of the current mode's agent
   let filteredBundledAgents: LocalAgentInfo[]
   if (currentAgentMode) {
-    const currentAgentId = getAgentIdForMode(currentAgentMode)
+    const currentAgentId = AGENT_MODE_TO_ID[currentAgentMode]
     const currentAgentDef = bundledAgents[currentAgentId]
       ? bundledAgents[currentAgentId]
       : undefined

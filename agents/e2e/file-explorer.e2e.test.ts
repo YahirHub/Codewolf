@@ -7,6 +7,11 @@ import filePickerDefinition from '../file-explorer/file-picker'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
+
 /**
  * Integration tests for agents that use the read_subtree tool.
  * These tests verify that the SDK properly initializes the session state
@@ -18,7 +23,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
  * - file-picker spawns file-lister as a subagent, adding complexity
  * - Testing file-lister directly verifies the core functionality
  */
-describe('File Lister Agent Integration - read_subtree tool', () => {
+liveDescribe('File Lister Agent Integration - read_subtree tool', () => {
   it(
     'should find relevant files using read_subtree tool',
     async () => {
@@ -258,6 +263,7 @@ describe('File Picker Agent Integration - spawn_agents tool', () => {
       const projectFiles: Record<string, string> = {
         'src/index.ts': `
 import { UserService } from './services/user-service'
+
 export function main() {
   const userService = new UserService()
   console.log('Application started')

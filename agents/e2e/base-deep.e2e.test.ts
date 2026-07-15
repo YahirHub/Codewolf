@@ -13,7 +13,12 @@ import thinkerCodex from '../thinker/thinker-gpt'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-describe('Base Deep Agent Integration', () => {
+const shouldRunLiveE2e =
+  process.env.RUN_CODEBUFF_E2E === 'true' &&
+  Boolean(process.env[API_KEY_ENV_VAR])
+const liveDescribe = shouldRunLiveE2e ? describe : describe.skip
+
+liveDescribe('Base Deep Agent Integration', () => {
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../..',

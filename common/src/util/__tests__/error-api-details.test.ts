@@ -16,7 +16,7 @@ describe('extractApiErrorDetails', () => {
     apiError.responseBody = JSON.stringify({
       error: 'session_superseded',
       message:
-        'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+        'Another client has taken over this session. Only one active instance is allowed.',
     })
 
     const retryError = new Error(
@@ -33,7 +33,7 @@ describe('extractApiErrorDetails', () => {
       statusCode: 409,
       errorCode: 'session_superseded',
       message:
-        'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+        'Another client has taken over this session. Only one active instance is allowed.',
     })
   })
 

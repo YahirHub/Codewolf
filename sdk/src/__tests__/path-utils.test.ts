@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   getProjectPathLookupKeys,
+  resolveFilePath,
   resolveFilePathWithinProject,
 } from '../tools/path-utils'
 
@@ -27,12 +28,39 @@ describe('resolveFilePathWithinProject', () => {
     })
   })
 
+  test('normalizes Windows paths even when tests run on another OS', () => {
+    expect(
+      resolveFilePathWithinProject('C:\\repo', 'src/file.ts'),
+    ).toEqual({
+      fullPath: 'C:\\repo\\src\\file.ts',
+      relativePath: 'src\\file.ts',
+    })
+  })
+
   test('rejects paths outside the project', () => {
     expect(resolveFilePathWithinProject('/repo', '../outside.ts')).toBeNull()
     expect(resolveFilePathWithinProject('/repo', '/outside.ts')).toBeNull()
     expect(
       resolveFilePathWithinProject('/repo', '/repo-sibling/file.ts'),
     ).toBeNull()
+  })
+})
+
+describe('resolveFilePath', () => {
+  test('keeps absolute POSIX paths outside the project unchanged', () => {
+    expect(resolveFilePath('/project', '/etc/hosts')).toEqual({
+      fullPath: '/etc/hosts',
+      relativePath: '/etc/hosts',
+      isWithinProject: false,
+    })
+  })
+
+  test('resolves relative paths that escape the project', () => {
+    expect(resolveFilePath('/project', '../outside/file.ts')).toEqual({
+      fullPath: '/outside/file.ts',
+      relativePath: '/outside/file.ts',
+      isWithinProject: false,
+    })
   })
 })
 

@@ -12,12 +12,8 @@ const WASM_BINARY_GLOBAL_KEY = '__CODEBUFF_TREE_SITTER_WASM_BINARY__'
 // runtime would crash with a more confusing error than "missing wasm".
 const WEB_TREE_SITTER_VERSION = '0.25.10'
 
-// Self-heal endpoints for users on an old npm wrapper. The wrapper
-// auto-updates the binary but not itself, so users on pre-0.0.74
-// (freebuff) / pre-1.0.666 (codebuff) wrappers download the new binary
-// but their wrapper drops the sibling tree-sitter.wasm we tarball
-// alongside it. On missing wasm, the binary fetches it from one of
-// these CDNs and caches it next to itself for subsequent runs.
+// Self-heal endpoints for wrappers that updated the binary without the
+// sibling tree-sitter.wasm. The binary downloads and caches the matching file.
 const WASM_DOWNLOAD_URLS = [
   `https://unpkg.com/web-tree-sitter@${WEB_TREE_SITTER_VERSION}/tree-sitter.wasm`,
   `https://cdn.jsdelivr.net/npm/web-tree-sitter@${WEB_TREE_SITTER_VERSION}/tree-sitter.wasm`,
@@ -115,7 +111,7 @@ function resolveTreeSitterWasm(scriptDir: string): string {
   }
 
   // Sibling file next to the running binary. The CLI ships
-  // tree-sitter.wasm alongside `freebuff.exe` / `codebuff.exe` because
+  // tree-sitter.wasm alongside the Codewolf executable because
   // bun --compile asset embedding was unreliable on Windows. We do this
   // lookup *here* (not in pre-init) on purpose: inside a bun --compile
   // binary on Windows, `process.execPath` returns the bunfs internal

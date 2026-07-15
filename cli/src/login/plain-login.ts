@@ -5,7 +5,6 @@ import { LOGIN_WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
 import { flushAnalytics, identifyUser, trackEvent } from '../utils/analytics'
 import { saveUserCredentials } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
 
@@ -24,11 +23,7 @@ export async function runPlainLogin(): Promise<void> {
 
   console.log()
   console.log(
-    bold(
-      IS_FREEBUFF
-        ? 'Inicio de sesión de Freebuff'
-        : 'Inicio de sesión de Codewolf',
-    ),
+    bold('Inicio de sesión de Codewolf'),
   )
   console.log()
   console.log('Generando URL de inicio de sesión...')
@@ -88,7 +83,7 @@ export async function runPlainLogin(): Promise<void> {
     // logins aren't missing from the funnel, then flush before exiting since
     // process.exit would otherwise drop the buffered PostHog events.
     if (user.id) {
-      identifyUser(user.id, { email: user.email, freebuff: IS_FREEBUFF })
+      identifyUser(user.id, { email: user.email })
       trackEvent(AnalyticsEvent.LOGIN, {
         userId: user.id,
         via: 'plain_command',
@@ -101,8 +96,7 @@ export async function runPlainLogin(): Promise<void> {
     console.log()
     console.log(green(`✓ Sesión iniciada como ${user.name} (${user.email})`))
     console.log()
-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codewolf'
-    console.log('Ahora puedes ejecutar ' + cyan(cliName) + ' para iniciar.')
+    console.log('Ahora puedes ejecutar ' + cyan('codewolf') + ' para iniciar.')
     process.exit(0)
   } else if (result.status === 'timeout') {
     console.error(

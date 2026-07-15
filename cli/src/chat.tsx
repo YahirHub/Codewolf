@@ -13,7 +13,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
-import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { ProviderLoginScreen } from './components/provider-login-screen'
@@ -28,13 +27,7 @@ import { ConfigScreen } from './components/config-screen'
 import { VerifiedCommitScreen } from './components/verified-commit-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
-import { SessionEndedBanner } from './components/session-ended-banner'
 import { StatusBar } from './components/status-bar'
-import {
-  SuggestedPrompts,
-  DEFAULT_SUGGESTED_PROMPTS,
-  type SuggestedPromptSelection,
-} from './components/suggested-prompts'
 import { TopBanner } from './components/top-banner'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -65,14 +58,8 @@ import { usePublishStore } from './state/publish-store'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
-import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
-import {
-  hasSubmittedFirstPrompt,
-  markFirstPromptSubmitted,
-} from './utils/settings'
 
 import {
   type ChatKeyboardState,
@@ -116,7 +103,6 @@ import type { ModelChoice } from './components/model-selector-screen'
 import type { CustomProviderDefinition } from './utils/custom-providers'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
-import type { FreebuffSessionResponse } from './types/freebuff-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { ImportedChat } from './utils/chat-transfer'
@@ -143,7 +129,6 @@ export const Chat = ({
   initialMode,
   gitRoot,
   onSwitchToGitRoot,
-  freebuffSession,
 }: {
   initialPrompt: string | null
   agentId?: string
@@ -158,7 +143,6 @@ export const Chat = ({
   initialMode?: AgentMode
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
-  freebuffSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
   const headerRef = useRef<BoxRenderable | null>(null)
@@ -178,11 +162,6 @@ export const Chat = ({
     initialPath?: string
   } | null>(null)
 
-  // First-time onboarding: show clickable starter prompts until the user
-  // submits their first prompt ever (persisted in settings). Freebuff only.
-  const [showSuggestedPrompts, setShowSuggestedPrompts] = useState(
-    () => IS_FREEBUFF && !hasSubmittedFirstPrompt(),
-  )
 
   const { validate: validateAgents } = useAgentValidation()
 
@@ -459,7 +438,6 @@ export const Chat = ({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    addToQueueFront,
     stopStreaming,
     setCanProcessQueue,
     pauseQueue,
@@ -549,7 +527,6 @@ export const Chat = ({
     isQueuePausedRef,
     isProcessingQueueRef,
     resumeQueue,
-    requeueMessageAtFront: addToQueueFront,
     continueChat,
     continueChatId,
     onVerifiedCommitReady: handleVerifiedCommitReady,
@@ -636,32 +613,6 @@ export const Chat = ({
     },
   )
 
-  // Retire onboarding suggested prompts once the user submits anything
-  // (typed or clicked), persisting so they don't return on future launches.
-  useEffect(() => {
-    if (showSuggestedPrompts && messages.length > 0) {
-      markFirstPromptSubmitted()
-      setShowSuggestedPrompts(false)
-    }
-  }, [showSuggestedPrompts, messages.length])
-
-  // Submit a suggested onboarding prompt as if the user had typed and sent it
-  const handleSelectSuggestedPrompt = useEvent(
-    (prompt: string, selection: SuggestedPromptSelection) => {
-      trackEvent(AnalyticsEvent.SUGGESTED_PROMPT_CLICKED, {
-        label: selection.label,
-        index: selection.index,
-        promptLength: prompt.length,
-        agentMode,
-      })
-      onSubmitPrompt(prompt, agentMode).catch((error) => {
-        logger.error({ error }, '[suggested-prompt] Failed to submit prompt')
-        showClipboardMessage('No se pudo enviar la solicitud', {
-          durationMs: 3000,
-        })
-      })
-    },
-  )
 
   // Plan cards can request a revision without reintroducing a /plan command.
   // The mode toggle remains the single entry point for planning.
@@ -1701,7 +1652,6 @@ export const Chat = ({
       isWaitingForResponse,
       timerStartTime,
       availableWidth: messageAvailableWidth,
-      responseAds: {},
     })
   }, [
     theme,
@@ -1722,9 +1672,6 @@ export const Chat = ({
       onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
-      onAdClick: () => {},
-      onAdImpression: () => {},
-      onResponseAdsNeeded: () => {},
     })
   }, [
     handleCollapseToggle,
@@ -1747,45 +1694,6 @@ export const Chat = ({
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
-  // Show first-time onboarding starter prompts only on a pristine, idle,
-  // empty-input default-mode chat — and never while a menu/overlay is up.
-  const showOnboardingPrompts =
-    showSuggestedPrompts &&
-    messages.length === 0 &&
-    inputValue.length === 0 &&
-    inputMode === 'default' &&
-    !hasSuggestionMenu &&
-    !isStreaming &&
-    !isWaitingForResponse &&
-    !feedbackMode &&
-    !publishMode &&
-    !reviewMode &&
-    !providerLoginOpen &&
-    !providerManagerOpen &&
-    !modelSelectorOpen &&
-    !searchSetupOpen &&
-    !tokenUsageOpen &&
-    !sessionRenameOpen &&
-    !rewindOpen &&
-    !configOpen &&
-    pendingVerifiedCommit === null &&
-    chatTransfer === null &&
-    askUserState === null
-
-  // Fire a one-time impression so we can measure onboarding-prompt usage
-  // (click-through = SUGGESTED_PROMPT_CLICKED / SUGGESTED_PROMPT_SHOWN).
-  const suggestedPromptsShownRef = useRef(false)
-  useEffect(() => {
-    if (showOnboardingPrompts && !suggestedPromptsShownRef.current) {
-      suggestedPromptsShownRef.current = true
-      trackEvent(AnalyticsEvent.SUGGESTED_PROMPT_SHOWN, {
-        count: isCompactHeight
-          ? Math.min(2, DEFAULT_SUGGESTED_PROMPTS.length)
-          : DEFAULT_SUGGESTED_PROMPTS.length,
-        isCompactHeight,
-      })
-    }
-  }, [showOnboardingPrompts, isCompactHeight])
 
   const inputLayoutMetrics = useMemo(() => {
     // In bash mode, layout is based on the actual input (no ! prefix needed)
@@ -1837,10 +1745,6 @@ export const Chat = ({
     return ` ${segments.join('   ')} `
   }, [queuePreviewTitle, pausedQueueText])
 
-  const hasActiveFreebuffSession =
-    IS_FREEBUFF && freebuffSession?.status === 'active'
-  const isFreebuffSessionOver =
-    IS_FREEBUFF && freebuffSession?.status === 'ended'
   const shouldShowStatusLine =
     !feedbackMode &&
     !providerLoginOpen &&
@@ -1856,7 +1760,6 @@ export const Chat = ({
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
       !isAtBottom ||
-      hasActiveFreebuffSession ||
       hasActiveContextWindow)
 
   return (
@@ -1917,9 +1820,6 @@ export const Chat = ({
             animationEnabled={isHeaderVisible && inputFocused}
           />
         </box>
-        {IS_FREEBUFF && (
-          <FreebuffActiveSessionSummary session={freebuffSession} />
-        )}
         {hiddenMessageCount > 0 && (
           <LoadPreviousButton
             hiddenCount={hiddenMessageCount}
@@ -1949,12 +1849,6 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
-        {showOnboardingPrompts && !reviewMode && !isFreebuffSessionOver && (
-          <SuggestedPrompts
-            onSelect={handleSelectSuggestedPrompt}
-            maxItems={isCompactHeight ? 2 : undefined}
-          />
-        )}
 
         {shouldShowStatusLine && (
           <StatusBar
@@ -1963,14 +1857,6 @@ export const Chat = ({
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
             onStop={chatKeyboardHandlers.onInterruptStream}
-            onEndSession={() => {
-              setMessages((prev) => [
-                ...prev,
-                getSystemMessage(END_SESSION_MESSAGE),
-              ])
-              returnToFreebuffLanding({ resetChat: true }).catch(() => {})
-            }}
-            freebuffSession={freebuffSession}
           />
         )}
 
@@ -2054,19 +1940,10 @@ export const Chat = ({
             }}
           />
         ) : reviewMode ? (
-          // Review and ask_user take precedence over the session-ended banner:
-          // during the grace window the agent may still be asking to run tools
-          // or asking the user a question, and those approvals/answers must be
-          // reachable for the run to finish — otherwise the agent hangs
-          // waiting for input that can never be given.
           <ReviewScreen
             onSelectOption={handleReviewOptionSelect}
             onCustom={handleReviewCustom}
             onCancel={handleCloseReviewScreen}
-          />
-        ) : isFreebuffSessionOver && !askUserState ? (
-          <SessionEndedBanner
-            isStreaming={isStreaming || isWaitingForResponse}
           />
         ) : (
           <>

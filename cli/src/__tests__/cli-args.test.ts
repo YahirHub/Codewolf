@@ -142,23 +142,21 @@ describe('CLI Argument Parsing', () => {
   })
 })
 
-describe('Freebuff CLI Argument Parsing', () => {
-  test('accepts login as a command, not an unexpected argument', () => {
+describe('Codewolf command parsing', () => {
+  test('accepts login as a standalone command', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', 'login'],
-      isFreebuff: true,
+      argv: ['node', 'codewolf', 'login'],
       version: '1.0.0',
     })
 
     expect(result.initialPrompt).toBeNull()
     expect(result.command).toBe('login')
-    expect(result.initialMode).toBe('LITE')
+    expect(result.initialMode).toBeUndefined()
   })
 
   test('allows cwd before the login command', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', '--cwd', '/tmp', 'login'],
-      isFreebuff: true,
+      argv: ['node', 'codewolf', '--cwd', '/tmp', 'login'],
       version: '1.0.0',
     })
 
@@ -169,8 +167,7 @@ describe('Freebuff CLI Argument Parsing', () => {
 
   test('allows cwd after the login command', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', 'login', '--cwd', '/tmp'],
-      isFreebuff: true,
+      argv: ['node', 'codewolf', 'login', '--cwd', '/tmp'],
       version: '1.0.0',
     })
 
@@ -178,13 +175,21 @@ describe('Freebuff CLI Argument Parsing', () => {
     expect(result.command).toBe('login')
     expect(result.initialPrompt).toBeNull()
   })
+
+  test('keeps --free as a deprecated alias of LITE', () => {
+    const result = parseArgs({
+      argv: ['node', 'codewolf', '--free'],
+      version: '1.0.0',
+    })
+
+    expect(result.initialMode).toBe('LITE')
+  })
 })
 
 describe('custom provider editor-only configuration', () => {
   test('treats provider-like CLI arguments as an initial prompt', () => {
     const result = parseArgs({
       argv: ['node', 'codebuff', 'provider', 'add', 'local'],
-      isFreebuff: false,
       version: '1.0.0',
     })
 
@@ -195,7 +200,6 @@ describe('custom provider editor-only configuration', () => {
   test('treats model-like CLI arguments as an initial prompt', () => {
     const result = parseArgs({
       argv: ['node', 'codebuff', 'model', 'coder-b'],
-      isFreebuff: false,
       version: '1.0.0',
     })
 

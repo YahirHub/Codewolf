@@ -15,7 +15,6 @@ import {
   readChatSessionName,
   writeChatMeta,
 } from './chat-meta'
-import { sanitizeRestoredMessages } from './send-message-helpers'
 import { writeFileAtomic } from './write-file-atomic'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -132,10 +131,7 @@ export function resolveChatTransferPath(
   const resolved = path.resolve(getProjectRoot(), trimmed)
   if (mode === 'export') {
     if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
-      return path.join(
-        resolved,
-        `codewolf-chat-${timestampForFile()}.jsonl`,
-      )
+      return path.join(resolved, `codewolf-chat-${timestampForFile()}.jsonl`)
     }
     return ensureJsonlExtension(resolved)
   }
@@ -160,7 +156,10 @@ function sanitizePortableBlocks(value: unknown): ContentBlock[] | undefined {
   for (const item of value) {
     if (!item || typeof item !== 'object') continue
     const record = item as Record<string, unknown>
-    if (typeof record.type !== 'string' || !PORTABLE_BLOCK_TYPES.has(record.type)) {
+    if (
+      typeof record.type !== 'string' ||
+      !PORTABLE_BLOCK_TYPES.has(record.type)
+    ) {
       continue
     }
 
@@ -180,12 +179,18 @@ function sanitizePortableBlocks(value: unknown): ContentBlock[] | undefined {
 
 function normalizeMessages(messages: ChatMessage[]): ChatMessage[] {
   const normalized = JSON.parse(stringifyJsonValue(messages)) as ChatMessage[]
-  return sanitizeRestoredMessages(
-    normalized.map((message) => ({
+  return normalized.map((message) => {
+    const { allowInlineAds: _allowInlineAds, ...metadata } =
+      message.metadata ?? {}
+
+    return {
       ...message,
+      ...(Object.keys(metadata).length > 0
+        ? { metadata }
+        : { metadata: undefined }),
       blocks: sanitizePortableBlocks(message.blocks),
-    })),
-  )
+    }
+  })
 }
 
 function normalizeRunState(runState: RunState | null): RunState | null {

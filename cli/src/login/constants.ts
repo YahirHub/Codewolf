@@ -1,16 +1,9 @@
-import { FREEBUFF_WEB_URL_PROD } from '@codebuff/common/constants/hosts'
-import { env, IS_DEV } from '@codebuff/common/env'
-
-import { IS_FREEBUFF } from '../utils/constants'
+import { env } from '@codebuff/common/env'
 
 // Get the website URL from environment or use default
 export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
-// Freebuff login flow uses the freebuff web app instead of codebuff.com
-const FREEBUFF_WEB_URL = IS_DEV
-  ? 'http://localhost:3002'
-  : (env.NEXT_PUBLIC_FREEBUFF_APP_URL ?? FREEBUFF_WEB_URL_PROD)
-export const LOGIN_WEBSITE_URL = IS_FREEBUFF ? FREEBUFF_WEB_URL : WEBSITE_URL
+export const LOGIN_WEBSITE_URL = WEBSITE_URL
 
 // Codewolf ASCII logo - compact version for terminal use
 const LOGO_CODEWOLF = `
@@ -31,27 +24,9 @@ const LOGO_SMALL_CODEWOLF = `
   ╚═════╝  ╚══╝╚══╝
 `
 
-// Freebuff ASCII Logo
-const LOGO_FREEBUFF = `
- ███████╗██████╗ ███████╗███████╗██████╗ ██╗   ██╗███████╗███████╗
- ██╔════╝██╔══██╗██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝
- █████╗  ██████╔╝█████╗  █████╗  ██████╔╝██║   ██║█████╗  █████╗
- ██╔══╝  ██╔══██╗██╔══╝  ██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██╔══╝
- ██║     ██║  ██║███████╗███████╗██████╔╝╚██████╔╝██║     ██║
- ╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝╚═════╝  ╚═════╝ ╚═╝     ╚═╝
-`
 
-const LOGO_SMALL_FREEBUFF = `
- ███████╗██████╗
- ██╔════╝██╔══██╗
- █████╗  ██████╔╝
- ██╔══╝  ██╔══██╗
- ██║     ██████╔╝
- ╚═╝     ╚═════╝
-`
-
-export const LOGO = IS_FREEBUFF ? LOGO_FREEBUFF : LOGO_CODEWOLF
-export const LOGO_SMALL = IS_FREEBUFF ? LOGO_SMALL_FREEBUFF : LOGO_SMALL_CODEWOLF
+export const LOGO = LOGO_CODEWOLF
+export const LOGO_SMALL = LOGO_SMALL_CODEWOLF
 
 // Shadow/border characters that receive the sheen animation effect
 export const SHADOW_CHARS = new Set([

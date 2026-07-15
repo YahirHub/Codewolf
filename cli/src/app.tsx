@@ -5,20 +5,16 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
-import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
-import { FreebuffLandingScreen } from './components/freebuff-landing-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
-import { useFreebuffSession } from './hooks/use-freebuff-session'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { getProjectRoot, startNewChat } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { abortActiveRun } from './utils/active-run'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
-import { IS_FREEBUFF } from './utils/constants'
 import { findGitRoot } from './utils/git'
 
 import type { ChatHistorySelection } from './components/chat-history-screen'
@@ -217,8 +213,6 @@ export const App = ({
   // Render project picker FIRST when at home directory or outside a project.
   // This deliberately precedes the login/auth and free-session gates so the
   // user always gets to pick a working directory before anything else — auth
-  // failures or a banned freebuff session would otherwise replace the
-  // picker mid-flash and look like being kicked out of the app.
   if (showProjectPicker) {
     return (
       <ProjectPickerScreen
@@ -295,11 +289,7 @@ interface AuthedSurfaceProps {
   onNewChat: () => void
 }
 
-/**
- * Rendered only after auth is confirmed. Owns the freebuff session gate
- * so `useFreebuffSession` runs exactly once per authed session (not before
- * we have a token).
- */
+/** Rendered after authentication and owns chat/history routing. */
 const AuthedSurface = ({
   chatKey,
   initialPrompt,
@@ -320,42 +310,6 @@ const AuthedSurface = ({
   onCancelChatHistory,
   onNewChat,
 }: AuthedSurfaceProps) => {
-  const { session, error: sessionError } = useFreebuffSession()
-
-  // Terminal state: a 409 from the gate means another CLI rotated our
-  // instance id. Show a dedicated screen and stop polling — don't fall back
-  // into the pre-chat screen, which would look like normal startup progress.
-  if (IS_FREEBUFF && session?.status === 'superseded') {
-    return <FreebuffSupersededScreen />
-  }
-
-  // Route every non-admitted state through the pre-chat screen:
-  //   null     → initial GET in flight (brief)
-  //   'none'   → no seat yet; show model-picker landing
-  //   'country_blocked' → terminal region-gate message
-  //   'banned' → terminal account-banned message
-  //   'rate_limited' → hit shared session quota; terminal for this run
-  //   'takeover_prompt' → another local CLI already holds this account
-  //
-  // 'ended' deliberately falls through to <Chat>: the agent may still be
-  // finishing work under the server-side grace period, and the chat surface
-  // itself swaps the input box for the session-ended banner.
-  if (
-    IS_FREEBUFF &&
-    (session === null ||
-      session.status === 'none' ||
-      session.status === 'country_blocked' ||
-      session.status === 'banned' ||
-      session.status === 'rate_limited' ||
-      session.status === 'takeover_prompt')
-  ) {
-    return <FreebuffLandingScreen session={session} error={sessionError} />
-  }
-
-  // Chat history renders inside AuthedSurface so the freebuff session stays
-  // mounted while the user browses history. Unmounting this surface would
-  // DELETE the session row and drop the user back onto the landing screen on
-  // return.
   if (showChatHistory) {
     return (
       <ChatHistoryScreen
@@ -382,7 +336,6 @@ const AuthedSurface = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={onSwitchToGitRoot}
-      freebuffSession={session}
     />
   )
 }

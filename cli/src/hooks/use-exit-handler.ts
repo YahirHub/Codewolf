@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
-import { IS_FREEBUFF } from '../utils/constants'
-import { exitFreebuffCleanly } from '../utils/freebuff-exit'
 import { withTimeout } from '../utils/terminal-color-detection'
 
 import type { InputValue } from '../types/store'
@@ -28,9 +26,8 @@ function setupExitMessageHandler() {
       if (chatId) {
         // This runs synchronously during the exit phase
         // OpenTUI has already cleaned up by this point
-        const cliName = IS_FREEBUFF ? 'freebuff' : 'codewolf'
         process.stdout.write(
-          `\nPara continuar esta sesión más tarde, ejecuta:\n${cliName} --continue ${chatId}\n`,
+          `\nPara continuar esta sesión más tarde, ejecuta:\ncodewolf --continue ${chatId}\n`,
         )
       }
     } catch {
@@ -40,11 +37,6 @@ function setupExitMessageHandler() {
 }
 
 function exitCli(): void {
-  if (IS_FREEBUFF) {
-    void exitFreebuffCleanly()
-    return
-  }
-
   withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
     () => {
       process.exit(0)

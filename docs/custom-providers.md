@@ -1,8 +1,8 @@
 # Interactive custom providers and model switching
 
-The full Codebuff editor can route all agent requests directly to an OpenAI-compatible API. The selected provider and model apply globally to the main agent and every subagent created during the run.
+The Codewolf editor can route all agent requests directly to an OpenAI-compatible API. The selected provider and model apply globally to the main agent and every subagent created during the run.
 
-This feature is configured entirely inside the editor and is not enabled in Freebuff mode.
+This feature is configured entirely inside the editor.
 
 ## No `.env` file is required
 
@@ -31,7 +31,7 @@ The API key is typed in a dedicated masked input. It never passes through the ch
 
 ## Automatic model discovery
 
-When the model field is empty, Codebuff sends:
+When the model field is empty, Codewolf sends:
 
 ```text
 GET <normalized-base-url>/models

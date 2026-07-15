@@ -12,7 +12,6 @@ import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
 import { formatUrl, calculateResponsiveLayout } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
-import { IS_FREEBUFF } from '../utils/constants'
 import { copyTextToClipboard, isRemoteSession } from '../utils/clipboard'
 import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
@@ -454,7 +453,7 @@ export const LoginModal = ({
                     Consejo: si no puedes copiar, sal y ejecuta{' '}
                   </span>
                   <span fg={theme.primary}>
-                    {IS_FREEBUFF ? 'freebuff' : 'codewolf'} login
+                    codewolf login
                   </span>
                   <span fg={theme.secondary}> instead.</span>
                 </text>

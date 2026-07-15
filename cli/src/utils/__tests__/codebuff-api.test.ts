@@ -482,14 +482,14 @@ describe('createCodebuffApiClient', () => {
       })
 
       const client = createCodebuffApiClient({
-        baseUrl: 'https://freebuff.com',
+        baseUrl: 'https://api.example.com',
         fetch: mockTlsFetch as unknown as typeof fetch,
       })
 
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'Falló la verificación del certificado TLS de https://freebuff.com.',
+        'Falló la verificación del certificado TLS de https://api.example.com.',
       )
     })
 
@@ -501,7 +501,7 @@ describe('createCodebuffApiClient', () => {
       })
 
       const client = createCodebuffApiClient({
-        baseUrl: 'https://freebuff.com',
+        baseUrl: 'https://api.example.com',
         fetch: mockTlsFetch as unknown as typeof fetch,
         retry: {
           maxRetries: 3,
@@ -512,7 +512,7 @@ describe('createCodebuffApiClient', () => {
       await expect(
         client.post('/api/auth/cli/code', { fingerprintId: 'test' }),
       ).rejects.toThrow(
-        'Falló la verificación del certificado TLS de https://freebuff.com.',
+        'Falló la verificación del certificado TLS de https://api.example.com.',
       )
       expect(mockTlsFetch).toHaveBeenCalledTimes(1)
     })

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { Button } from './button'
-import { IS_FREEBUFF } from '../utils/constants'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -18,8 +17,6 @@ export const BuildModeButtons = ({
   onBuildMax: () => void
   onBuildLite: () => void
 }) => {
-  if (IS_FREEBUFF) return null
-
   const [hoveredButton, setHoveredButton] = useState<
     'fast' | 'max' | 'lite' | 'revise' | null
   >(null)
@@ -54,9 +51,9 @@ export const BuildModeButtons = ({
             hoveredButton === 'revise' ? theme.foreground : theme.secondary,
           customBorderChars: BORDER_CHARS,
         }}
-        onClick={() =>
+        onClick={() => {
           globalThis.dispatchEvent(new Event('codewolf:revise-plan'))
-        }
+        }}
         onMouseOver={() => setHoveredButton('revise')}
         onMouseOut={() => setHoveredButton(null)}
       >

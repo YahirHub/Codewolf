@@ -25,18 +25,13 @@ import {
   buildReviewPromptFromArgs,
 } from './prompt-builders'
 import { runBashCommand } from './router'
-import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
 import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { abortActiveRun } from '../utils/active-run'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import {
-  AGENT_MODES,
-  END_SESSION_MESSAGE,
-  IS_FREEBUFF,
-} from '../utils/constants'
+import { AGENT_MODES } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -197,19 +192,6 @@ const clearInput = (params: RouterParams) => {
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 }
 
-const FREEBUFF_REMOVED_COMMANDS = new Set([
-  'login',
-  'providers',
-  'models',
-  'setup-search',
-  'usage',
-  'config',
-  'image',
-  'publish',
-  'agent',
-])
-
-const FREEBUFF_ONLY_COMMANDS = new Set(['connect', 'end-session'])
 
 const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
@@ -473,8 +455,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // Mode commands generated from AGENT_MODES (excluded in Freebuff)
-  ...(IS_FREEBUFF ? [] : AGENT_MODES).map((mode) =>
+  // Mode commands generated from AGENT_MODES.
+  ...AGENT_MODES.map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
       aliases: [`model:${mode.toLowerCase()}`],
@@ -637,105 +619,61 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /end-session (freebuff-only) — end the active session early and drop back
-  // to the model picker. The hook flips status to 'none', which unmounts
-  // <Chat> and mounts <FreebuffLandingScreen>, where the user picks a model
-  // and hits Enter to start a new session.
-  defineCommand({
-    name: 'end-session',
-    aliases: ['model'],
-    handler: (params) => {
-      params.setMessages((prev) => [
-        ...prev,
-        getUserMessage(params.inputValue.trim()),
-        getSystemMessage(END_SESSION_MESSAGE),
-      ])
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-      returnToFreebuffLanding({ resetChat: true }).catch(() => {
-        // The hook surfaces poll errors via the session store; nothing to do
-        // here beyond letting the chat history reflect the attempt.
-      })
-    },
-  }),
 ]
 
-export const COMMAND_REGISTRY: CommandDefinition[] = IS_FREEBUFF
-  ? ALL_COMMANDS.filter((cmd) => !FREEBUFF_REMOVED_COMMANDS.has(cmd.name))
-  : ALL_COMMANDS.filter((cmd) => !FREEBUFF_ONLY_COMMANDS.has(cmd.name))
+export const COMMAND_REGISTRY: CommandDefinition[] = ALL_COMMANDS
 
-export function findCommand(cmd: string): CommandDefinition | undefined {
-  const lowerCmd = cmd.toLowerCase()
-
-  // First check the static command registry
+export function findCommand(command: string): CommandDefinition | undefined {
+  const normalizedCommand = command.toLowerCase()
   const staticCommand = COMMAND_REGISTRY.find(
-    (def) => def.name === lowerCmd || def.aliases.includes(lowerCmd),
+    (definition) =>
+      definition.name === normalizedCommand ||
+      definition.aliases.includes(normalizedCommand),
   )
   if (staticCommand) {
     return staticCommand
   }
 
-  // Check if this is a skill command (prefixed with "skill:")
-  if (lowerCmd.startsWith('skill:')) {
-    const skillName = lowerCmd.slice('skill:'.length)
-    const skill = getSkillByName(skillName)
-    if (skill) {
-      return createSkillCommand(skill.name)
-    }
+  if (!normalizedCommand.startsWith('skill:')) {
+    return undefined
   }
 
-  return undefined
+  const skillName = normalizedCommand.slice('skill:'.length)
+  return getSkillByName(skillName) ? createSkillCommand(skillName) : undefined
 }
 
-/**
- * Creates a dynamic command definition for a skill.
- * When invoked, the skill's content is sent to the agent.
- */
 function createSkillCommand(skillName: string): CommandDefinition {
   return defineCommandWithArgs({
     name: skillName,
     handler: (params, args) => {
       const skill = getSkillByName(skillName)
       if (!skill) {
-        params.setMessages((prev) => [
-          ...prev,
+        params.setMessages((previousMessages) => [
+          ...previousMessages,
           getUserMessage(params.inputValue.trim()),
           getSystemMessage(`Skill no encontrada: ${skillName}`),
         ])
         params.saveToHistory(params.inputValue.trim())
-        params.setInputValue({
-          text: '',
-          cursorPosition: 0,
-          lastEditDueToNav: false,
-        })
+        clearInput(params)
         return
       }
 
-      const trimmed = params.inputValue.trim()
-      params.saveToHistory(trimmed)
-      params.setInputValue({
-        text: '',
-        cursorPosition: 0,
-        lastEditDueToNav: false,
-      })
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
 
-      // Build the message content with skill context and optional user args
       const skillContext = `<skill name="${skill.name}">
 ${skill.content}
 </skill>`
-
       const userPrompt =
         `I invoke the following skill:\n\n${skillContext}\n\n` +
         (args.trim() ? `User request: ${args.trim()}` : '')
 
-      // Check streaming/queue state
       if (
         params.isStreaming ||
         params.streamMessageIdRef.current ||
         params.isChainInProgressRef.current
       ) {
-        const pendingAttachments = capturePendingAttachments()
-        params.addToQueue(userPrompt, pendingAttachments)
+        params.addToQueue(userPrompt, capturePendingAttachments())
         params.setInputFocused(true)
         params.inputRef.current?.focus()
         return
@@ -745,9 +683,7 @@ ${skill.content}
         content: userPrompt,
         agentMode: params.agentMode,
       })
-      setTimeout(() => {
-        params.scrollToLatest()
-      }, 0)
+      setTimeout(() => params.scrollToLatest(), 0)
     },
   })
 }

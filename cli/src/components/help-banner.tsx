@@ -2,7 +2,6 @@ import React from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { useTheme } from '../hooks/use-theme'
-import { IS_FREEBUFF } from '../utils/constants'
 import { useChatStore } from '../state/chat-store'
 
 const HELP_TIMEOUT = 60 * 1000
@@ -71,11 +70,9 @@ export const HelpBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Consejos</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-            {IS_FREEBUFF && (
-              <text style={{ fg: theme.muted }}>
-                Flujo sugerido: /interview → modo PLAN → implementar → /review
-              </text>
-            )}
+            <text style={{ fg: theme.muted }}>
+              Flujo sugerido: /interview → modo PLAN → implementar → /review
+            </text>
             <text style={{ fg: theme.muted }}>
               Usa @ para indicar agentes que se iniciarán o archivos que se
               leerán

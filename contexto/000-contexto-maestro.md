@@ -48,11 +48,13 @@ esta estructura mínima:
 # Archivos importantes modificados
 # Soluciones implementadas
 
+- Se eliminó el workspace Freebuff, 163 archivos obsoletos, dependencias directas sin uso y ramas comerciales; se conservaron los namespaces activos del SDK y las atribuciones legales.
 Secciones opcionales cuando exista información confirmada:
 # Decisiones tomadas
 # Arquitectura actual
 # Librerías usadas
 # Problemas encontrados
+
 # Pendientes
 # Próximos pasos
 ```
@@ -112,6 +114,7 @@ TypeScript con Bun, React y OpenTUI.
 - Los commits verificados mantienen un backlog persistente por proyecto: elegir **No crear commit** conserva los archivos seguros y el siguiente commit confirmado acumula todas las implementaciones pendientes cuyas huellas SHA-256 no cambiaron manualmente.
 - Con contexto persistente activo, las implementaciones con cambios reales garantizan la creación o actualización de un registro numerado y del contexto maestro. Los registros normales se generan localmente sin otra llamada al proveedor, con títulos técnicos breves, filtrado de metatexto y secciones opcionales solo cuando existen hechos confirmados. `/init` puede enriquecer el análisis mediante una única salida estructurada y siempre conserva un fallback local.
 - La terminal normaliza wrappers `cd` incompatibles entre Windows, Git Bash y WSL, y `basher` devuelve el resultado sin una segunda llamada al proveedor.
+- `bun test` omite las E2E de agentes sin habilitación explícita y excluye los runners manuales de browser-use/librarian; los typechecks de CLI son compatibles con Bun 1.3.14.
 
 # Persistencia
 
@@ -163,7 +166,7 @@ lista exacta y versiones bloqueadas.
 - `cli/src/components/model-selector-screen.tsx`
 - `common/src/web-search/`
 - `cli/src/components/search-setup-screen.tsx`
-- `scripts/cleanup-commercial-cli.py`
+- `scripts/cleanup-codewolf-obsolete.ps1`
 - `packages/agent-runtime/src/tools/handlers/tool/`
 - `cli/src/utils/sdk-event-handlers.ts`
 - `cli/src/scripts/build-binary.ts`
@@ -198,6 +201,7 @@ lista exacta y versiones bloqueadas.
 
 # Problemas encontrados
 
+- El workspace Freebuff, sus variantes de agentes, superficies comerciales y wrappers de release seguían presentes aunque ya no eran alcanzables desde Codewolf.
 - La generación automática de contexto podía copiar solicitudes largas y respuestas completas en nombres y contenido, además de consumir una llamada adicional al proveedor en cada implementación.
 - El backend original no es una dependencia válida para proveedores, búsqueda,
   créditos ni suscripciones de esta edición.
@@ -229,9 +233,11 @@ lista exacta y versiones bloqueadas.
 - La metodología de trabajo y la memoria `contexto/` dependían de instrucciones manuales fuera del CLI; tampoco existía una confirmación segura que pidiera probar una implementación antes de crear un commit limitado a sus archivos.
 - El redactor de commits podía aceptar `Guardar cambios verificados` y limitar la descripción a enumerar archivos, sin representar el trabajo real.
 - En Windows, el agente podía anteponer una ruta `C:\\...` a un comando ejecutado por Bash; además `basher` hacía una segunda petición al modelo después del proceso y una caída `Upstream request failed` ocultaba el resultado de terminal.
+- Las herramientas del SDK aplicaban la sintaxis de rutas del sistema anfitrión a filesystems virtuales; en Windows esto convertía rutas POSIX de pruebas en `C:\\repo\...` y provocaba fallos masivos de lectura, parches y contexto.
 
 # Soluciones implementadas
 
+- Se eliminó el workspace Freebuff, 163 archivos obsoletos, dependencias directas sin uso y ramas comerciales; se conservaron los namespaces activos del SDK y las atribuciones legales.
 - El mantenimiento de contexto normal ahora es determinista y local: limita títulos, filtra Markdown y metatexto, conserva solo viñetas técnicas y omite secciones sin información real.
 - Proveedores y búsqueda se ejecutan localmente con configuración separada de
   credenciales.
@@ -270,12 +276,14 @@ lista exacta y versiones bloqueadas.
   editados o ambos sin sobrescribir cambios externos detectados.
 - `/config` habilita de forma independiente el contexto persistente y los commits verificados. `contexto/*.md` se resume con un agente de solo lectura y caché por huella, se inyecta como conocimiento virtual, y el agente actualiza documentos numerados tras cambios importantes. Los commits solo se crean después de una confirmación explícita, se limitan a mutaciones estructuradas que estaban limpias al iniciar el turno y rechazan staging o cambios externos.
 
+- Las operaciones sobre filesystems inyectados resuelven rutas según su propia sintaxis POSIX o Win32, independientemente del sistema anfitrión; la suite local excluye integraciones externas mediante `pathIgnorePatterns`.
+- La suite local de Windows usa `process.execPath` para procesos de Bun, entorno de pruebas autónomo, escrituras atómicas serializadas y expectativas alineadas con la interfaz española; las integraciones externas se separan por rutas explícitas.
+
 # Pendientes
 
 - Ejecutar el workflow desde la rama predeterminada y verificar una release real.
 - Probar las APIs de búsqueda con claves reales y cuotas activas.
-- Auditar y retirar módulos heredados que ya no sean alcanzables, en un cambio
-  separado y con pruebas de regresión.
+- Mantener las pruebas E2E reales como ejecución explícita con credenciales; la suite local no debe depender del backend.
 - Evaluar una migración futura del namespace interno `@codebuff/*` sin romper
   workspaces ni compatibilidad.
 
@@ -310,3 +318,10 @@ al terminar.
 - `021`: medidor permanente de uso y capacidad restante de contexto.
 - `022`: modo PLAN seguro y checkpoints de conversación/archivos con `/rewind`.
 - `023`: metodología opcional, resumen automático de `contexto/` y commits verificados.
+- `024`: commits semánticos, terminal multiplataforma y reintentos upstream.
+- `025`: acumulación segura de commits y mantenimiento garantizado de contexto.
+- `026`: contexto técnico conciso generado localmente.
+- `027`: eliminación de Freebuff y código obsoleto no alcanzable.
+- `028`: typechecks corregidos y separación entre pruebas locales y E2E con credenciales.
+- `029`: rutas virtuales portables, descubrimiento correcto de pruebas y lockfile sincronizado.
+- `030`: suite local de Windows, entorno autónomo y escrituras atómicas serializadas.

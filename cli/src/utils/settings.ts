@@ -1,8 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
-
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
 import { logger } from './logger'
@@ -11,7 +9,6 @@ import type { AgentMode } from './constants'
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
-  adsEnabled: true,
   projectContextEnabled: false,
   verifiedCommitsEnabled: false,
 }
@@ -23,19 +20,10 @@ const DEFAULT_SETTINGS: Settings = {
  */
 export interface Settings {
   mode?: AgentMode
-  adsEnabled?: boolean
-  /** Last model the user picked in the freebuff model selector. Restored on
-   *  next freebuff launch so users land in the queue for their preferred
-   *  model without re-picking. Persisted as the canonical model id. */
-  freebuffModel?: string
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   fallbackToALaCarte?: boolean
-  /** Set once the user has submitted their first prompt. Used to gate the
-   *  first-time onboarding suggested prompts so they only show to brand-new
-   *  users and quietly retire afterwards. */
-  hasSubmittedFirstPrompt?: boolean
   /** Load and maintain the project's contexto/ memory through a cached agent summary. */
   projectContextEnabled?: boolean
   /** Ask the user to verify structured edits before creating a Git commit. */
@@ -107,20 +95,6 @@ const validateSettings = (parsed: unknown): Settings => {
     }
   }
 
-  // Validate adsEnabled
-  if (typeof obj.adsEnabled === 'boolean') {
-    settings.adsEnabled = obj.adsEnabled
-  }
-
-  // Validate freebuffModel — drop unknown ids so a removed model doesn't
-  // strand the user on a non-existent queue. Hidden-but-supported models are
-  // kept; access-tier resolution decides whether they are selectable.
-  if (
-    typeof obj.freebuffModel === 'string' &&
-    isSupportedFreebuffModelId(obj.freebuffModel)
-  ) {
-    settings.freebuffModel = obj.freebuffModel
-  }
 
   // Validate alwaysUseALaCarte (legacy)
   if (typeof obj.alwaysUseALaCarte === 'boolean') {
@@ -132,10 +106,6 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.fallbackToALaCarte = obj.fallbackToALaCarte
   }
 
-  // Validate hasSubmittedFirstPrompt
-  if (typeof obj.hasSubmittedFirstPrompt === 'boolean') {
-    settings.hasSubmittedFirstPrompt = obj.hasSubmittedFirstPrompt
-  }
 
   if (typeof obj.projectContextEnabled === 'boolean') {
     settings.projectContextEnabled = obj.projectContextEnabled
@@ -188,38 +158,6 @@ export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
 
-/**
- * Load the saved freebuff model preference. Returns undefined if none is
- * saved yet — callers should fall back to DEFAULT_FREEBUFF_MODEL_ID.
- */
-export const loadFreebuffModelPreference = (): string | undefined => {
-  return loadSettings().freebuffModel
-}
-
-/**
- * Save the freebuff model preference. Called whenever the user picks a model
- * on the landing screen so the next launch defaults to it.
- */
-export const saveFreebuffModelPreference = (model: string): void => {
-  saveSettings({ freebuffModel: model })
-}
-
-/**
- * Whether the user has ever submitted a prompt. False only for brand-new
- * users, who get the onboarding suggested prompts on an empty chat.
- */
-export const hasSubmittedFirstPrompt = (): boolean => {
-  return loadSettings().hasSubmittedFirstPrompt === true
-}
-
-/**
- * Mark that the user has submitted their first prompt, retiring the onboarding
- * suggested prompts on future launches. Idempotent.
- */
-export const markFirstPromptSubmitted = (): void => {
-  if (loadSettings().hasSubmittedFirstPrompt === true) return
-  saveSettings({ hasSubmittedFirstPrompt: true })
-}
 
 export const isProjectContextEnabled = (): boolean =>
   loadSettings().projectContextEnabled === true

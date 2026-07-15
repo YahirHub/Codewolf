@@ -6,18 +6,14 @@ describe('/new command', () => {
       '../command-registry.ts',
       import.meta.url,
     ).href
-    const projectFilesUrl = new URL(
-      '../../project-files.ts',
-      import.meta.url,
-    ).href
-    const activeRunUrl = new URL(
-      '../../utils/active-run.ts',
-      import.meta.url,
-    ).href
+    const projectFilesUrl = new URL('../../project-files.ts', import.meta.url)
+      .href
+    const activeRunUrl = new URL('../../utils/active-run.ts', import.meta.url)
+      .href
 
     const result = Bun.spawnSync({
       cmd: [
-        'bun',
+        process.execPath,
         '--eval',
         `
           import { findCommand } from ${JSON.stringify(commandRegistryUrl)}

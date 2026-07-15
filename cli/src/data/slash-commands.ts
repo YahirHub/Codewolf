@@ -1,5 +1,5 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODES } from '../utils/constants'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
@@ -20,30 +20,14 @@ export interface SlashCommand {
   insertText?: string
 }
 
-// Generate mode commands from the AGENT_MODES constant (excluded in Freebuff)
-const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
-  ? []
-  : AGENT_MODES.map((mode) => ({
-      id: `mode:${mode.toLowerCase()}`,
-      label: `mode:${mode.toLowerCase()}`,
-      description: `Cambiar al modo ${mode}`,
-      aliases: [`model:${mode.toLowerCase()}`],
-    }))
+// Generate mode commands from the AGENT_MODES constant.
+const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
+  id: `mode:${mode.toLowerCase()}`,
+  label: `mode:${mode.toLowerCase()}`,
+  description: `Cambiar al modo ${mode}`,
+  aliases: [`model:${mode.toLowerCase()}`],
+}))
 
-const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
-  'login',
-  'providers',
-  'models',
-  'setup-search',
-  'usage',
-  'config',
-  'agent',
-  'image',
-  'publish',
-  'init',
-])
-
-const FREEBUFF_ONLY_COMMAND_IDS = new Set(['connect', 'end-session'])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
@@ -201,9 +185,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'feedback',
     label: 'feedback',
-    description: IS_FREEBUFF
-      ? 'Enviar comentarios generales sobre Freebuff'
-      : 'Enviar comentarios generales sobre Codewolf',
+    description: 'Enviar comentarios generales sobre Codewolf',
   },
   {
     id: 'bash',
@@ -230,12 +212,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Alternar entre modo claro y oscuro',
   },
   {
-    id: 'end-session',
-    label: 'end-session',
-    description: 'Finalizar la sesión gratuita (permite cambiar de modelo)',
-    aliases: ['model'],
-  },
-  {
     id: 'logout',
     label: 'logout',
     description: 'Cerrar la sesión actual',
@@ -251,19 +227,14 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   },
 ]
 
-export const SLASH_COMMANDS = IS_FREEBUFF
-  ? ALL_SLASH_COMMANDS.filter(
-      (cmd) => !FREEBUFF_REMOVED_COMMAND_IDS.has(cmd.id),
-    )
-  : ALL_SLASH_COMMANDS.filter((cmd) => !FREEBUFF_ONLY_COMMAND_IDS.has(cmd.id))
+export const SLASH_COMMANDS = ALL_SLASH_COMMANDS
 
 export const SLASHLESS_COMMAND_IDS = new Set(
-  SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand).map((cmd) =>
-    cmd.id.toLowerCase(),
+  SLASH_COMMANDS.filter((command) => command.implicitCommand).map((command) =>
+    command.id.toLowerCase(),
   ),
 )
 
-/** Maximum description length for skill commands in the slash menu */
 const SKILL_MENU_DESCRIPTION_MAX_LENGTH = 50
 
 function truncateDescription(description: string): string {
@@ -273,10 +244,7 @@ function truncateDescription(description: string): string {
   return description.slice(0, SKILL_MENU_DESCRIPTION_MAX_LENGTH - 1) + '…'
 }
 
-/**
- * Returns SLASH_COMMANDS merged with skill commands.
- * Skills become slash commands that users can invoke directly.
- */
+/** Returns built-in slash commands plus commands exposed by loaded skills. */
 export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
   const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
     id: `skill:${skill.name}`,
@@ -284,7 +252,5 @@ export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
     description: truncateDescription(skill.description),
   }))
 
-  const commands = [...SLASH_COMMANDS, ...skillCommands]
-
-  return commands
+  return [...SLASH_COMMANDS, ...skillCommands]
 }

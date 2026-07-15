@@ -4,6 +4,8 @@ import path from 'path'
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
+import { toRelativeCompletionPath } from '../use-path-tab-completion'
+
 /**
  * Tests for usePathTabCompletion hook logic.
  *
@@ -29,17 +31,6 @@ const isAbsolutePath = (searchQuery: string): boolean => {
 // Helper to check if completion result indicates a full directory
 const isCompleteDirectory = (completed: string): boolean => {
   return completed.endsWith('/')
-}
-
-// Helper to convert absolute completion back to relative for display
-const toRelativePath = (
-  completed: string,
-  currentPath: string,
-): string | null => {
-  if (completed.startsWith(currentPath + path.sep)) {
-    return completed.slice(currentPath.length + 1)
-  }
-  return null
 }
 
 describe('usePathTabCompletion - path type detection', () => {
@@ -103,41 +94,41 @@ describe('usePathTabCompletion - relative path conversion', () => {
     test('converts absolute completion to relative when within currentPath', () => {
       const currentPath = '/home/user/projects'
       const completed = '/home/user/projects/myproject'
-      
-      const result = toRelativePath(completed, currentPath)
+
+      const result = toRelativeCompletionPath(completed, currentPath)
       expect(result).toBe('myproject')
     })
 
     test('converts nested path correctly', () => {
       const currentPath = '/home/user'
       const completed = '/home/user/Documents/work'
-      
-      const result = toRelativePath(completed, currentPath)
+
+      const result = toRelativeCompletionPath(completed, currentPath)
       expect(result).toBe('Documents/work')
     })
 
     test('returns null when completion is not under currentPath', () => {
       const currentPath = '/home/user/projects'
       const completed = '/usr/local/bin'
-      
-      const result = toRelativePath(completed, currentPath)
+
+      const result = toRelativeCompletionPath(completed, currentPath)
       expect(result).toBeNull()
     })
 
     test('returns null when completion exactly equals currentPath', () => {
       const currentPath = '/home/user/projects'
       const completed = '/home/user/projects'
-      
+
       // Note: This would need to be `/home/user/projects/` + something to match
-      const result = toRelativePath(completed, currentPath)
+      const result = toRelativeCompletionPath(completed, currentPath)
       expect(result).toBeNull()
     })
 
     test('handles paths with trailing separators correctly', () => {
       const currentPath = '/home/user'
       const completed = '/home/user/test'
-      
-      const result = toRelativePath(completed, currentPath)
+
+      const result = toRelativeCompletionPath(completed, currentPath)
       expect(result).toBe('test')
     })
   })
@@ -172,7 +163,8 @@ describe('usePathTabCompletion - completion decision logic', () => {
   describe('when query is empty', () => {
     test('should not attempt completion for empty query', () => {
       const searchQuery = ''
-      const shouldComplete = searchQuery.length > 0 || isAbsolutePath(searchQuery)
+      const shouldComplete =
+        searchQuery.length > 0 || isAbsolutePath(searchQuery)
       expect(shouldComplete).toBe(false)
     })
   })
@@ -207,7 +199,7 @@ describe('usePathTabCompletion - completion decision logic', () => {
     test('should navigate when canNavigate is true and completion is full directory', () => {
       const canNavigate = true
       const completed = '/home/user/Documents/'
-      
+
       const shouldNavigate = canNavigate && isCompleteDirectory(completed)
       expect(shouldNavigate).toBe(true)
     })
@@ -215,7 +207,7 @@ describe('usePathTabCompletion - completion decision logic', () => {
     test('should not navigate when canNavigate is false', () => {
       const canNavigate = false
       const completed = '/home/user/Documents/'
-      
+
       const shouldNavigate = canNavigate && isCompleteDirectory(completed)
       expect(shouldNavigate).toBe(false)
     })
@@ -223,7 +215,7 @@ describe('usePathTabCompletion - completion decision logic', () => {
     test('should not navigate when completion is partial (no trailing /)', () => {
       const canNavigate = true
       const completed = '/home/user/Doc'
-      
+
       const shouldNavigate = canNavigate && isCompleteDirectory(completed)
       expect(shouldNavigate).toBe(false)
     })
@@ -248,7 +240,7 @@ describe('usePathTabCompletion - integration with filesystem', () => {
   test('builds relative path correctly for completion', () => {
     const currentPath = tempDir
     const searchQuery = 'nest'
-    
+
     // This simulates what the hook does: join currentPath with searchQuery
     const relativePath = path.join(currentPath, searchQuery)
     expect(relativePath).toBe(path.join(tempDir, 'nest'))
@@ -256,7 +248,7 @@ describe('usePathTabCompletion - integration with filesystem', () => {
 
   test('extracts directory path from completion result', () => {
     const completed = '/some/path/to/directory/'
-    
+
     // Remove trailing / to get directory path for navigation
     const dirPath = completed.slice(0, -1)
     expect(dirPath).toBe('/some/path/to/directory')
@@ -265,7 +257,7 @@ describe('usePathTabCompletion - integration with filesystem', () => {
   test('converts completion result back to relative display', () => {
     const currentPath = tempDir
     const completed = path.join(tempDir, 'nested') + path.sep
-    
+
     // Simulate the conversion logic
     let displayPath: string
     if (completed.startsWith(currentPath + path.sep)) {
@@ -273,7 +265,7 @@ describe('usePathTabCompletion - integration with filesystem', () => {
     } else {
       displayPath = completed
     }
-    
+
     // Should show 'nested/' as the relative path
     expect(displayPath).toBe('nested' + path.sep)
   })
@@ -283,7 +275,7 @@ describe('usePathTabCompletion - edge cases', () => {
   test('handles path with spaces', () => {
     const searchQuery = '~/My Documents'
     expect(isAbsolutePath(searchQuery)).toBe(true)
-    
+
     const expanded = expandPath(searchQuery)
     expect(expanded).toBe(path.join(os.homedir(), 'My Documents'))
   })
@@ -308,7 +300,7 @@ describe('usePathTabCompletion - edge cases', () => {
   test('handles unicode characters in path', () => {
     const searchQuery = '~/文档'
     expect(isAbsolutePath(searchQuery)).toBe(true)
-    
+
     const expanded = expandPath(searchQuery)
     expect(expanded).toBe(path.join(os.homedir(), '文档'))
   })

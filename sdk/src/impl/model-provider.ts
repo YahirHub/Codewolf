@@ -10,7 +10,6 @@
 import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
   CHATGPT_BACKEND_BASE_URL,
   CHATGPT_OAUTH_ENABLED,
@@ -152,9 +151,9 @@ export async function getModelForRequest(
     isChatGptOAuthModelAllowed(model)
   ) {
     // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
-    // the Codebuff backend — freebuff should only use the direct OpenAI route or fail.
+    // the Codebuff backend — LITE should only use the direct OpenAI route or fail.
     if (isChatGptOAuthRateLimited()) {
-      if (isFreeMode(costMode)) {
+      if (costMode === 'free') {
         throw new Error(
           'ChatGPT rate limit reached. Please wait a few minutes and try again.',
         )
@@ -174,7 +173,7 @@ export async function getModelForRequest(
       }
 
       // In free mode, if credentials are unavailable, don't fall through to backend.
-      if (isFreeMode(costMode)) {
+      if (costMode === 'free') {
         throw new Error(
           'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
         )
