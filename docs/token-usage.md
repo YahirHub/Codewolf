@@ -74,3 +74,26 @@ CLI solo persiste el evento normalizado; no vuelve a contar el contenido.
 
 La persistencia es de mejor esfuerzo: un error al guardar estadísticas nunca
 debe interrumpir una solicitud al modelo.
+
+## Medidor permanente de contexto
+
+La barra inferior del chat muestra el tamaño actual del contexto del agente
+principal frente a la ventana máxima del modelo seleccionado:
+
+```text
+Proveedor/modelo  Contexto 248k/1M · 25%
+```
+
+No utiliza el acumulado de `usage.jsonl`: sumar llamadas repetiría el historial
+en cada petición e incluiría subagentes, por lo que no representaría la ventana
+que puede desbordarse. La fuente es
+`RunState.sessionState.mainAgentState.contextTokenCount`; el máximo procede de
+`maxContextTokens` del modelo activo o de su valor de compatibilidad.
+
+El fondo de la barra representa capacidad restante y se vacía de derecha a
+izquierda. El estado cambia a advertencia desde 75 % y a crítico desde 90 %. A
+partir de 80 % se muestra `/compact` como recordatorio. Los snapshots del turno
+actualizan la cifra mientras trabaja el agente, pero se ignoran después de
+cambiar de chat para evitar mezclar sesiones. Una compactación manual exitosa
+recalcula inmediatamente el contexto usando solo la memoria resumida, el prompt
+de sistema y las herramientas activas.

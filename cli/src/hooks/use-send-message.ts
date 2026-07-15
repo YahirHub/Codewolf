@@ -151,6 +151,7 @@ export const useSendMessage = ({
     setHasReceivedPlanResponse,
     setLastMessageMode,
     setRunState,
+    setContextTokenCount,
     setIsRetrying,
   } = useChatStore.getState()
   const previousRunStateRef = useRef<RunState | null>(
@@ -560,14 +561,17 @@ export const useSendMessage = ({
           maxContextLength: getActiveCustomProviderCompactionThreshold(),
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
-            // Don't persist once the run is aborted or the user has switched
-            // chats: the store's messages then belong to a different
-            // conversation, and checkpointing them into this run's directory
-            // would overwrite that chat's transcript with foreign (possibly
-            // empty) state — the chat would then be hidden from /history.
+            // Don't persist or update the visible meter once the run is
+            // aborted or the user has switched chats: the store's messages
+            // then belong to a different conversation. Checkpointing them into
+            // this run's directory would overwrite that chat's transcript with
+            // foreign (possibly empty) state, hiding it from /history.
             if (abortController.signal.aborted || !runChatIsCurrent()) {
               return
             }
+            setContextTokenCount(
+              snapshot.sessionState?.mainAgentState?.contextTokenCount ?? 0,
+            )
             // Persist asynchronously and coalescing: the periodic snapshot
             // fires ~every 5s at step boundaries, and a synchronous save of the
             // (growing) transcript on the render/input thread is what stalls

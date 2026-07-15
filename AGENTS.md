@@ -58,6 +58,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Count the complete normalized model request, including history and tool definitions. Summarize embedded data URLs before counting so base64 payload length is not mistaken for text tokens; mark multimedia-only totals as approximate.
 - Token statistics must remain best-effort. A storage or callback failure must never fail the model request.
 - Update `docs/token-usage.md`, `contexto/`, and focused normalization/storage/command tests whenever this accounting contract changes.
+- The persistent status meter represents the main agent's current context window, not cumulative `/usage` totals. Read `SessionState.mainAgentState.contextTokenCount`, compare it with the active model's `maxContextTokens`, and render remaining capacity as a draining bar. In-flight snapshots may update the meter only while their chat is still active. Manual compaction must immediately recalculate the count from the compacted summary.
 
 ## Custom Provider Architecture
 

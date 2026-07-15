@@ -199,4 +199,3 @@ temp/
 # Portable chat exports created by /export may contain conversation context.
 /codewolf-chat-*.jsonl
 /codewolf-chat-*.json
-cli/.18c2539fe77b9e84-00000000.bun-build

@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer'
 
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 import { clamp } from '../utils/math'
+import { getRunStateContextTokenCount } from '../utils/context-window'
 import { loadModePreference, saveModePreference } from '../utils/settings'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -69,6 +70,8 @@ export type ChatStoreState = {
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
   runState: RunState | null
+  /** Current main-agent context size for the persistent status meter. */
+  contextTokenCount: number
   /** The currently active top banner, or null if none */
   activeTopBanner: TopBannerType
   inputMode: InputMode
@@ -137,6 +140,7 @@ type ChatStoreActions = {
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
+  setContextTokenCount: (tokens: number) => void
   setActiveTopBanner: (banner: TopBannerType) => void
   closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
@@ -190,6 +194,7 @@ const initialState: ChatStoreState = {
   lastMessageMode: null,
   sessionCreditsUsed: 0,
   runState: null,
+  contextTokenCount: 0,
   activeTopBanner: null,
   inputMode: 'default' as InputMode,
   isRetrying: false,
@@ -304,6 +309,15 @@ export const useChatStore = create<ChatStore>()(
     setRunState: (runState) =>
       set((state) => {
         state.runState = runState ? castDraft(runState) : null
+        state.contextTokenCount = getRunStateContextTokenCount(runState)
+      }),
+
+    setContextTokenCount: (tokens) =>
+      set((state) => {
+        state.contextTokenCount =
+          typeof tokens === 'number' && Number.isFinite(tokens)
+            ? Math.max(0, Math.round(tokens))
+            : 0
       }),
 
     setActiveTopBanner: (banner) =>
@@ -508,6 +522,7 @@ export const useChatStore = create<ChatStore>()(
         state.runState = initialState.runState
           ? castDraft(initialState.runState)
           : null
+        state.contextTokenCount = initialState.contextTokenCount
         state.activeTopBanner = initialState.activeTopBanner
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying

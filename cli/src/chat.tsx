@@ -53,6 +53,7 @@ import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { getProjectRoot, setCurrentChatId } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
+import { useCustomProviderStore } from './state/custom-provider-store'
 import { useChatStore } from './state/chat-store'
 import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
@@ -266,6 +267,17 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const hasActiveContextWindow = useCustomProviderStore((state) => {
+    const provider = state.config.providers.find(
+      (candidate) => candidate.id === state.config.activeProviderId,
+    )
+    if (!provider) return false
+    return Boolean(
+      provider.models.find(
+        (model) => model.id === state.config.activeModelId,
+      ) ?? provider.models[0],
+    )
+  })
 
   // Get loaded skills for slash commands
   const loadedSkills = useMemo(() => getLoadedSkills(), [])
@@ -1601,7 +1613,8 @@ export const Chat = ({
     (hasStatusIndicatorContent ||
       shouldShowQueuePreview ||
       !isAtBottom ||
-      hasActiveFreebuffSession)
+      hasActiveFreebuffSession ||
+      hasActiveContextWindow)
 
   return (
     <box

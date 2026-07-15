@@ -178,6 +178,13 @@ localmente. No se calculan precios ni se guardan prompts, respuestas o claves.
 Las estadísticas pueden limpiarse desde la misma pantalla con `R` y se conservan
 como máximo durante 90 días o 10 000 llamadas.
 
+La barra de estado muestra permanentemente el consumo de la ventana del modelo
+personalizado activo, por ejemplo `Contexto 248k/1M · 25%`. El fondo funciona
+como una barra de capacidad restante: comienza llena y se vacía conforme crece
+el historial. A partir del 75 % cambia a advertencia y desde el 90 % muestra
+estado crítico y el recordatorio `/compact`. Esta cifra representa el contexto
+actual del agente principal, no la suma histórica de llamadas mostrada por `/usage`.
+
 ## Datos persistentes
 
 Codewolf utiliza una única carpeta en todos los modos:

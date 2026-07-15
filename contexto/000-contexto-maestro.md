@@ -103,6 +103,9 @@ TypeScript con Bun, React y OpenTUI.
 - `/history` abre el historial del proyecto actual y `Tab` cambia a una vista
   global de rutas conocidas; al reanudar otra ruta cambia el proyecto, reinicia
   el cliente y recarga agentes, MCP y skills antes de restaurar la sesión.
+- La barra inferior permanece visible con un modelo personalizado activo y
+  muestra contexto usado/máximo, porcentaje y capacidad restante; se alimenta
+  del agente principal y baja inmediatamente después de `/compact`.
 
 # Persistencia
 
@@ -176,6 +179,9 @@ lista exacta y versiones bloqueadas.
 - `cli/src/components/chat-history-screen.tsx`
 - `cli/src/utils/chat-history.ts`
 - `cli/src/utils/recent-projects.ts`
+- `cli/src/components/status-bar.tsx`
+- `cli/src/utils/context-window.ts`
+- `cli/src/state/chat-store.ts`
 
 # Problemas encontrados
 
@@ -199,6 +205,10 @@ lista exacta y versiones bloqueadas.
 - `/history` solo conocía sesiones de la ruta activa, el registro de proyectos
   descartaba rutas antiguas y un cambio de proyecto en el mismo proceso podía
   conservar agentes o skills del directorio anterior.
+- El total acumulado de `/usage` no representa la ventana de contexto porque
+  repite el historial en cada llamada e incluye subagentes; además el conteo
+  persistido quedaba una respuesta por detrás y no descendía al terminar
+  `/compact`.
 
 # Soluciones implementadas
 
@@ -228,6 +238,10 @@ lista exacta y versiones bloqueadas.
   conocidos, permite buscar por ruta y cambia de directorio de forma segura antes
   de reanudar; el registro conserva todas las rutas existentes y las extensiones
   específicas del proyecto se recargan al cambiar.
+- La barra de estado usa el contexto actual del agente principal frente a la
+  ventana del modelo; permanece visible, se vacía según capacidad restante,
+  advierte desde 75 %, recuerda `/compact` desde 80 % y recalcula el conteo al
+  final de cada paso y después de compactar.
 
 # Pendientes
 
@@ -266,3 +280,4 @@ al terminar.
 - `018`: corrección del falso `No response from agent` después de `/compact`.
 - `019`: agente genérico `/agent` con herencia del modelo activo global.
 - `020`: historial global de proyectos y reanudación entre rutas con `Tab`.
+- `021`: medidor permanente de uso y capacidad restante de contexto.

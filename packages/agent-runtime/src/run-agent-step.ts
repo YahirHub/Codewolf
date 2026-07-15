@@ -887,6 +887,18 @@ export async function loopAgentSteps(
     },
   )
 
+  const shouldUseLocalContextTokenCount =
+    Boolean(params.customProvider) ||
+    isFreeMode(params.costMode) ||
+    shouldUseLocalTokenCountForFreebuffDeepseekFlash({
+      agentId: agentTemplate.id,
+      model: agentTemplate.model,
+    })
+  const estimatePersistedContextTokensLocally = (state: AgentState) =>
+    countTokensMessages(state.messageHistory) +
+    countTokens(system) +
+    countTokensJson(toolsForTokenCount)
+
   let shouldEndTurn = false
   let hasRetriedOutputSchema = false
   let currentPrompt = prompt
@@ -935,14 +947,7 @@ export async function loopAgentSteps(
       // token-count web API. Custom providers are intentionally independent
       // from Codebuff credentials/services, and a local estimate is sufficient
       // for context pruning across OpenAI-compatible endpoints.
-      if (
-        params.customProvider ||
-        isFreeMode(params.costMode) ||
-        shouldUseLocalTokenCountForFreebuffDeepseekFlash({
-          agentId: agentTemplate.id,
-          model: agentTemplate.model,
-        })
-      ) {
+      if (shouldUseLocalContextTokenCount) {
         currentAgentState.contextTokenCount = estimateContextTokensLocally()
       } else {
         // Check context token count via the web API. Pass the run's apiKey
@@ -1087,6 +1092,13 @@ export async function loopAgentSteps(
 
       Object.assign(initialAgentState, newAgentState)
       currentAgentState = initialAgentState
+      if (shouldUseLocalContextTokenCount) {
+        // The pre-request count does not include the assistant/tool output
+        // appended by the completed step. Refresh it so the persistent context
+        // meter does not lag one model request behind.
+        currentAgentState.contextTokenCount =
+          estimatePersistedContextTokensLocally(currentAgentState)
+      }
       shouldEndTurn = llmShouldEndTurn
       nResponses = generatedResponses
 
@@ -1128,6 +1140,8 @@ export async function loopAgentSteps(
             ),
           ),
         ]
+        currentAgentState.contextTokenCount =
+          estimatePersistedContextTokensLocally(currentAgentState)
         output = {
           type: 'lastMessage',
           value: [assistantMessage(manualCompactionSummary)],

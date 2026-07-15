@@ -380,6 +380,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
       '/compact',
     )
+    expect(result.agentState.contextTokenCount).toBeGreaterThan(0)
+    expect(result.agentState.contextTokenCount).toBeLessThan(10_000)
   })
 
   it('should preserve the original history when manual compaction returns no summary', async () => {

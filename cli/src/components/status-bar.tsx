@@ -7,8 +7,14 @@ import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
 
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
+import { useChatStore } from '../state/chat-store'
 import { useCustomProviderStore } from '../state/custom-provider-store'
 import { useTheme } from '../hooks/use-theme'
+import {
+  formatContextTokens,
+  getContextWindowProgress,
+} from '../utils/context-window'
+import { resolveCustomModelMaxContextTokens } from '../utils/custom-providers'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import {
   FREEBUFF_COUNTDOWN_VISIBLE_MS,
@@ -82,6 +88,16 @@ export const StatusBar = ({
     ) ?? activeCustomProvider?.models[0]
   const customProviderLabel = activeCustomProvider
     ? `${activeCustomProvider.name}/${activeCustomModel?.name ?? activeCustomModel?.id ?? 'sin-modelo'}`
+    : null
+  const contextTokenCount = useChatStore((state) => state.contextTokenCount)
+  const maxContextTokens = activeCustomModel
+    ? resolveCustomModelMaxContextTokens(activeCustomModel)
+    : null
+  const contextProgress = maxContextTokens
+    ? getContextWindowProgress(contextTokenCount, maxContextTokens)
+    : null
+  const contextLabel = contextProgress
+    ? `Contexto ${formatContextTokens(contextProgress.usedTokens)}/${formatContextTokens(contextProgress.maxTokens)} · ${contextProgress.usedPercent}%`
     : null
 
   // Show timer when actively working (streaming or waiting for response) or paused (ask_user)
@@ -219,7 +235,25 @@ export const StatusBar = ({
     statusIndicatorContent ||
     elapsedTimeContent ||
     sessionProgress !== null ||
-    customProviderLabel !== null
+    customProviderLabel !== null ||
+    contextLabel !== null
+
+  const backgroundProgress =
+    sessionProgress?.fraction ?? contextProgress?.remainingFraction ?? null
+  const contextColor =
+    contextProgress?.level === 'critical'
+      ? theme.error
+      : contextProgress?.level === 'warning'
+        ? theme.warning
+        : theme.secondary
+  const backgroundProgressColor =
+    sessionProgress !== null
+      ? theme.surfaceHover
+      : contextProgress?.level === 'critical'
+        ? theme.error
+        : contextProgress?.level === 'warning'
+          ? theme.warning
+          : theme.surfaceHover
 
   return (
     <box
@@ -233,17 +267,17 @@ export const StatusBar = ({
         backgroundColor: hasContent ? theme.surface : 'transparent',
       }}
     >
-      {sessionProgress !== null && (
+      {backgroundProgress !== null && (
         <box
           style={{
             position: 'absolute',
             left: 0,
             top: 0,
             bottom: 0,
-            // Fill anchors left and shrinks as time passes — the draining
-            // bar is the countdown; no separate numeric readout needed.
-            width: `${sessionProgress.fraction * 100}%`,
-            backgroundColor: theme.surfaceHover,
+            // The filled background represents capacity remaining. It starts
+            // full and drains from right to left as the context is consumed.
+            width: `${backgroundProgress * 100}%`,
+            backgroundColor: backgroundProgressColor,
           }}
         />
       )}
@@ -275,6 +309,23 @@ export const StatusBar = ({
         {customProviderLabel && (
           <text style={{ wrapMode: 'none' }}>
             <span fg={theme.secondary}>{customProviderLabel}</span>
+          </text>
+        )}
+        {contextLabel && (
+          <text style={{ wrapMode: 'none' }}>
+            <span
+              fg={contextColor}
+              attributes={
+                contextProgress?.level === 'critical'
+                  ? TextAttributes.BOLD
+                  : TextAttributes.NONE
+              }
+            >
+              {contextLabel}
+              {contextProgress && contextProgress.usedPercent >= 80
+                ? ' · /compact'
+                : ''}
+            </span>
           </text>
         )}
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
