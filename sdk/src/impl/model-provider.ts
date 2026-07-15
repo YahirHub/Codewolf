@@ -276,6 +276,7 @@ function createCustomProviderModel(
     fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
     includeUsage: undefined,
     supportsStructuredOutputs: config.supportsStructuredOutputs ?? false,
+    useNonStreamingForDoStream: config.useNonStreaming ?? false,
   })
 }
 

@@ -10,7 +10,7 @@ The standalone CLI supplies its own safe defaults for inherited public web varia
 
 ## Open the editor without an existing login
 
-The full editor opens on a fresh installation without legacy backend credentials. OpenCode Free supplies a no-key default, while `/login` remains available for OpenCode Go or another OpenAI-compatible provider.
+The full editor opens on a fresh installation without legacy backend credentials. OpenCode Free supplies a no-key default, while `/login` remains available for NVIDIA NIM, OpenCode Go, or another OpenAI-compatible provider.
 
 ## OpenCode Free built-in catalog
 
@@ -39,6 +39,20 @@ The first selector shows:
 2. **Usar una API key** — opens the API-provider selector.
 
 The API-key selector supports:
+
+### NVIDIA NIM
+
+NVIDIA NIM is available as a dedicated provider:
+
+- Base URL: `https://integrate.api.nvidia.com/v1`
+- Model catalog: `https://integrate.api.nvidia.com/v1/models`
+- Authentication: `Authorization: Bearer <api-key>`
+
+The masked key is saved only in `~/.codewolf/provider-auth.json`. During login, Codewolf stores the key and reads every chat-capable model returned by `/models`; recognized models are enriched with context metadata and ordered ahead of less familiar entries. The current metadata prioritizes DeepSeek V4 Pro and Flash, GLM-5.2, Nemotron 3 Ultra/Super/Nano, MiniMax M3, Mistral Medium 3.5, Step 3.7 Flash, and other coding models. Additional known IDs are used only when NVIDIA actually returns them in the public global catalog.
+
+The NVIDIA catalog refreshes when Codewolf starts and when `/models` opens. A successful refresh replaces the previous list, so newly published models appear and withdrawn models disappear. The endpoint exposes a public global catalog, so login does not prove that the key is valid or that every listed model is enabled for that account; NVIDIA confirms both on the first completion request. The last persisted list remains available if a later refresh fails.
+
+NVIDIA requests use a complete JSON Chat Completions response internally instead of SSE token streaming. Codewolf converts that response back into the normal agent event contract, including text, reasoning, tool calls, finish reason, and usage. This avoids NVIDIA-compatible streams that close without a final `finish_reason`, which could otherwise fail a turn after a tool call.
 
 ### OpenCode Go
 
@@ -156,7 +170,7 @@ Neither file belongs in the current project repository. The API key is never sto
 
 ## Advanced provider fields
 
-The interactive assistant creates standard OpenAI-compatible providers. Existing advanced metadata remains supported by `providers.json`, including custom headers, a different API-key header/prefix, structured-output capability, and per-model output/context-token limits.
+The interactive assistant creates standard OpenAI-compatible providers. Existing advanced metadata remains supported by `providers.json`, including custom headers, a different API-key header/prefix, structured-output capability, a non-streaming compatibility transport, and per-model output/context-token limits.
 
 ```json
 {
@@ -171,6 +185,7 @@ The interactive assistant creates standard OpenAI-compatible providers. Existing
       "apiKeyHeader": "Authorization",
       "apiKeyPrefix": "Bearer",
       "supportsStructuredOutputs": true,
+      "useNonStreaming": false,
       "headers": {
         "X-Organization": "example"
       },

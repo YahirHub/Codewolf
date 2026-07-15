@@ -5,7 +5,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 ## Funciones principales
 
 - OpenCode Free integrado sin API key, con catálogo dinámico de modelos `-free`.
-- OpenCode Go y proveedores OpenAI-compatible configurables desde `/login`.
+- NVIDIA NIM, OpenCode Go y proveedores OpenAI-compatible configurables desde `/login`.
 - Selector de modelos agrupados por proveedor mediante `/models`.
 - Agente auxiliar genérico mediante `/agent`, usando el modelo activo de la sesión.
 - Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -102,6 +102,7 @@ Para autenticar otro proveedor:
 La primera pantalla permite elegir **Usar una suscripción** o **Usar una API key**. La suscripción se muestra como opción futura. En API key puedes elegir:
 
 - **OpenCode Go:** usa `https://opencode.ai/zen/go/v1`, guarda la clave separadamente y consulta sus modelos desde `/models`.
+- **NVIDIA NIM:** usa `https://integrate.api.nvidia.com/v1`, guarda la API key y agrega los modelos conversacionales publicados por `/models`. El catálogo reconoce y enriquece modelos actuales como DeepSeek V4 Pro/Flash, GLM-5.2, Nemotron 3 Ultra/Super, MiniMax M3, Step 3.7 Flash y Mistral Medium 3.5, además de cualquier otro modelo conversacional que NVIDIA publique en su catálogo global.
 - **Proveedor compatible con OpenAI:** abre el asistente general de nombre, URL base, API key y modelos.
 
 Para cambiar de modelo, incluidos los modelos gratuitos descubiertos:
@@ -116,7 +117,9 @@ Para administrar proveedores guardados por el usuario:
 /providers
 ```
 
-OpenCode Free no aparece en `/providers` porque es un catálogo integrado de solo lectura; se selecciona únicamente desde `/models`. OpenCode Go sí aparece después de autenticarlo.
+OpenCode Free no aparece en `/providers` porque es un catálogo integrado de solo lectura; se selecciona únicamente desde `/models`. OpenCode Go y NVIDIA NIM sí aparecen después de autenticarlos.
+
+NVIDIA NIM actualiza su catálogo al iniciar Codewolf y cada vez que se abre `/models`. Una respuesta exitosa de `/v1/models` es autoritativa: los modelos nuevos aparecen y los retirados dejan de mostrarse. Como ese catálogo es público y global, la validez de la API key y la disponibilidad efectiva de cada modelo se confirman al realizar una solicitud. Para evitar cierres SSE sin `finish_reason` observados en endpoints OpenAI-compatible de NIM, Codewolf solicita la respuesta completa y la adapta internamente al flujo del agente; las herramientas siguen funcionando, aunque el texto de NVIDIA se muestra al completar cada respuesta en lugar de token por token.
 
 Para invocar el agente auxiliar con el mismo proveedor y modelo activos:
 

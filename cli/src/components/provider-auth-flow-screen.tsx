@@ -13,19 +13,30 @@ import {
   loadCustomProvidersConfig,
 } from '../utils/custom-providers'
 import { configureOpenCodeGo } from '../utils/opencode-providers'
+import { configureNvidiaNim } from '../utils/nvidia-nim-provider'
 import {
   OPENCODE_GO_PROVIDER_ID,
   OPENCODE_GO_PROVIDER_NAME,
 } from '../providers/opencode-catalog'
+import {
+  NVIDIA_NIM_MODELS_URL,
+  NVIDIA_NIM_PROVIDER_ID,
+  NVIDIA_NIM_PROVIDER_NAME,
+} from '../providers/nvidia-nim-catalog'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { InputValue } from '../types/store'
 import type { CustomProviderDefinition } from '../utils/custom-providers'
 import type { KeyEvent } from '@opentui/core'
 
-type LoginView = 'method' | 'api-provider' | 'opencode-go' | 'custom'
+type LoginView =
+  | 'method'
+  | 'api-provider'
+  | 'opencode-go'
+  | 'nvidia-nim'
+  | 'custom'
 type AuthMethod = 'subscription' | 'api-key'
-type ApiProvider = 'opencode-go' | 'custom'
+type ApiProvider = 'opencode-go' | 'nvidia-nim' | 'custom'
 
 const AUTH_METHODS: Array<{
   id: AuthMethod
@@ -42,7 +53,8 @@ const AUTH_METHODS: Array<{
   {
     id: 'api-key',
     label: 'Usar una API key',
-    help: 'Configura OpenCode Go o cualquier API compatible con OpenAI.',
+    help:
+      'Configura NVIDIA NIM, OpenCode Go o cualquier API compatible con OpenAI.',
     enabled: true,
   },
 ]
@@ -56,6 +68,11 @@ const API_PROVIDERS: Array<{
     id: 'opencode-go',
     label: OPENCODE_GO_PROVIDER_NAME,
     help: 'Consulta automáticamente los modelos disponibles en OpenCode Go.',
+  },
+  {
+    id: 'nvidia-nim',
+    label: NVIDIA_NIM_PROVIDER_NAME,
+    help: 'Modelos NVIDIA, DeepSeek, GLM, Nemotron, MiniMax, Mistral y otros.',
   },
   {
     id: 'custom',
@@ -135,7 +152,7 @@ export const ProviderAuthFlowScreen: React.FC<
         onComplete={onComplete}
         onCancel={() => {
           setView('api-provider')
-          setSelectedIndex(1)
+          setSelectedIndex(2)
         }}
       />
     )
@@ -148,6 +165,18 @@ export const ProviderAuthFlowScreen: React.FC<
         onCancel={() => {
           setView('api-provider')
           setSelectedIndex(0)
+        }}
+      />
+    )
+  }
+
+  if (view === 'nvidia-nim') {
+    return (
+      <NvidiaNimLoginScreen
+        onComplete={onComplete}
+        onCancel={() => {
+          setView('api-provider')
+          setSelectedIndex(1)
         }}
       />
     )
@@ -359,6 +388,137 @@ const OpenCodeGoLoginScreen: React.FC<OpenCodeGoLoginScreenProps> = ({
         {loading
           ? 'Validando la clave y consultando modelos...'
           : 'OpenCode Go es independiente de OpenCode Free. Los modelos gratuitos no usan esta clave.'}
+      </text>
+      {error && <text style={{ fg: theme.error }}>Error: {error}</text>}
+      <text style={{ fg: theme.muted }}>Enter: guardar · Esc: volver</text>
+    </box>
+  )
+}
+
+interface NvidiaNimLoginScreenProps {
+  onComplete: (provider: CustomProviderDefinition) => void
+  onCancel: () => void
+}
+
+const NvidiaNimLoginScreen: React.FC<NvidiaNimLoginScreenProps> = ({
+  onComplete,
+  onCancel,
+}) => {
+  const theme = useTheme()
+  const existingProvider = useMemo(
+    () =>
+      loadCustomProvidersConfig().providers.find(
+        (provider) => provider.id === NVIDIA_NIM_PROVIDER_ID,
+      ),
+    [],
+  )
+  const existingApiKey = useMemo(
+    () =>
+      existingProvider
+        ? getCustomProviderApiKey(NVIDIA_NIM_PROVIDER_ID)
+        : undefined,
+    [existingProvider],
+  )
+  const [value, setValue] = useState('')
+  const [cursorPosition, setCursorPosition] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleChange = useCallback((input: InputValue) => {
+    setValue(input.text)
+    setCursorPosition(input.cursorPosition)
+    setError(null)
+  }, [])
+
+  const handleSubmit = useCallback(() => {
+    if (loading) return
+    const apiKey = value.trim() || existingApiKey
+    if (!apiKey) {
+      setError('Escribe una API key de NVIDIA NIM.')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    void configureNvidiaNim({ apiKey })
+      .then((provider) => {
+        refreshCustomProviderStore()
+        resetCodebuffClient()
+        onComplete(provider)
+      })
+      .catch((caught) => {
+        setError(caught instanceof Error ? caught.message : String(caught))
+      })
+      .finally(() => setLoading(false))
+  }, [existingApiKey, loading, onComplete, value])
+
+  const handlePaste = useCallback(
+    (text?: string) => {
+      if (!text) return
+      const next =
+        value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
+      setValue(next)
+      setCursorPosition(cursorPosition + text.length)
+    },
+    [cursorPosition, value],
+  )
+
+  return (
+    <box
+      title=" NVIDIA NIM · API key "
+      titleAlignment="center"
+      style={{
+        width: '100%',
+        borderStyle: 'single',
+        borderColor: theme.border,
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexDirection: 'column',
+      }}
+    >
+      <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
+        API key de NVIDIA NIM
+      </text>
+      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+        La clave se guarda en provider-auth.json y se usa como Bearer solo para
+        el chat. Codewolf consulta el catálogo público {NVIDIA_NIM_MODELS_URL}.
+      </text>
+      <box
+        style={{
+          borderStyle: 'single',
+          borderColor: error ? theme.error : theme.primary,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
+        <MultilineInput
+          value={value}
+          cursorPosition={cursorPosition}
+          onChange={handleChange}
+          onSubmit={handleSubmit}
+          onPaste={handlePaste}
+          onKeyIntercept={(key) => {
+            if (key.name === 'escape') {
+              onCancel()
+              return true
+            }
+            return false
+          }}
+          placeholder={
+            existingApiKey
+              ? 'Deja vacío para conservar la API key actual'
+              : 'Pega tu API key de NVIDIA NIM'
+          }
+          focused={!loading}
+          maxHeight={1}
+          minHeight={1}
+          maskCharacter="•"
+        />
+      </box>
+      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+        {loading
+          ? 'Guardando la clave y consultando el catálogo de NVIDIA...'
+          : 'El catálogo es público; NVIDIA confirmará la validez y disponibilidad de la clave al realizar la primera solicitud.'}
       </text>
       {error && <text style={{ fg: theme.error }}>Error: {error}</text>}
       <text style={{ fg: theme.muted }}>Enter: guardar · Esc: volver</text>

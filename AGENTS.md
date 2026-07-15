@@ -205,3 +205,12 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `/login` first selects the authentication method. Keep the subscription row visibly disabled until a real subscription implementation exists; API-key login may offer OpenCode Go and the generic provider wizard.
 - `/providers` manages persisted providers only. OpenCode Free is selected from `/models` and must not be editable or deletable there.
 - To remove the temporary integration later, delete the two OpenCode modules, remove the available-provider merge/background refresh/login option, and keep the generic provider APIs unchanged.
+
+## NVIDIA NIM provider
+
+- `cli/src/providers/nvidia-nim-catalog.ts` owns NVIDIA provider constants, current model metadata, ID aliases, and the filter that excludes obvious embedding, OCR, image-generation, speech, safety, and other non-chat endpoints.
+- `cli/src/utils/nvidia-nim-provider.ts` owns API-key persistence, public `/v1/models` discovery, configuration, and refresh. A successful NVIDIA catalog response is authoritative; do not re-add a model that NVIDIA removed merely because it remains in static metadata.
+- NVIDIA NIM is persisted like a normal authenticated provider and appears in `/providers` after `/login`. Its key must remain masked, stored only in `provider-auth.json`, and must not be sent to the public `/v1/models` catalog.
+- NVIDIA must keep `useNonStreaming: true`. The OpenAI-compatible model adapter performs a JSON completion and converts it into standard stream events because some NVIDIA SSE responses end without a final `finish_reason`, especially around tools.
+- Opening `/models` and starting the editor refresh all dynamic provider catalogs through `cli/src/utils/provider-catalogs.ts`. Catalog failures are non-fatal and must preserve the last stored list.
+- Current metadata should be reviewed against official NVIDIA model pages before changing IDs or context windows. Do not restore deprecated aliases as primary selectable models.

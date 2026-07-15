@@ -55,6 +55,13 @@ export type OpenAICompatibleChatConfig = {
   supportsStructuredOutputs?: boolean
 
   /**
+   * Perform a non-streaming Chat Completions request and expose the complete
+   * response through the LanguageModel streaming contract. Some compatible
+   * providers close SSE streams without a final finish_reason chunk.
+   */
+  useNonStreamingForDoStream?: boolean
+
+  /**
    * The supported URLs for the model.
    */
   supportedUrls?: () => LanguageModelV2['supportedUrls']
@@ -318,6 +325,98 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
   async doStream(
     options: Parameters<LanguageModelV2['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
+    if (this.config.useNonStreamingForDoStream) {
+      const generated = await this.doGenerate(options)
+      const stream = new ReadableStream<LanguageModelV2StreamPart>({
+        start(controller) {
+          controller.enqueue({
+            type: 'stream-start',
+            warnings: generated.warnings,
+          })
+
+          const response = generated.response
+          if (response?.id || response?.modelId || response?.timestamp) {
+            controller.enqueue({
+              type: 'response-metadata',
+              id: response.id,
+              modelId: response.modelId,
+              timestamp: response.timestamp,
+            })
+          }
+
+          let contentIndex = 0
+          for (const content of generated.content) {
+            if (content.type === 'text') {
+              const id = `txt-${contentIndex++}`
+              controller.enqueue({ type: 'text-start', id })
+              controller.enqueue({
+                type: 'text-delta',
+                id,
+                delta: content.text,
+              })
+              controller.enqueue({ type: 'text-end', id })
+              continue
+            }
+
+            if (content.type === 'reasoning') {
+              const id = `reasoning-${contentIndex++}`
+              controller.enqueue({ type: 'reasoning-start', id })
+              controller.enqueue({
+                type: 'reasoning-delta',
+                id,
+                delta: content.text,
+              })
+              controller.enqueue({ type: 'reasoning-end', id })
+              continue
+            }
+
+            if (content.type === 'tool-call') {
+              const input =
+                typeof content.input === 'string'
+                  ? content.input
+                  : stringifyJsonValue(content.input)
+              controller.enqueue({
+                type: 'tool-input-start',
+                id: content.toolCallId,
+                toolName: content.toolName,
+              })
+              if (input.length > 0) {
+                controller.enqueue({
+                  type: 'tool-input-delta',
+                  id: content.toolCallId,
+                  delta: input,
+                })
+              }
+              controller.enqueue({
+                type: 'tool-input-end',
+                id: content.toolCallId,
+              })
+              controller.enqueue({
+                type: 'tool-call',
+                toolCallId: content.toolCallId,
+                toolName: content.toolName,
+                input,
+              })
+            }
+          }
+
+          controller.enqueue({
+            type: 'finish',
+            finishReason: generated.finishReason,
+            usage: generated.usage,
+            providerMetadata: generated.providerMetadata,
+          })
+          controller.close()
+        },
+      })
+
+      return {
+        stream,
+        request: generated.request,
+        response: { headers: generated.response?.headers },
+      }
+    }
+
     const { args, warnings } = await this.getArgs({ ...options })
 
     const body = {

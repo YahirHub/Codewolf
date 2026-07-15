@@ -24,6 +24,12 @@ export interface CustomProviderRuntimeConfig {
   apiKeyPrefix?: string
   /** Whether JSON-schema structured output parameters are supported. */
   supportsStructuredOutputs?: boolean
+  /**
+   * Use a regular JSON chat-completions request even when the caller asks for
+   * streaming. This is required by providers such as NVIDIA NIM whose public
+   * OpenAI-compatible streams may end without a final finish_reason chunk.
+   */
+  useNonStreaming?: boolean
   /** Optional maximum output token cap for this model. */
   maxOutputTokens?: number
   /** Maximum context window supported by the selected model. */

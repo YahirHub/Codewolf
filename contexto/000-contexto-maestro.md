@@ -56,6 +56,7 @@ Secciones opcionales cuando exista información confirmada:
 # Problemas encontrados
 
 - OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
+- NVIDIA NIM se configura desde `/login`, guarda la clave únicamente en `provider-auth.json`, actualiza el catálogo global de modelos al iniciar y abrir `/models`, y usa solicitudes no SSE adaptadas al contrato de streaming interno para mantener estables las herramientas.
 
 # Pendientes
 # Próximos pasos
@@ -82,6 +83,7 @@ TypeScript con Bun, React y OpenTUI.
 
 - Marca visible y binarios: `Codewolf`, `codewolf`, `codewolf.exe`.
 - Proveedores de modelos configurables mediante `/login`.
+- NVIDIA NIM integrado mediante API key, catálogo dinámico de `/v1/models` y transporte JSON completo para evitar streams sin `finish_reason`.
 - Selector agrupado mediante `/models`.
 - Proveedor y modelo personalizados propagados a agente principal y subagentes.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
@@ -200,6 +202,10 @@ lista exacta y versiones bloqueadas.
 - `agents/basher.ts`
 - `sdk/src/tools/run-terminal-command.ts`
 - `packages/llm-providers/src/openai-compatible/openai-compatible-error.ts`
+- `cli/src/providers/nvidia-nim-catalog.ts`
+- `cli/src/utils/nvidia-nim-provider.ts`
+- `cli/src/utils/provider-catalogs.ts`
+- `packages/llm-providers/src/openai-compatible/chat/openai-compatible-chat-language-model.ts`
 
 # Problemas encontrados
 
@@ -330,3 +336,4 @@ al terminar.
 - `029`: rutas virtuales portables, descubrimiento correcto de pruebas y lockfile sincronizado.
 - `030`: suite local de Windows, entorno autónomo y escrituras atómicas serializadas.
 - `031`: OpenCode Free integrado y autenticación OpenCode Go desde `/login`.
+- `032`: NVIDIA NIM con catálogo dinámico, modelos actuales y transporte estable sin SSE.

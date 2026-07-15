@@ -46,6 +46,7 @@ const providerSchema = z.object({
   apiKeyHeader: z.string().trim().min(1).optional(),
   apiKeyPrefix: z.string().optional(),
   supportsStructuredOutputs: z.boolean().optional(),
+  useNonStreaming: z.boolean().optional(),
 })
 
 const providersFileSchema = z.object({
@@ -311,6 +312,11 @@ export function upsertCustomProvider(params: {
   apiKeyInput?: string
   models: string | CustomProviderModel[]
   name?: string
+  headers?: Record<string, string>
+  apiKeyHeader?: string
+  apiKeyPrefix?: string
+  supportsStructuredOutputs?: boolean
+  useNonStreaming?: boolean
   configDir?: string
 }): CustomProviderDefinition {
   const configDir = params.configDir ?? getConfigDir()
@@ -354,6 +360,12 @@ export function upsertCustomProvider(params: {
     baseUrl,
     models,
     apiKeyEnv,
+    headers: params.headers ?? existing?.headers,
+    apiKeyHeader: params.apiKeyHeader ?? existing?.apiKeyHeader,
+    apiKeyPrefix: params.apiKeyPrefix ?? existing?.apiKeyPrefix,
+    supportsStructuredOutputs:
+      params.supportsStructuredOutputs ?? existing?.supportsStructuredOutputs,
+    useNonStreaming: params.useNonStreaming ?? existing?.useNonStreaming,
   })
 
   const providers = existing
@@ -637,6 +649,7 @@ export function getActiveCustomProviderRuntimeConfig(
     apiKeyHeader: provider.apiKeyHeader,
     apiKeyPrefix: provider.apiKeyPrefix,
     supportsStructuredOutputs: provider.supportsStructuredOutputs,
+    useNonStreaming: provider.useNonStreaming,
     maxOutputTokens: model.maxOutputTokens,
     maxContextTokens: resolveCustomModelMaxContextTokens(model),
   }

@@ -13,7 +13,7 @@ import {
   disableCustomProvider,
 } from '../utils/custom-providers'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
-import { refreshBundledOpenCodeProviders } from '../utils/opencode-providers'
+import { refreshProviderCatalogs } from '../utils/provider-catalogs'
 
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
@@ -51,7 +51,7 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
 
   useEffect(() => {
     const controller = new AbortController()
-    void refreshBundledOpenCodeProviders({ signal: controller.signal }).then(
+    void refreshProviderCatalogs({ signal: controller.signal }).then(
       (result) => {
         if (controller.signal.aborted) return
         refreshCustomProviderStore()
@@ -275,9 +275,9 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
       </scrollbox>
       <text style={{ fg: theme.muted }}>
         {catalogStatus === 'loading'
-          ? 'Actualizando modelos OpenCode…'
+          ? 'Actualizando catálogos de modelos…'
           : catalogStatus === 'warning'
-            ? 'Modelos OpenCode en caché · ↑↓ navegar · Enter seleccionar · Esc cancelar'
+            ? 'Algunos catálogos usan caché · ↑↓ navegar · Enter seleccionar · Esc cancelar'
             : '↑↓ navegar · Enter seleccionar · Esc cancelar · /login agrega proveedores'}
       </text>
     </box>

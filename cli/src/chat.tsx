@@ -100,7 +100,7 @@ import {
   invalidateProjectContextCache,
   prefetchProjectContextSummary,
 } from './utils/project-context'
-import { refreshBundledOpenCodeProviders } from './utils/opencode-providers'
+import { refreshProviderCatalogs } from './utils/provider-catalogs'
 
 import type { CommandResult } from './commands/command-registry'
 import type { ModelChoice } from './components/model-selector-screen'
@@ -224,23 +224,26 @@ export const Chat = ({
     }
   }, [])
 
-  // Refresh the temporary OpenCode catalogs before warming project context.
-  // Failures are non-fatal: the cached/static free catalog remains available.
+  // Refresh dynamic provider catalogs before warming project context.
+  // Failures are non-fatal: the last persisted catalog remains available.
   useEffect(() => {
     const controller = new AbortController()
-    void refreshBundledOpenCodeProviders({ signal: controller.signal })
+    void refreshProviderCatalogs({ signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return
         refreshCustomProviderStore()
         resetCodebuffClient()
         for (const warning of result.warnings) {
-          logger.warn({ warning }, '[opencode] Catalog refresh failed')
+          logger.warn({ warning }, '[providers] Catalog refresh failed')
         }
         return prefetchPersistentProjectContext()
       })
       .catch((error) => {
         if (controller.signal.aborted) return
-        logger.warn({ error }, '[opencode] Unexpected catalog refresh failure')
+        logger.warn(
+          { error },
+          '[providers] Unexpected catalog refresh failure',
+        )
         return prefetchPersistentProjectContext()
       })
     return () => controller.abort()
