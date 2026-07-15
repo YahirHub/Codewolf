@@ -14,6 +14,7 @@ import { getProjectRoot } from '../project-files'
 import { trackEvent } from '../utils/analytics'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getSystemMessage } from '../utils/message-history'
+import { isProjectContextEnabled } from '../utils/settings'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
@@ -59,6 +60,12 @@ export function handleInitializationFlowLocally(): {
   const projectRoot = getProjectRoot()
   const knowledgePath = path.join(projectRoot, PRIMARY_KNOWLEDGE_FILE_NAME)
   const messages: string[] = []
+
+  if (isProjectContextEnabled()) {
+    messages.push(
+      '🧭 Contexto persistente activo: `/init` creará o actualizará `contexto/` después de analizar el proyecto.',
+    )
+  }
 
   if (existsSync(knowledgePath)) {
     messages.push(`📋 \`${PRIMARY_KNOWLEDGE_FILE_NAME}\` ya existe.`)

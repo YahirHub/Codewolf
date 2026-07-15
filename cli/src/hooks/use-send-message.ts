@@ -20,6 +20,10 @@ import {
   PROJECT_METHODOLOGY_VIRTUAL_PATH,
 } from '../utils/project-context'
 import {
+  ensureInitialProjectContext,
+  maintainProjectContext,
+} from '../utils/project-context-maintenance'
+import {
   isProjectContextEnabled,
   isVerifiedCommitsEnabled,
 } from '../utils/settings'
@@ -27,6 +31,9 @@ import {
   captureGitVerificationBaseline,
   captureVerifiedCommitFingerprints,
   filterVerifiedCommitPathsWithChanges,
+  listGitWorkingTreePaths,
+  loadVerifiedCommitBacklog,
+  saveVerifiedCommitBacklog,
   selectVerifiedCommitPaths,
 } from '../utils/verified-commit'
 import {
@@ -318,17 +325,34 @@ export const useSendMessage = ({
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
+      const projectContextEnabled = isProjectContextEnabled()
       const verifiedCommitsEnabled = isVerifiedCommitsEnabled()
       const shouldPrepareVerifiedCommit =
         agentMode !== 'PLAN' && verifiedCommitsEnabled
+      const isInitRequest =
+        projectContextEnabled && /^\/?init$/i.test(content.trim())
       const mutatedPaths = new Set<string>()
       let verificationBaseline: Awaited<
         ReturnType<typeof captureGitVerificationBaseline>
       > = null
-      if (shouldPrepareVerifiedCommit) {
+      let verifiedCommitBacklog: Awaited<
+        ReturnType<typeof loadVerifiedCommitBacklog>
+      > = {
+        paths: [],
+        requests: [],
+        fingerprints: {},
+        skippedChangedPaths: [],
+      }
+      if (agentMode !== 'PLAN' && (projectContextEnabled || verifiedCommitsEnabled)) {
         try {
           verificationBaseline =
             await captureGitVerificationBaseline(rewindProjectRoot)
+          if (verificationBaseline && shouldPrepareVerifiedCommit) {
+            verifiedCommitBacklog = await loadVerifiedCommitBacklog({
+              projectRoot: rewindProjectRoot,
+              gitRoot: verificationBaseline.gitRoot,
+            })
+          }
         } catch (error) {
           logger.warn(
             { error },
@@ -494,7 +518,33 @@ export const useSendMessage = ({
         return
       }
 
-      const projectContextEnabled = isProjectContextEnabled()
+      if (isInitRequest) {
+        try {
+          const initializedPaths = await ensureInitialProjectContext({
+            projectRoot: rewindProjectRoot,
+            onBeforeWrite: async (relativePath) => {
+              await recordFileBeforeMutation({
+                chatDir: rewindChatDir,
+                projectRoot: rewindProjectRoot,
+                filePath: relativePath,
+              })
+            },
+            onAfterWrite: async (relativePath) => {
+              await recordFileAfterMutation({
+                chatDir: rewindChatDir,
+                projectRoot: rewindProjectRoot,
+                filePath: relativePath,
+              })
+            },
+          })
+          for (const initializedPath of initializedPaths) {
+            mutatedPaths.add(initializedPath)
+          }
+        } catch (error) {
+          logger.warn({ error }, '[contexto] Failed to initialize contexto/')
+        }
+      }
+
       let additionalKnowledgeFiles: Record<string, string> | undefined
       try {
         additionalKnowledgeFiles = await prepareProjectContextKnowledge({
@@ -661,7 +711,10 @@ export const useSendMessage = ({
               projectRoot: rewindProjectRoot,
               filePath: event.path,
             })
-            if (event.succeeded && shouldPrepareVerifiedCommit) {
+            if (
+              event.succeeded &&
+              (shouldPrepareVerifiedCommit || projectContextEnabled)
+            ) {
               mutatedPaths.add(event.path)
             }
           },
@@ -714,6 +767,69 @@ export const useSendMessage = ({
         )
         const runState = await client.run(runConfig)
 
+        if (
+          projectContextEnabled &&
+          verificationBaseline &&
+          runState.output.type !== 'error'
+        ) {
+          try {
+            const currentGitPaths = await listGitWorkingTreePaths(
+              verificationBaseline.gitRoot,
+            )
+            for (const gitPath of currentGitPaths) {
+              if (!verificationBaseline.dirtyPaths.has(gitPath)) {
+                mutatedPaths.add(gitPath)
+              }
+            }
+          } catch (error) {
+            logger.warn(
+              { error },
+              '[contexto] Failed to inspect Git changes for context maintenance',
+            )
+          }
+        }
+
+        if (
+          runChatIsCurrent() &&
+          !abortController.signal.aborted &&
+          runState.output.type !== 'error' &&
+          projectContextEnabled &&
+          (mutatedPaths.size > 0 || isInitRequest)
+        ) {
+          try {
+            const contextMaintenance = await maintainProjectContext({
+              projectRoot: rewindProjectRoot,
+              client,
+              request: content,
+              changedPaths: mutatedPaths,
+              runState,
+              forceInit: isInitRequest,
+              onBeforeWrite: async (relativePath) => {
+                await recordFileBeforeMutation({
+                  chatDir: runChatDir,
+                  projectRoot: rewindProjectRoot,
+                  filePath: relativePath,
+                })
+              },
+              onAfterWrite: async (relativePath) => {
+                await recordFileAfterMutation({
+                  chatDir: runChatDir,
+                  projectRoot: rewindProjectRoot,
+                  filePath: relativePath,
+                })
+              },
+            })
+            for (const contextPath of contextMaintenance.paths) {
+              mutatedPaths.add(contextPath)
+            }
+          } catch (error) {
+            logger.warn(
+              { error },
+              '[contexto] Failed to maintain persistent project context',
+            )
+          }
+        }
+
         // Only adopt and persist the result while this run's chat is still
         // the active one. After a mid-run chat switch (/new, resuming from
         // /history) the store's messages and run state belong to the new
@@ -758,6 +874,7 @@ export const useSendMessage = ({
           runChatIsCurrent() &&
           !abortController.signal.aborted &&
           runState.output.type !== 'error' &&
+          shouldPrepareVerifiedCommit &&
           verificationBaseline &&
           mutatedPaths.size > 0 &&
           onVerifiedCommitReady
@@ -766,25 +883,42 @@ export const useSendMessage = ({
             projectRoot: rewindProjectRoot,
             baseline: verificationBaseline,
             mutatedPaths,
+            allowedPreexistingPaths: verifiedCommitBacklog.paths,
           })
-          if (selected.paths.length > 0) {
+          const accumulatedPaths = [
+            ...new Set([...verifiedCommitBacklog.paths, ...selected.paths]),
+          ].sort()
+          if (accumulatedPaths.length > 0) {
             try {
               const changedPaths = await filterVerifiedCommitPathsWithChanges({
                 gitRoot: verificationBaseline.gitRoot,
-                paths: selected.paths,
+                paths: accumulatedPaths,
               })
               if (changedPaths.length > 0) {
-                onVerifiedCommitReady({
+                const requests = [
+                  ...verifiedCommitBacklog.requests,
+                  content.trim(),
+                ].filter(Boolean)
+                const pending = {
                   projectRoot: rewindProjectRoot,
                   gitRoot: verificationBaseline.gitRoot,
                   request: content,
+                  requests,
                   paths: changedPaths,
-                  skippedPreexistingPaths: selected.skippedPreexistingPaths,
+                  deferredPaths: verifiedCommitBacklog.paths,
+                  skippedPreexistingPaths: [
+                    ...new Set([
+                      ...verifiedCommitBacklog.skippedChangedPaths,
+                      ...selected.skippedPreexistingPaths,
+                    ]),
+                  ].sort(),
                   fingerprints: captureVerifiedCommitFingerprints({
                     gitRoot: verificationBaseline.gitRoot,
                     paths: changedPaths,
                   }),
-                })
+                }
+                saveVerifiedCommitBacklog(pending)
+                onVerifiedCommitReady(pending)
               }
             } catch (error) {
               logger.warn(

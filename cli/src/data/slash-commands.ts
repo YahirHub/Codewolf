@@ -113,7 +113,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'init',
     label: 'init',
-    description: 'Crear un archivo knowledge.md inicial',
+    description: 'Inicializar knowledge.md, agentes y contexto/ cuando esté habilitado',
     implicitCommand: true,
   },
   // {
