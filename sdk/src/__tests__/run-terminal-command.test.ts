@@ -7,6 +7,7 @@ import { join } from 'path'
 import {
   BoundedOutputBuffer,
   getActiveTerminalCommandProcesses,
+  normalizeShellCommandForPlatform,
   runTerminalCommand,
 } from '../tools/run-terminal-command'
 
@@ -50,6 +51,87 @@ describe('BoundedOutputBuffer', () => {
     expect(output.retainedLength).toBeLessThanOrEqual(100)
     expect(output.format()).toStartWith('chunk-0000')
     expect(output.format()).toEndWith('chunk-0999')
+  })
+})
+
+describe('shell command normalization', () => {
+  test('removes a redundant Windows project cd before Git Bash execution', () => {
+    const result = normalizeShellCommandForPlatform({
+      command:
+        'cd C:\\Users\\Admin\\AndroidStudioProjects\\WScanner && git status --short',
+      cwd: 'C:\\Users\\Admin\\AndroidStudioProjects\\WScanner',
+      platform: 'win32',
+      env: {},
+    })
+
+    expect(result.changed).toBe(true)
+    expect(result.command).toBe('git status --short')
+  })
+
+  test('converts a different Windows directory to Git Bash notation', () => {
+    const result = normalizeShellCommandForPlatform({
+      command: 'cd "D:\\Work Files\\Other" && git status',
+      cwd: 'C:\\Project',
+      platform: 'win32',
+      env: {},
+    })
+
+    expect(result.changed).toBe(true)
+    expect(result.command).toBe("cd -- '/d/Work Files/Other' && git status")
+  })
+
+  test('converts Windows paths to WSL notation when needed', () => {
+    const result = normalizeShellCommandForPlatform({
+      command: 'cd C:\\Users\\Admin\\Project && pwd',
+      cwd: '/mnt/c/Users/Admin/Elsewhere',
+      platform: 'linux',
+      env: { WSL_DISTRO_NAME: 'Ubuntu' },
+    })
+
+    expect(result.changed).toBe(true)
+    expect(result.command).toBe("cd -- '/mnt/c/Users/Admin/Project' && pwd")
+  })
+
+  test('does not rewrite unsupported Windows paths on ordinary POSIX hosts', () => {
+    const command = 'cd C:\\Users\\Admin\\Project && pwd'
+    const result = normalizeShellCommandForPlatform({
+      command,
+      cwd: '/workspace/project',
+      platform: 'linux',
+      env: {},
+    })
+
+    expect(result).toEqual({
+      originalCommand: command,
+      command,
+      changed: false,
+    })
+  })
+})
+
+describe('terminal command output metadata', () => {
+  test('reports the starting directory and selected shell', async () => {
+    const [result] = await runTerminalCommand({
+      command: 'printf codewolf',
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 10,
+    })
+
+    expect(result.type).toBe('json')
+    if (
+      result.type !== 'json' ||
+      !result.value ||
+      typeof result.value !== 'object' ||
+      !('startingCwd' in result.value) ||
+      !('shell' in result.value) ||
+      !('stdout' in result.value)
+    ) {
+      throw new Error('Expected foreground terminal output metadata')
+    }
+    expect(result.value.startingCwd).toBe(process.cwd())
+    expect(result.value.shell).toBeString()
+    expect(result.value.stdout).toBe('codewolf')
   })
 })
 

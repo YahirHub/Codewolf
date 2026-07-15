@@ -25,7 +25,7 @@ const OPTIONS = [
   {
     id: 'commit' as const,
     label: 'Funciona, crear commit',
-    hint: 'Genera Summary y Description en español y confirma solo los archivos elegibles.',
+    hint: 'Genera un mensaje semántico en español y confirma solo los archivos elegibles.',
   },
   {
     id: 'fix' as const,
@@ -35,7 +35,7 @@ const OPTIONS = [
   {
     id: 'skip' as const,
     label: 'No crear commit',
-    hint: 'Conserva los cambios en disco sin modificar Git.',
+    hint: 'Conserva estos archivos como pendientes y los acumula en el próximo commit verificado.',
   },
 ]
 
@@ -66,13 +66,11 @@ export const VerifiedCommitScreen: React.FC<VerifiedCommitScreenProps> = ({
 
       setWorking(true)
       try {
-        const client = await getCodebuffClient()
-        if (!client) {
-          throw new Error(
-            'No hay un proveedor/modelo activo para redactar el mensaje del commit.',
-          )
-        }
-        const result = await createVerifiedCommit({ pending, client })
+        const client = await getCodebuffClient().catch(() => null)
+        const result = await createVerifiedCommit({
+          pending,
+          ...(client ? { client } : {}),
+        })
         onCommitted(result)
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught))
@@ -127,14 +125,19 @@ export const VerifiedCommitScreen: React.FC<VerifiedCommitScreenProps> = ({
         Prueba los cambios en tu proyecto antes de confirmarlos.
       </text>
       <text style={{ fg: theme.muted }}>
-        Codewolf preparó {pending.paths.length} archivo
-        {pending.paths.length === 1 ? '' : 's'} editado
-        {pending.paths.length === 1 ? '' : 's'} mediante herramientas
-        estructuradas.
+        Codewolf acumuló {pending.paths.length} archivo
+        {pending.paths.length === 1 ? '' : 's'} pendiente
+        {pending.paths.length === 1 ? '' : 's'} de confirmación.
       </text>
       <text style={{ fg: theme.muted }}>
         Solicitud: {pending.request.trim().slice(0, 220) || '(sin texto)'}
       </text>
+      {(pending.requests?.length ?? 1) > 1 && (
+        <text style={{ fg: theme.warning }}>
+          Este commit reúne {(pending.requests?.length ?? 1)} implementaciones
+          verificadas desde el último commit creado.
+        </text>
+      )}
       <text style={{ fg: theme.muted }}>
         Archivos: {pending.paths.slice(0, 6).join(', ')}
         {pending.paths.length > 6 ? ` y ${pending.paths.length - 6} más` : ''}

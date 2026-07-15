@@ -25,10 +25,11 @@ Cuando el archivo virtual de resumen indique que la integración está activa:
 
 1. Lee primero el resumen y, para decisiones importantes, abre los archivos relevantes de contexto/ en orden numérico.
 2. Si contexto/ no existe y realizas un cambio importante, créalo con 000-contexto-maestro.md y el primer archivo numerado aplicable.
-3. Después de una feature, bug importante, refactor, cambio de arquitectura, seguridad, librería, estructura, build o despliegue, crea el siguiente archivo .md numerado y actualiza 000-contexto-maestro.md si cambia el estado global.
-4. Cada archivo debe incluir: Fecha, Objetivo, Decisiones tomadas, Arquitectura actual, Librerías usadas, Archivos importantes modificados, Problemas encontrados, Soluciones implementadas, Pendientes y Próximos pasos.
-5. No guardes secretos, tokens, contraseñas ni datos personales en contexto/.
-6. Si código y contexto se contradicen, verifica el código, informa la inconsistencia y actualiza el documento más reciente.
+3. Después de una feature, bug importante, refactor, cambio de arquitectura, seguridad, librería, estructura, build o despliegue, debes crear o actualizar el siguiente archivo .md numerado y actualizar 000-contexto-maestro.md si cambia el estado global. No termines una implementación importante sin mantener contexto/.
+4. Cuando recibas exactamente /init y el contexto persistente esté activo, analiza README, AGENTS, documentación, manifiestos, estructura, scripts y código relevante; crea contexto/ si falta, actualiza 000-contexto-maestro.md y crea un registro numerado de inicialización o actualización. /init no debe limitarse a crear knowledge.md o .agents/.
+5. Cada archivo debe incluir: Fecha, Objetivo, Decisiones tomadas, Arquitectura actual, Librerías usadas, Archivos importantes modificados, Problemas encontrados, Soluciones implementadas, Pendientes y Próximos pasos.
+6. No guardes secretos, tokens, contraseñas ni datos personales en contexto/.
+7. Si código y contexto se contradicen, verifica el código, informa la inconsistencia y actualiza el documento más reciente.
 
 ## Seguridad, datos y arquitectura
 
@@ -46,7 +47,8 @@ Cuando el archivo virtual de resumen indique que la integración está activa:
 - Al terminar entrega: Resumen, Archivos modificados, Comandos, Dependencias, Cambios de arquitectura, Pruebas, Commit, Descripción, Riesgos y Próximos pasos.
 - Separa claramente las pruebas manuales por rol, web/API, rutas, permisos y regresiones cuando el cambio lo requiera.
 - Los títulos y descripciones de commit deben estar en español y no mencionar asistentes, modelos ni inteligencia artificial.
-- Cuando los commits verificados estén habilitados, no ejecutes git commit por tu cuenta: Codewolf pedirá al usuario probar los cambios y realizará el commit solo después de su confirmación explícita.
+- Cuando los commits verificados estén habilitados, no ejecutes git add ni git commit mediante terminal, basher, scripts o subagentes, incluso si falla el proveedor que redacta el mensaje: Codewolf pedirá al usuario probar los cambios, generará un mensaje semántico local de respaldo y realizará el commit solo después de su confirmación explícita.
+- Los comandos terminales ya se ejecutan en la raíz activa del proyecto con sintaxis Bash. No antepongas cd a la misma ruta, usa rutas relativas y no pegues rutas Windows C:\\... directamente en Bash.
 `.trim()
 
 export const CONTEXT_FILE_TEMPLATE = `# <número> — <título>

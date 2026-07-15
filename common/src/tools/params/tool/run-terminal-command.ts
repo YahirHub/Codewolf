@@ -7,7 +7,9 @@ import type { $ToolParams } from '../../constants'
 export const terminalCommandOutputSchema = z.union([
   z.object({
     command: z.string(),
+    executedCommand: z.string().optional(),
     startingCwd: z.string().optional(),
+    shell: z.string().optional(),
     message: z.string().optional(),
     stderr: z.string().optional(),
     stdout: z.string().optional(),
@@ -15,7 +17,9 @@ export const terminalCommandOutputSchema = z.union([
   }),
   z.object({
     command: z.string(),
+    executedCommand: z.string().optional(),
     startingCwd: z.string().optional(),
+    shell: z.string().optional(),
     message: z.string().optional(),
     stderr: z.string().optional(),
     stdoutOmittedForLength: z.literal(true),
@@ -35,64 +39,15 @@ export const terminalCommandOutputSchema = z.union([
 export const gitCommitGuidePrompt = `
 ### Using git to commit changes
 
-When the user requests a new git commit, please follow these steps closely:
+When the user explicitly requests a Git commit:
 
-1. **Run two run_terminal_command tool calls:**
-   - Run \`git diff\` to review both staged and unstaged modifications.
-   - Run \`git log\` to check recent commit messages, ensuring consistency with this repository's style.
+1. Review the relevant diff and recent commit style.
+2. Stage only files that belong to the requested change. Never use \`git add -A\` when unrelated work may exist.
+3. Write a concise semantic Summary and a technical Description in the language requested by the user. Describe the implemented behavior, not the mechanical act of saving or verifying changes.
+4. Create the commit with separate \`-m\` arguments, for example:
+   \`git commit -m "Agregar validación de sesiones" -m "Valida el estado persistido antes de reanudar una conversación y evita cargar mensajes dañados."\`
 
-2. **Select relevant files to include in the commit:**
-   Use the git context established at the start of this conversation to decide which files are pertinent to the changes. Stage any new untracked files that are relevant, but avoid committing previously modified files (from the beginning of the conversation) unless they directly relate to this commit.
-
-3. **Analyze the staged changes and compose a commit message:**
-   Enclose your analysis in <commit_analysis> tags. Within these tags, you should:
-   - Note which files have been altered or added.
-   - Categorize the nature of the changes (e.g., new feature, fix, refactor, documentation, etc.).
-   - Consider the purpose or motivation behind the alterations.
-   - Refrain from using tools to inspect code beyond what is presented in the git context.
-   - Evaluate the overall impact on the project.
-   - Check for sensitive details that should not be committed.
-   - Draft a concise, one- to two-sentence commit message focusing on the “why” rather than the “what.”
-   - Use precise, straightforward language that accurately represents the changes.
-   - Ensure the message provides clarity—avoid generic or vague terms like “Update” or “Fix” without context.
-   - Revisit your draft to confirm it truly reflects the changes and their intention.
-
-4. **Create the commit, ending with this specific footer:**
-   \`\`\`
-   Generated with Codewolf 🤖
-   Co-Authored-By: Codewolf <noreply@codewolf.local>
-   \`\`\`
-   To maintain proper formatting, use cross-platform compatible commit messages:
-   
-   **For Unix/bash shells:**
-   \`\`\`
-   git commit -m "$(cat <<'EOF'
-   Your commit message here.
-
-   🤖 Generated with Codewolf
-   Co-Authored-By: Codewolf <noreply@codewolf.local>
-   EOF
-   )"
-   \`\`\`
-   
-   **For Windows Command Prompt:**
-   \`\`\`
-   git commit -m "Your commit message here.
-
-   🤖 Generated with Codewolf
-   Co-Authored-By: Codewolf <noreply@codewolf.local>"
-   \`\`\`
-   
-   Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
-
-**Important details**
-
-- When feasible, use a single \`git commit -am\` command to add and commit together, but do not accidentally stage unrelated files.
-- Never alter the git config.
-- Do not push to the remote repository.
-- Avoid using interactive flags (e.g., \`-i\`) that require unsupported interactive input.
-- Do not create an empty commit if there are no changes.
-- Make sure your commit message is concise yet descriptive, focusing on the intention behind the changes rather than merely describing them.
+The terminal always executes Bash-compatible syntax from the active project directory on Windows, Linux and macOS. Do not prepend a redundant \`cd\`, do not paste a Windows \`C:\\...\` path into Bash, do not alter Git configuration, do not add generated-by footers, and never push automatically.
 `
 
 const toolName = 'run_terminal_command'
@@ -103,7 +58,9 @@ const inputSchema = z
     command: z
       .string()
       .min(1, 'Command cannot be empty')
-      .describe(`CLI command valid for user's OS.`),
+      .describe(
+        `Bash-compatible command executed from the selected working directory on Windows, Linux or macOS. Prefer relative paths and do not prepend a redundant cd to the project root.`,
+      ),
     process_type: z
       .enum(['SYNC', 'BACKGROUND'])
       .default('SYNC')
@@ -125,13 +82,13 @@ const inputSchema = z
       ),
   })
   .describe(
-    `Execute a CLI command from the **project root** (different from the user's cwd).`,
+    `Execute a Bash-compatible command from the project root unless cwd is explicitly provided.`,
   )
 const description = `
 Stick to these use cases:
 1. Typechecking the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
-3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use commands like \`mv\`/\`move\` or \`rm\`/\`del\`.
+3. Moving, renaming, or deleting files and directories. These actions can be vital for refactoring requests. Use Bash commands such as \`mv\` and \`rm\`.
 
 Most likely, you should ask for permission for any other type of command you want to run. If asking for permission, show the user the command you want to run using \`\`\` tags and *do not* use the tool call format, e.g.:
 \`\`\`bash
@@ -169,10 +126,8 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    command: `git commit -m "Your commit message here.
-
-🤖 Generated with Codewolf
-Co-Authored-By: Codewolf <noreply@codewolf.local>"`,
+    command:
+      'git commit -m "Agregar validación de sesiones" -m "Valida el estado persistido antes de reanudar una conversación."',
   },
   endsAgentStep,
 })}

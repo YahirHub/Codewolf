@@ -256,6 +256,123 @@ function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
 /**
  * Create an error message for Windows users when bash is not available.
  */
+
+export type ShellCommandNormalization = {
+  originalCommand: string
+  command: string
+  changed: boolean
+}
+
+function isWslEnvironment(env: NodeJS.ProcessEnv): boolean {
+  if (env.WSL_DISTRO_NAME || env.WSL_INTEROP) return true
+  try {
+    return fs
+      .readFileSync('/proc/version', 'utf8')
+      .toLowerCase()
+      .includes('microsoft')
+  } catch {
+    return false
+  }
+}
+
+function stripMatchingQuotes(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length >= 2) {
+    const first = trimmed[0]
+    const last = trimmed[trimmed.length - 1]
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return trimmed.slice(1, -1)
+    }
+  }
+  return trimmed
+}
+
+function quoteBashPath(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
+function windowsPathToBashPath(
+  value: string,
+  mode: 'git-bash' | 'wsl',
+): string {
+  const normalized = value.replaceAll('\\', '/')
+  const driveMatch = normalized.match(/^([A-Za-z]):(?:\/(.*))?$/)
+  if (driveMatch) {
+    const drive = driveMatch[1]!.toLowerCase()
+    const suffix = driveMatch[2] ? `/${driveMatch[2]}` : ''
+    return mode === 'wsl' ? `/mnt/${drive}${suffix}` : `/${drive}${suffix}`
+  }
+  if (normalized.startsWith('//')) return normalized
+  return normalized
+}
+
+function normalizeComparablePath(
+  value: string,
+  platform: NodeJS.Platform,
+): string {
+  if (platform === 'win32') {
+    return path.win32.resolve(value.replaceAll('/', '\\')).toLowerCase()
+  }
+  return path.resolve(value)
+}
+
+/**
+ * Normalize only a leading `cd ... &&` wrapper. The terminal tool already sets
+ * cwd to the active project, so generated commands frequently repeat that
+ * directory. On Windows those wrappers often contain `C:\\...`, which Bash
+ * interprets incorrectly. Removing a redundant wrapper is lossless; when the
+ * target is different, convert Windows paths to Git Bash or WSL notation.
+ */
+export function normalizeShellCommandForPlatform(params: {
+  command: string
+  cwd: string
+  platform?: NodeJS.Platform
+  env?: NodeJS.ProcessEnv
+}): ShellCommandNormalization {
+  const originalCommand = params.command
+  const platform = params.platform ?? os.platform()
+  const env = params.env ?? process.env
+  const match = originalCommand.match(
+    /^\s*cd(?:\s+\/d)?\s+("[^"]+"|'[^']+'|.+?)\s*&&\s*([\s\S]+)$/i,
+  )
+  if (!match) {
+    return { originalCommand, command: originalCommand, changed: false }
+  }
+
+  const rawTarget = stripMatchingQuotes(match[1] ?? '')
+  const remainder = (match[2] ?? '').trimStart()
+  if (!rawTarget || !remainder) {
+    return { originalCommand, command: originalCommand, changed: false }
+  }
+
+  let shellTarget = rawTarget
+  let comparableTarget = rawTarget
+  if (/^[A-Za-z]:[\\/]/.test(rawTarget)) {
+    if (platform === 'win32') {
+      shellTarget = windowsPathToBashPath(rawTarget, 'git-bash')
+    } else if (isWslEnvironment(env)) {
+      shellTarget = windowsPathToBashPath(rawTarget, 'wsl')
+      comparableTarget = shellTarget
+    } else {
+      return { originalCommand, command: originalCommand, changed: false }
+    }
+  }
+
+  const targetMatchesCwd =
+    normalizeComparablePath(comparableTarget, platform) ===
+    normalizeComparablePath(params.cwd, platform)
+
+  const command = targetMatchesCwd
+    ? remainder
+    : `cd -- ${quoteBashPath(shellTarget)} && ${remainder}`
+
+  return {
+    originalCommand,
+    command,
+    changed: command !== originalCommand,
+  }
+}
+
 function createWindowsBashNotFoundError(): Error {
   return new Error(
     `Bash is required but was not found on this Windows system.
@@ -337,10 +454,18 @@ export function runTerminalCommand({
       shellArgs = ['-c']
     }
 
-    // Resolve cwd to absolute path
+    // Resolve cwd to absolute path and normalize only redundant/invalid
+    // leading directory wrappers. The shell already starts inside cwd.
     const resolvedCwd = path.resolve(cwd)
+    const normalizedCommand = normalizeShellCommandForPlatform({
+      command,
+      cwd: resolvedCwd,
+      platform: os.platform(),
+      env: processEnv,
+    })
+    const executedCommand = normalizedCommand.command
 
-    const childProcess = spawn(shell, [...shellArgs, command], {
+    const childProcess = spawn(shell, [...shellArgs, executedCommand], {
       cwd: resolvedCwd,
       env: processEnv,
       stdio: 'pipe',
@@ -393,6 +518,11 @@ export function runTerminalCommand({
           type: 'json',
           value: {
             command,
+            ...(normalizedCommand.changed
+              ? { executedCommand: normalizedCommand.command }
+              : {}),
+            startingCwd: resolvedCwd,
+            shell,
             stdout: stdout.format(),
             ...(stderr.retainedLength > 0 ? { stderr: stderr.format() } : {}),
             message:
@@ -462,6 +592,11 @@ export function runTerminalCommand({
       // Include stderr in stdout for compatibility with existing behavior
       const combinedOutput = {
         command,
+        ...(normalizedCommand.changed
+          ? { executedCommand: normalizedCommand.command }
+          : {}),
+        startingCwd: resolvedCwd,
+        shell,
         stdout: truncatedStdout,
         ...(truncatedStderr ? { stderr: truncatedStderr } : {}),
         ...(exitCode !== null ? { exitCode } : {}),

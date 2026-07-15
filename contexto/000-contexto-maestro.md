@@ -2,7 +2,7 @@
 
 # Fecha
 
-2026-07-14
+2026-07-15
 
 # Objetivo
 
@@ -106,6 +106,10 @@ TypeScript con Bun, React y OpenTUI.
 - La barra inferior permanece visible con un modelo personalizado activo y
   muestra contexto usado/máximo, porcentaje y capacidad restante; se alimenta
   del agente principal y baja inmediatamente después de `/compact`.
+- Los commits verificados generan primero un mensaje semántico local basado en el diff y pueden completarse aunque el proveedor falle; los cambios de contexto se nombran como creación o actualización de contexto.
+- Los commits verificados mantienen un backlog persistente por proyecto: elegir **No crear commit** conserva los archivos seguros y el siguiente commit confirmado acumula todas las implementaciones pendientes cuyas huellas SHA-256 no cambiaron manualmente.
+- Con contexto persistente activo, las implementaciones con cambios reales garantizan la creación o actualización de un registro numerado y del contexto maestro mediante un agente documental con fallback local. `/init` crea o refresca `contexto/` en el proyecto activo.
+- La terminal normaliza wrappers `cd` incompatibles entre Windows, Git Bash y WSL, y `basher` devuelve el resultado sin una segunda llamada al proveedor.
 
 # Persistencia
 
@@ -182,6 +186,13 @@ lista exacta y versiones bloqueadas.
 - `cli/src/components/status-bar.tsx`
 - `cli/src/utils/context-window.ts`
 - `cli/src/state/chat-store.ts`
+- `cli/src/utils/verified-commit.ts`
+- `cli/src/utils/project-context-maintenance.ts`
+- `cli/src/components/verified-commit-screen.tsx`
+- `cli/src/commands/init.ts`
+- `agents/basher.ts`
+- `sdk/src/tools/run-terminal-command.ts`
+- `packages/llm-providers/src/openai-compatible/openai-compatible-error.ts`
 
 # Problemas encontrados
 
@@ -213,6 +224,8 @@ lista exacta y versiones bloqueadas.
   comando `/plan` redundante; las sesiones tampoco podían volver de forma
   coordinada a un mensaje anterior y a los archivos modificados por el agente.
 - La metodología de trabajo y la memoria `contexto/` dependían de instrucciones manuales fuera del CLI; tampoco existía una confirmación segura que pidiera probar una implementación antes de crear un commit limitado a sus archivos.
+- El redactor de commits podía aceptar `Guardar cambios verificados` y limitar la descripción a enumerar archivos, sin representar el trabajo real.
+- En Windows, el agente podía anteponer una ruta `C:\\...` a un comando ejecutado por Bash; además `basher` hacía una segunda petición al modelo después del proceso y una caída `Upstream request failed` ocultaba el resultado de terminal.
 
 # Soluciones implementadas
 

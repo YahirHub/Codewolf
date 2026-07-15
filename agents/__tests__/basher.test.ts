@@ -50,21 +50,36 @@ describe('commander agent', () => {
     test('requires command parameter', () => {
       const schema = commander.inputSchema
       const commandProp = schema?.params?.properties?.command
-      expect(commandProp && typeof commandProp === 'object' && 'type' in commandProp && commandProp.type).toBe('string')
+      expect(
+        commandProp &&
+          typeof commandProp === 'object' &&
+          'type' in commandProp &&
+          commandProp.type,
+      ).toBe('string')
       expect(schema?.params?.required).toContain('command')
     })
 
     test('has optional timeout_seconds parameter', () => {
       const schema = commander.inputSchema
       const timeoutProp = schema?.params?.properties?.timeout_seconds
-      expect(timeoutProp && typeof timeoutProp === 'object' && 'type' in timeoutProp && timeoutProp.type).toBe('number')
+      expect(
+        timeoutProp &&
+          typeof timeoutProp === 'object' &&
+          'type' in timeoutProp &&
+          timeoutProp.type,
+      ).toBe('number')
       expect(schema?.params?.required).not.toContain('timeout_seconds')
     })
 
     test('has optional what_to_summarize parameter', () => {
       const schema = commander.inputSchema
       const summarizeProp = schema?.params?.properties?.what_to_summarize
-      expect(summarizeProp && typeof summarizeProp === 'object' && 'type' in summarizeProp && summarizeProp.type).toBe('string')
+      expect(
+        summarizeProp &&
+          typeof summarizeProp === 'object' &&
+          'type' in summarizeProp &&
+          summarizeProp.type,
+      ).toBe('string')
       expect(schema?.params?.required).not.toContain('what_to_summarize')
     })
   })
@@ -188,7 +203,7 @@ describe('commander agent', () => {
       expect(final.done).toBe(true)
     })
 
-    test('yields STEP for model analysis when what_to_summarize is provided', () => {
+    test('returns raw output without a second model step when a summary focus is provided', () => {
       const mockAgentState = createMockAgentState()
       const mockLogger = {
         debug: () => {},
@@ -203,10 +218,8 @@ describe('commander agent', () => {
         params: { command: 'ls -la', what_to_summarize: 'list of files' },
       })
 
-      // First yield is the command
       generator.next()
 
-      // Second yield should be STEP for model analysis
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -216,7 +229,17 @@ describe('commander agent', () => {
       }
       const result = generator.next(mockToolResult)
 
-      expect(result.value).toBe('STEP')
+      expect(result.value).toEqual({
+        toolName: 'set_output',
+        input: {
+          output: {
+            stdout: 'file1.txt\nfile2.txt',
+            requestedSummary: 'list of files',
+          },
+        },
+        includeToolCall: false,
+      })
+      expect(result.value).not.toBe('STEP')
     })
 
     test('handles empty tool result gracefully', () => {
@@ -246,10 +269,13 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: string }
+        input: { output: unknown }
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toBe('')
+      expect(toolCall.input.output).toEqual({
+        command: 'echo test',
+        output: 'No terminal result was returned.',
+      })
     })
 
     test('handles non-json tool result', () => {
@@ -280,10 +306,13 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: string }
+        input: { output: unknown }
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toBe('')
+      expect(toolCall.input.output).toEqual({
+        command: 'echo test',
+        output: 'plain text output',
+      })
     })
 
     test('handleSteps can be serialized for sandbox execution', () => {
@@ -299,24 +328,17 @@ describe('commander agent', () => {
   })
 
   describe('system prompt', () => {
-    test('contains command analysis instructions', () => {
-      expect(commander.systemPrompt).toContain('terminal command')
-      expect(commander.systemPrompt).toContain('output')
-    })
-
-    test('contains concise description requirement', () => {
-      expect(commander.systemPrompt).toContain('concise')
+    test('requires exact structured terminal output', () => {
+      expect(commander.systemPrompt).toContain('structured terminal result')
+      expect(commander.systemPrompt).toContain('Do not reinterpret')
     })
   })
 
   describe('instructions prompt', () => {
-    test('instructs not to use tools', () => {
-      expect(commander.instructionsPrompt).toContain('Do not use any tools')
-    })
-
-    test('mentions analyzing command output', () => {
-      expect(commander.instructionsPrompt).toContain('command')
-      expect(commander.instructionsPrompt).toContain('output')
+    test('mentions the active project and reported shell metadata', () => {
+      expect(commander.instructionsPrompt).toContain('active project')
+      expect(commander.instructionsPrompt).toContain('shell')
+      expect(commander.instructionsPrompt).toContain('startingCwd')
     })
   })
 })

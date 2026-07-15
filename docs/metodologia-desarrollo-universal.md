@@ -394,6 +394,8 @@ Debes ayudar con:
 
 Los commits deben ir en español.
 
+El Summary debe describir resumidamente el trabajo real. No usar frases mecánicas como `Guardar cambios verificados`, `Aplicar cambios` o una simple lista de archivos. Si el cambio crea documentación de contexto, debe indicarlo expresamente. La Description explica el propósito y los detalles técnicos relevantes.
+
 Formato sugerido:
 
 ```text
@@ -882,3 +884,14 @@ Luego que escale cuando tenga sentido.
 No construir complejidad antes de necesitarla.
 No borrar seguridad por simplicidad.
 No escribir código que el proyecto todavía no necesita.
+
+---
+
+# Integración automática en Codewolf
+
+Cuando la opción de contexto persistente está activa, Codewolf garantiza el mantenimiento de `contexto/` después de implementaciones con cambios reales. Si el agente principal no documenta el turno, un agente específico genera el registro numerado y actualiza el contexto maestro con un fallback local seguro.
+
+El comando `/init` debe crear o actualizar `contexto/` en el proyecto activo, además de analizar documentación, manifiestos, estructura, scripts y código relevante.
+
+Cuando los commits verificados están activos, elegir **No crear commit** no descarta el conjunto verificado: queda pendiente y se acumula con implementaciones posteriores. El commit se crea solo cuando el usuario confirma y únicamente incluye archivos cuyas huellas demuestran que no fueron alterados manualmente.
+
