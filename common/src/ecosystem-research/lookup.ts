@@ -1,6 +1,6 @@
 import { loadEcosystemCache, saveEcosystemCache } from './cache'
 
-export const ECOSYSTEM_IDS = ['npm', 'go'] as const
+export const ECOSYSTEM_IDS = ['npm', 'pypi', 'go'] as const
 export type EcosystemId = (typeof ECOSYSTEM_IDS)[number]
 
 export const ECOSYSTEM_OPERATIONS = [
@@ -35,6 +35,7 @@ export interface EcosystemLookupResponse {
 }
 
 const NPM_REGISTRY_ORIGIN = 'https://registry.npmjs.org'
+const PYPI_ORIGIN = 'https://pypi.org'
 const GO_PACKAGE_ORIGIN = 'https://pkg.go.dev'
 const DEFAULT_LIMIT = 5
 const MAX_LIMIT = 10
@@ -301,7 +302,15 @@ function isPrereleaseVersion(version: string | undefined): boolean {
   if (!version) return false
   const normalized = version.trim().replace(/^v/i, '')
   const core = normalized.split('+', 1)[0] ?? normalized
-  return core.includes('-')
+
+  // SemVer prereleases use a hyphen. Python's PEP 440 also permits compact
+  // forms such as 3.0rc1, 2.1b2, 1.0a1, and 4.0.dev3.
+  return (
+    core.includes('-') ||
+    /(?:^|[.\d])(?:a|b|rc|alpha|beta|pre|preview|dev)\d*(?:$|[.+])/i.test(
+      core,
+    )
+  )
 }
 
 function compareSemverLike(a: string, b: string): number {
@@ -486,6 +495,236 @@ function normalizeNpmDocumentation(params: {
   })
 }
 
+
+function normalizePyPiProjectUrl(value: unknown): string | undefined {
+  const url = asString(value)
+  if (!url) return undefined
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed.toString()
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function parsePythonDependencyNames(value: unknown): {
+  count: number
+  names: string[]
+} {
+  const entries = asArray(value).filter(
+    (item): item is string => typeof item === 'string',
+  )
+  const names = new Set<string>()
+  for (const entry of entries) {
+    const match = entry.match(/^\s*([A-Za-z0-9][A-Za-z0-9._-]*)/)
+    if (match?.[1]) names.add(match[1])
+  }
+  return { count: entries.length, names: [...names].slice(0, 25) }
+}
+
+function latestPyPiStableVersion(payload: Record<string, unknown>): string | undefined {
+  const releases = asRecord(payload.releases)
+  const candidates = Object.entries(releases)
+    .filter(([version, files]) => {
+      if (isPrereleaseVersion(version)) return false
+      const releaseFiles = asArray(files)
+      return releaseFiles.some((file) => {
+        const record = asRecord(file)
+        return asBoolean(record.yanked) !== true
+      })
+    })
+    .map(([version, files]) => {
+      const timestamps = asArray(files)
+        .map((file) => {
+          const record = asRecord(file)
+          return Date.parse(
+            asString(record.upload_time_iso_8601) ??
+              asString(record.upload_time) ??
+              '',
+          )
+        })
+        .filter(Number.isFinite)
+      return {
+        version,
+        publishedAt: timestamps.length > 0 ? Math.max(...timestamps) : 0,
+      }
+    })
+
+  return candidates.sort((a, b) => {
+    if (a.publishedAt !== b.publishedAt) return b.publishedAt - a.publishedAt
+    return compareSemverLike(b.version, a.version)
+  })[0]?.version
+}
+
+function normalizePyPiFiles(value: unknown): unknown[] {
+  return asArray(value)
+    .slice(0, 12)
+    .map((entry) => {
+      const file = asRecord(entry)
+      const digests = asRecord(file.digests)
+      return compactObject({
+        filename: asString(file.filename),
+        packageType: asString(file.packagetype),
+        pythonVersion: asString(file.python_version),
+        requiresPython: asString(file.requires_python),
+        size: asNumber(file.size),
+        uploadedAt:
+          asString(file.upload_time_iso_8601) ?? asString(file.upload_time),
+        yanked: asBoolean(file.yanked),
+        yankedReason: asString(file.yanked_reason),
+        sha256: asString(digests.sha256),
+        url: asString(file.url),
+      })
+    })
+}
+
+function normalizePyPiPackage(params: {
+  packageName: string
+  payload: unknown
+  requestedVersion?: string
+}): unknown {
+  const root = asRecord(params.payload)
+  const info = asRecord(root.info)
+  const selectedVersion =
+    asString(info.version) ?? params.requestedVersion ?? 'unknown'
+  const projectUrls = asRecord(info.project_urls)
+  const releases = asRecord(root.releases)
+  const selectedReleaseFiles =
+    asArray(root.urls).length > 0
+      ? root.urls
+      : releases[selectedVersion]
+  const vulnerabilities = asArray(root.vulnerabilities)
+    .slice(0, 10)
+    .map((entry) => {
+      const vulnerability = asRecord(entry)
+      return compactObject({
+        id: asString(vulnerability.id),
+        aliases: asArray(vulnerability.aliases).slice(0, 10),
+        summary: asString(vulnerability.summary),
+        details: asString(vulnerability.details)?.slice(0, 1_500),
+        fixedIn: asArray(vulnerability.fixed_in).slice(0, 10),
+        link: asString(vulnerability.link),
+      })
+    })
+
+  return compactObject({
+    name: asString(info.name) ?? params.packageName,
+    selectedVersion,
+    selectedVersionIsPrerelease: isPrereleaseVersion(selectedVersion),
+    latestPublishedVersion: asString(info.version),
+    latestPublishedIsPrerelease: isPrereleaseVersion(asString(info.version)),
+    latestStableVersion: latestPyPiStableVersion(root),
+    summary: asString(info.summary),
+    license:
+      asString(info.license_expression) ?? asString(info.license)?.slice(0, 500),
+    requiresPython: asString(info.requires_python),
+    dependencies: parsePythonDependencyNames(info.requires_dist),
+    classifiers: asArray(info.classifiers)
+      .filter((item): item is string => typeof item === 'string')
+      .slice(0, 25),
+    keywords: asString(info.keywords),
+    author: asString(info.author),
+    maintainer: asString(info.maintainer),
+    homepage:
+      normalizePyPiProjectUrl(info.home_page) ??
+      normalizePyPiProjectUrl(projectUrls.Homepage),
+    documentation:
+      normalizePyPiProjectUrl(projectUrls.Documentation) ??
+      normalizePyPiProjectUrl(projectUrls.Docs),
+    repository:
+      normalizePyPiProjectUrl(projectUrls.Repository) ??
+      normalizePyPiProjectUrl(projectUrls.Source) ??
+      normalizePyPiProjectUrl(projectUrls['Source Code']),
+    changelog:
+      normalizePyPiProjectUrl(projectUrls.Changelog) ??
+      normalizePyPiProjectUrl(projectUrls.Changes),
+    projectUrls: Object.fromEntries(
+      Object.entries(projectUrls)
+        .map(([label, value]) => [label, normalizePyPiProjectUrl(value)] as const)
+        .filter((entry): entry is readonly [string, string] =>
+          Boolean(entry[1]),
+        )
+        .slice(0, 12),
+    ),
+    files: normalizePyPiFiles(selectedReleaseFiles),
+    vulnerabilityCount: vulnerabilities.length,
+    vulnerabilities,
+    pypiUrl: `${PYPI_ORIGIN}/project/${encodeURIComponent(params.packageName)}/`,
+  })
+}
+
+function normalizePyPiDocumentation(params: {
+  packageName: string
+  payload: unknown
+  topic?: string
+}): unknown {
+  const root = asRecord(params.payload)
+  const info = asRecord(root.info)
+  const projectUrls = asRecord(info.project_urls)
+  return compactObject({
+    name: asString(info.name) ?? params.packageName,
+    version: asString(info.version),
+    topic: params.topic,
+    excerpt: extractRelevantText(asString(info.description) ?? '', params.topic),
+    contentType: asString(info.description_content_type),
+    documentation:
+      normalizePyPiProjectUrl(projectUrls.Documentation) ??
+      normalizePyPiProjectUrl(projectUrls.Docs),
+    repository:
+      normalizePyPiProjectUrl(projectUrls.Repository) ??
+      normalizePyPiProjectUrl(projectUrls.Source) ??
+      normalizePyPiProjectUrl(projectUrls['Source Code']),
+    pypiUrl: `${PYPI_ORIGIN}/project/${encodeURIComponent(params.packageName)}/`,
+  })
+}
+
+function normalizePyPiVersions(payload: unknown, limit: number): unknown {
+  const root = asRecord(payload)
+  const releases = asRecord(root.releases)
+  const versions = Object.entries(releases)
+    .map(([version, files]) => {
+      const releaseFiles = asArray(files)
+      const timestamps = releaseFiles
+        .map((file) => {
+          const record = asRecord(file)
+          return asString(record.upload_time_iso_8601) ?? asString(record.upload_time)
+        })
+        .filter((item): item is string => Boolean(item))
+        .sort()
+      return compactObject({
+        version,
+        prerelease: isPrereleaseVersion(version),
+        yanked:
+          releaseFiles.length > 0 &&
+          releaseFiles.every((file) => asBoolean(asRecord(file).yanked) === true),
+        publishedAt: timestamps.at(-1),
+        fileCount: releaseFiles.length,
+      })
+    })
+    .sort((a, b) => {
+      const aRecord = asRecord(a)
+      const bRecord = asRecord(b)
+      const aDate = Date.parse(asString(aRecord.publishedAt) ?? '')
+      const bDate = Date.parse(asString(bRecord.publishedAt) ?? '')
+      if (Number.isFinite(aDate) && Number.isFinite(bDate) && aDate !== bDate) {
+        return bDate - aDate
+      }
+      return compareSemverLike(
+        asString(bRecord.version) ?? '',
+        asString(aRecord.version) ?? '',
+      )
+    })
+    .slice(0, limit)
+
+  return compactObject({
+    latestPublishedVersion: asString(asRecord(root.info).version),
+    latestStableVersion: latestPyPiStableVersion(root),
+    versions,
+  })
+}
+
 function compactGoItems(value: unknown, limit: number): unknown[] {
   return asArray(value)
     .slice(0, limit)
@@ -609,6 +848,16 @@ function validateInput(input: EcosystemLookupInput): void {
   if (input.operation === 'versions' && !moduleName && !packageName) {
     throw new Error('module or package is required for versions.')
   }
+  if (input.ecosystem === 'pypi' && input.operation === 'search') {
+    throw new Error(
+      'PyPI does not provide a structured full-text search API. Discover candidate project names with web_search restricted to pypi.org/project, then inspect each exact project with ecosystem_research operation=package.',
+    )
+  }
+  if (input.ecosystem === 'pypi' && input.operation === 'symbols') {
+    throw new Error(
+      'PyPI does not expose Python symbols. Use the project documentation or published source after resolving the exact package version.',
+    )
+  }
   if (input.ecosystem === 'npm' && input.operation === 'symbols') {
     throw new Error(
       'npm symbol lookup is not available; inspect official docs or published package types instead.',
@@ -674,6 +923,58 @@ async function runNpmLookup(params: {
       payload,
       requestedVersion: input.version,
     }),
+  }
+}
+
+
+async function runPyPiLookup(params: {
+  input: EcosystemLookupInput
+  fetch: typeof globalThis.fetch
+  signal?: AbortSignal
+}): Promise<{ sourceUrl: string; data: unknown }> {
+  const { input } = params
+  const packageName = input.package!.trim()
+  const requestedVersion = input.version?.trim()
+  const route = requestedVersion && requestedVersion !== 'latest'
+    ? `/pypi/${encodeURIComponent(packageName)}/${encodeURIComponent(requestedVersion)}/json`
+    : `/pypi/${encodeURIComponent(packageName)}/json`
+  const url = new URL(route, PYPI_ORIGIN)
+  const payload = await fetchJson({ ...params, url })
+
+  if (input.operation === 'documentation') {
+    return {
+      sourceUrl: url.toString(),
+      data: normalizePyPiDocumentation({
+        packageName,
+        payload,
+        topic: input.topic,
+      }),
+    }
+  }
+  if (input.operation === 'versions') {
+    return {
+      sourceUrl: url.toString(),
+      data: normalizePyPiVersions(payload, normalizeLimit(input.limit)),
+    }
+  }
+  if (input.operation === 'vulnerabilities') {
+    const normalized = asRecord(
+      normalizePyPiPackage({ packageName, payload, requestedVersion }),
+    )
+    return {
+      sourceUrl: url.toString(),
+      data: compactObject({
+        name: normalized.name,
+        selectedVersion: normalized.selectedVersion,
+        vulnerabilityCount: normalized.vulnerabilityCount,
+        vulnerabilities: normalized.vulnerabilities,
+        pypiUrl: normalized.pypiUrl,
+      }),
+    }
+  }
+  return {
+    sourceUrl: url.toString(),
+    data: normalizePyPiPackage({ packageName, payload, requestedVersion }),
   }
 }
 
@@ -801,11 +1102,17 @@ export async function runEcosystemLookup(
           fetch: fetchImpl,
           signal: options.signal,
         })
-      : await runGoLookup({
-          input: normalizedInput,
-          fetch: fetchImpl,
-          signal: options.signal,
-        })
+      : input.ecosystem === 'pypi'
+        ? await runPyPiLookup({
+            input: normalizedInput,
+            fetch: fetchImpl,
+            signal: options.signal,
+          })
+        : await runGoLookup({
+            input: normalizedInput,
+            fetch: fetchImpl,
+            signal: options.signal,
+          })
 
   const value: Omit<EcosystemLookupResponse, 'cached'> = {
     ecosystem: input.ecosystem,

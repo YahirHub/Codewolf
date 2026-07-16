@@ -126,7 +126,7 @@ Update these as you complete each step during implementation.
 
 Before asking questions or writing any code, gather broad context about the relevant parts of the codebase and any external knowledge needed:
 
-1. Spawn local file-picker and code-searcher agents in parallel to find all relevant project files. For external Node/Bun/npm or Go packages, spawn ecosystem-researcher as the authoritative package-research step with the exact requested behavior and symbols, then wait for its compact result. Do not launch researcher-web/researcher-docs for that same package in parallel. Use one focused fallback researcher only if ecosystem-researcher fails or reports a concrete unresolved gap. For unsupported ecosystems, use the appropriate web/docs researcher. Do not load full package pages into the parent context.
+1. Spawn local file-picker and code-searcher agents in parallel to find all relevant project files. For external Node/Bun/npm, Python/PyPI, or Go packages, spawn ecosystem-researcher as the authoritative package-research step with the exact requested behavior and symbols, then wait for its compact result. Do not launch researcher-web/researcher-docs for that same package in parallel. Use one focused fallback researcher only if ecosystem-researcher fails or reports a concrete unresolved gap. For unsupported ecosystems, use the appropriate web/docs researcher. Do not load full package pages into the parent context.
 2. Read the relevant local files returned by these agents using read_files. Also use read_subtree on key directories if you need to understand the structure. Treat ecosystem-researcher's compact structured brief as the package evidence; only open a specific external page yourself when the brief reports an unresolved question.
 3. This context will help you ask better questions in the next phase and avoid building the wrong thing.
 
@@ -308,7 +308,7 @@ export function createBaseDeep(options?: {
     stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
 
 **Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
-1. Context & Research — file-pickers + code-searchers + isolated ecosystem researcher for npm/Go packages + other researchers as needed
+1. Context & Research — file-pickers + code-searchers + isolated ecosystem researcher for npm/PyPI/Go packages + other researchers as needed
 2. Spec — draft SPEC.md, ${noAskUser ? '' : 'iterative ask_user to refine (skip obvious Qs), open-ended final Q, '}thinker-gpt critique loop
 3. Plan — write PLAN.md, thinker-gpt critique loop
 

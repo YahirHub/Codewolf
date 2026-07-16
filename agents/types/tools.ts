@@ -147,10 +147,10 @@ export interface CodeSearchParams {
 export interface EndTurnParams {}
 
 /**
- * Query official npm Registry or pkg.go.dev APIs with compact cached output.
+ * Query official npm Registry, PyPI JSON, or pkg.go.dev APIs with compact cached output.
  */
 export interface EcosystemResearchParams {
-  ecosystem: 'npm' | 'go'
+  ecosystem: 'npm' | 'pypi' | 'go'
   operation:
     | 'search'
     | 'package'

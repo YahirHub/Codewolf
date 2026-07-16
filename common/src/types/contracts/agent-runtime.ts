@@ -25,7 +25,10 @@ import type {
 } from './llm'
 import type { Logger } from './logger'
 import type { TraceWriter } from './trace'
-import type { CustomProviderRuntimeConfig } from '../custom-provider'
+import type {
+  CustomProviderRuntimeConfig,
+  ResearchProviderOverrides,
+} from '../custom-provider'
 
 /** Shared dependencies */
 export type AgentRuntimeDeps = {
@@ -74,6 +77,8 @@ export type AgentRuntimeScopedDeps = {
 
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model overrides used only by research subagents. */
+  researchProviders?: ResearchProviderOverrides
   /** Per-run maximum duration for research subagents. */
   researchTimeoutMs?: number
 }

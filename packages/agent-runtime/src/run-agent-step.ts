@@ -16,6 +16,7 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
+import { getEcosystemDelegationPrompt } from '@codebuff/common/ecosystem-research/detect'
 import {
   assistantMessage,
   systemMessage,
@@ -775,6 +776,22 @@ export async function loopAgentSteps(
       },
     })
     system = systemPrompt ?? ''
+  }
+
+  if (
+    agentTemplate.spawnableAgents.includes('ecosystem-researcher') ||
+    agentTemplate.spawnableAgents.includes('researcher-docs') ||
+    agentTemplate.spawnableAgents.includes('researcher-web')
+  ) {
+    const ecosystemRoutingPrompt = getEcosystemDelegationPrompt({
+      fileContext,
+      prompt,
+    })
+    if (ecosystemRoutingPrompt) {
+      system = `${system}
+
+${ecosystemRoutingPrompt}`
+    }
   }
 
   // Build agent tools (agents as direct tool calls) for non-inherited tools

@@ -44,3 +44,75 @@ describe('research timeout settings', () => {
     expect(loadSettings(configDir).researchTimeoutMinutes).toBe(1)
   })
 })
+
+describe('research model settings', () => {
+  test('uses automatic economical routing by default', () => {
+    const configDir = temporaryConfig()
+    expect(loadSettings(configDir).researchModelMode).toBe(
+      'automatic-economical',
+    )
+  })
+
+  test('persists a general model and per-agent overrides', () => {
+    const configDir = temporaryConfig()
+    saveSettings(
+      {
+        researchModelMode: 'per-agent',
+        researchGeneralModel: {
+          providerId: 'opencode-free',
+          modelId: 'fast-free',
+        },
+        researchAgentModels: {
+          ecosystem: {
+            providerId: 'nvidia-nim',
+            modelId: 'deepseek-ai/deepseek-v4-flash',
+          },
+          web: {
+            providerId: 'custom',
+            modelId: 'search-small',
+          },
+        },
+      },
+      configDir,
+    )
+
+    expect(loadSettings(configDir)).toMatchObject({
+      researchModelMode: 'per-agent',
+      researchGeneralModel: {
+        providerId: 'opencode-free',
+        modelId: 'fast-free',
+      },
+      researchAgentModels: {
+        ecosystem: {
+          providerId: 'nvidia-nim',
+          modelId: 'deepseek-ai/deepseek-v4-flash',
+        },
+        web: {
+          providerId: 'custom',
+          modelId: 'search-small',
+        },
+      },
+    })
+  })
+
+  test('drops invalid model references instead of loading partial values', () => {
+    const configDir = temporaryConfig()
+    fs.writeFileSync(
+      path.join(configDir, 'settings.json'),
+      JSON.stringify({
+        researchModelMode: 'invalid',
+        researchGeneralModel: { providerId: 'provider-only' },
+        researchAgentModels: {
+          ecosystem: { providerId: '', modelId: 'model' },
+          documentation: { providerId: 'docs', modelId: 'small' },
+        },
+      }),
+    )
+
+    expect(loadSettings(configDir)).toEqual({
+      researchAgentModels: {
+        documentation: { providerId: 'docs', modelId: 'small' },
+      },
+    })
+  })
+})

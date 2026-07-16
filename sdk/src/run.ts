@@ -50,7 +50,10 @@ import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
-import type { CustomProviderRuntimeConfig } from '@codebuff/common/types/custom-provider'
+import type {
+  CustomProviderRuntimeConfig,
+  ResearchProviderOverrides,
+} from '@codebuff/common/types/custom-provider'
 import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
@@ -130,6 +133,8 @@ export type CodebuffClientOptions = {
   apiKey?: string
   /** Optional active OpenAI-compatible provider/model override. */
   customProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model overrides used only by research subagents. */
+  researchProviders?: ResearchProviderOverrides
 
   cwd?: string
   /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
@@ -313,6 +318,7 @@ async function runOnce({
   apiKey,
   fingerprintId,
   customProvider,
+  researchProviders,
 
   cwd,
   skillsDir,
@@ -559,6 +565,7 @@ async function runOnce({
     usageProjectPath: cwd,
     apiKey,
     customProvider,
+    researchProviders,
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
@@ -763,6 +770,7 @@ async function runOnce({
       trace_session_id: traceSessionId,
     },
     researchTimeoutMs,
+    researchProviders,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     let errorMessage = isFetchIdleTimeoutError(error)

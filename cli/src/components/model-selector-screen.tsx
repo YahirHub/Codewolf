@@ -35,11 +35,22 @@ interface ModelSection {
 interface ModelSelectorScreenProps {
   onSelect: (choice: ModelChoice) => void
   onCancel: () => void
+  /** Activate the selected model globally, or only return it to the caller. */
+  selectionMode?: 'activate' | 'pick'
+  /** Hide the inherited Codewolf backend when a concrete provider/model is required. */
+  includeCodewolf?: boolean
+  /** Selection marker used by pick mode. */
+  selectedChoice?: Pick<ModelChoice, 'providerId' | 'modelId'>
+  title?: string
 }
 
 export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
   onSelect,
   onCancel,
+  selectionMode = 'activate',
+  includeCodewolf = true,
+  selectedChoice,
+  title = 'Modelos por proveedor',
 }) => {
   const theme = useTheme()
   const { terminalHeight } = useTerminalDimensions()
@@ -81,22 +92,26 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
       }))
 
     return [
-      {
-        providerId: null,
-        providerName: 'Codewolf',
-        choices: [
-          {
-            providerId: null,
-            providerName: 'Codewolf',
-            modelId: 'default',
-            modelName: 'Backend predeterminado',
-            isCodebuff: true,
-          },
-        ],
-      },
+      ...(includeCodewolf
+        ? [
+            {
+              providerId: null,
+              providerName: 'Codewolf',
+              choices: [
+                {
+                  providerId: null,
+                  providerName: 'Codewolf',
+                  modelId: 'default',
+                  modelName: 'Backend predeterminado',
+                  isCodebuff: true,
+                },
+              ],
+            },
+          ]
+        : []),
       ...customSections,
     ]
-  }, [config.providers])
+  }, [config.providers, includeCodewolf])
 
   const filteredSections = useMemo(
     () => filterModelSections(sections, searchQuery),
@@ -114,14 +129,26 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
   )
 
   const initialIndex = useMemo(() => {
-    if (!config.activeProviderId) return 0
+    const targetProviderId =
+      selectionMode === 'pick'
+        ? selectedChoice?.providerId
+        : config.activeProviderId
+    const targetModelId =
+      selectionMode === 'pick' ? selectedChoice?.modelId : config.activeModelId
+    if (!targetProviderId && !targetModelId) return 0
     const index = choices.findIndex(
       (choice) =>
-        choice.providerId === config.activeProviderId &&
-        choice.modelId === config.activeModelId,
+        choice.providerId === targetProviderId && choice.modelId === targetModelId,
     )
     return index >= 0 ? index : 0
-  }, [choices, config.activeModelId, config.activeProviderId])
+  }, [
+    choices,
+    config.activeModelId,
+    config.activeProviderId,
+    selectedChoice?.modelId,
+    selectedChoice?.providerId,
+    selectionMode,
+  ])
 
   const [selectedIndex, setSelectedIndex] = useState(initialIndex)
   const normalizedSearchQuery = searchQuery.trim()
@@ -167,16 +194,18 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
 
   const selectChoice = useCallback(
     (choice: ModelChoice) => {
-      if (choice.isCodebuff) {
-        disableCustomProvider()
-      } else if (choice.providerId) {
-        activateCustomProviderModel(choice.providerId, choice.modelId)
+      if (selectionMode === 'activate') {
+        if (choice.isCodebuff) {
+          disableCustomProvider()
+        } else if (choice.providerId) {
+          activateCustomProviderModel(choice.providerId, choice.modelId)
+        }
+        refreshCustomProviderStore()
+        resetCodebuffClient()
       }
-      refreshCustomProviderStore()
-      resetCodebuffClient()
       onSelect(choice)
     },
-    [onSelect],
+    [onSelect, selectionMode],
   )
 
   const handleSearchKeyIntercept = useCallback(
@@ -212,7 +241,7 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
   let flatIndex = 0
   return (
     <box
-      title=" Modelos por proveedor "
+      title={` ${title} `}
       titleAlignment="center"
       style={{
         width: '100%',
@@ -314,10 +343,14 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
               {section.choices.map((choice) => {
                 const choiceIndex = flatIndex++
                 const isSelected = choiceIndex === selectedIndex
-                const isActive = choice.isCodebuff
-                  ? !config.activeProviderId
-                  : choice.providerId === config.activeProviderId &&
-                    choice.modelId === config.activeModelId
+                const isActive =
+                  selectionMode === 'pick'
+                    ? choice.providerId === selectedChoice?.providerId &&
+                      choice.modelId === selectedChoice?.modelId
+                    : choice.isCodebuff
+                      ? !config.activeProviderId
+                      : choice.providerId === config.activeProviderId &&
+                        choice.modelId === config.activeModelId
 
                 return (
                   <Button

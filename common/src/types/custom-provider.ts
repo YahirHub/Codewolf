@@ -36,6 +36,19 @@ export interface CustomProviderRuntimeConfig {
   maxContextTokens?: number
 }
 
+export const RESEARCH_AGENT_IDS = [
+  'ecosystem-researcher',
+  'researcher-docs',
+  'researcher-web',
+] as const
+
+export type ResearchAgentId = (typeof RESEARCH_AGENT_IDS)[number]
+
+/** Per-research-agent provider/model overrides resolved by the host application. */
+export type ResearchProviderOverrides = Partial<
+  Record<ResearchAgentId, CustomProviderRuntimeConfig>
+>
+
 export const CONTEXT_COMPACTION_RATIO = 0.9
 
 /** Returns the automatic compaction threshold for a model context window. */

@@ -25,7 +25,10 @@ import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { CustomProviderRuntimeConfig } from '@codebuff/common/types/custom-provider'
+import type {
+  CustomProviderRuntimeConfig,
+  ResearchProviderOverrides,
+} from '@codebuff/common/types/custom-provider'
 import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
 
 const DATABASE_AGENT_CACHE_MAX_ENTRIES = 200
@@ -57,6 +60,7 @@ export function getAgentRuntimeImpl(
     usageProjectPath?: string
     apiKey: string
     customProvider?: CustomProviderRuntimeConfig
+    researchProviders?: ResearchProviderOverrides
     clientEnv?: ClientEnv
   } & Pick<
     AgentRuntimeScopedDeps,
@@ -77,6 +81,7 @@ export function getAgentRuntimeImpl(
     usageProjectPath,
     apiKey,
     customProvider,
+    researchProviders,
     clientEnv: clientEnvInput,
     handleStepsLogChunk,
     requestToolCall,
@@ -184,6 +189,7 @@ export function getAgentRuntimeImpl(
 
     apiKey,
     customProvider,
+    researchProviders,
   }
 }
 

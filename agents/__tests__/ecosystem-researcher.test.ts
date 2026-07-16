@@ -41,7 +41,7 @@ describe('ecosystem researcher', () => {
     const base = createBase2('default')
 
     expect(base.systemPrompt).toContain(
-      'Research npm and Go packages in isolation',
+      'Research npm, PyPI, and Go packages in isolation',
     )
     expect(base.systemPrompt).toContain('compact implementation brief')
     expect(base.systemPrompt).toContain('Do not open full package READMEs')

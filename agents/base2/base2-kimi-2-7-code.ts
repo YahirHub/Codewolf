@@ -3,7 +3,7 @@ import { moonshotModels } from '@codebuff/common/constants/model-config'
 import { createBase2 } from './base2'
 
 const definition = {
-  ...createBase2('free', {
+  ...createBase2('default', {
     model: moonshotModels.kimiK27Code,
   }),
   id: 'base2-kimi-2-7-code',

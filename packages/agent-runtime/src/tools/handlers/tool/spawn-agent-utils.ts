@@ -1,4 +1,5 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { RESEARCH_AGENT_IDS } from '@codebuff/common/types/custom-provider'
 import { toolNames } from '@codebuff/common/tools/constants'
 import {
   normalizeAgentIdForLookup,
@@ -15,6 +16,11 @@ import {
 } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type {
+  CustomProviderRuntimeConfig,
+  ResearchAgentId,
+  ResearchProviderOverrides,
+} from '@codebuff/common/types/custom-provider'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
@@ -57,6 +63,33 @@ export type SubagentContextParams = AgentRuntimeDeps &
  * This avoids bugs from spreading all params with `...params` which can
  * accidentally pass through params that should be overridden.
  */
+export function resolveSubagentProviderContext(params: {
+  agentId: string
+  apiKey: string
+  customProvider?: CustomProviderRuntimeConfig
+  researchProviders?: ResearchProviderOverrides
+}): {
+  apiKey: string
+  customProvider?: CustomProviderRuntimeConfig
+  usesDedicatedResearchProvider: boolean
+} {
+  const isResearchAgent = RESEARCH_AGENT_IDS.includes(
+    params.agentId as ResearchAgentId,
+  )
+  const researchProvider = isResearchAgent
+    ? params.researchProviders?.[params.agentId as ResearchAgentId]
+    : undefined
+  const customProvider = researchProvider ?? params.customProvider
+
+  return {
+    apiKey: customProvider
+      ? `local-custom-provider:${customProvider.id}`
+      : params.apiKey,
+    customProvider,
+    usesDedicatedResearchProvider: Boolean(researchProvider),
+  }
+}
+
 export function extractSubagentContextParams(
   params: SubagentContextParams,
 ): SubagentContextParams {
@@ -95,6 +128,7 @@ export function extractSubagentContextParams(
     sendSubagentChunk: params.sendSubagentChunk,
     apiKey: params.apiKey,
     customProvider: params.customProvider,
+    researchProviders: params.researchProviders,
     researchTimeoutMs: params.researchTimeoutMs,
 
     // Core context params
@@ -341,11 +375,7 @@ const MIN_RESEARCH_TIMEOUT_MS = 60_000
 const MAX_RESEARCH_TIMEOUT_MS = 120 * 60_000
 const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60_000
 
-const RESEARCH_AGENT_IDS = new Set([
-  'ecosystem-researcher',
-  'researcher-docs',
-  'researcher-web',
-])
+const RESEARCH_TIMEOUT_AGENT_IDS = new Set<string>(RESEARCH_AGENT_IDS)
 
 export class SubagentTimeoutError extends Error {
   constructor(
@@ -365,7 +395,7 @@ export function getSubagentTimeoutMs(
   agentTemplate: AgentTemplate,
   configuredResearchTimeoutMs?: number,
 ): number {
-  if (!RESEARCH_AGENT_IDS.has(agentTemplate.id)) {
+  if (!RESEARCH_TIMEOUT_AGENT_IDS.has(agentTemplate.id)) {
     return DEFAULT_SUBAGENT_TIMEOUT_MS
   }
 
@@ -459,8 +489,38 @@ export async function executeSubagent(
   })
 
   try {
+    const {
+      apiKey: childApiKey,
+      customProvider: childCustomProvider,
+      usesDedicatedResearchProvider,
+    } = resolveSubagentProviderContext({
+      agentId: agentTemplate.id,
+      apiKey: withDefaults.apiKey,
+      customProvider: withDefaults.customProvider,
+      researchProviders: withDefaults.researchProviders,
+    })
+
     const runPromise = loopAgentSteps({
       ...withDefaults,
+      ...(usesDedicatedResearchProvider
+        ? {
+            getUserInfoFromApiKey: async ({ fields }) =>
+              Object.fromEntries(
+                fields.map((field) => [
+                  field,
+                  field === 'id'
+                    ? `local-provider:${childCustomProvider!.id}`
+                    : null,
+                ]),
+              ) as any,
+            fetchAgentFromDatabase: async () => null,
+            startAgentRun: async () => crypto.randomUUID(),
+            finishAgentRun: async () => undefined,
+            addAgentStep: async () => crypto.randomUUID(),
+          }
+        : {}),
+      apiKey: childApiKey,
+      customProvider: childCustomProvider,
       signal: childAbortController.signal,
       onResponseChunk: (chunk) => {
         if (acceptLateChunks) {

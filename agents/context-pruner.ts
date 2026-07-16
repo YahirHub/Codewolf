@@ -113,19 +113,13 @@ const definition: AgentDefinition = {
      * Extracts text content from a message.
      */
     function getTextContent(message: Message): string {
-      if (typeof message.content === 'string') {
-        return message.content
-      }
-      if (Array.isArray(message.content)) {
-        return message.content
-          .filter(
-            (part: Record<string, unknown>) =>
-              part.type === 'text' && typeof part.text === 'string',
-          )
-          .map((part: Record<string, unknown>) => part.text as string)
-          .join('\n')
-      }
-      return ''
+      return message.content
+        .filter(
+          (part: Record<string, unknown>) =>
+            part.type === 'text' && typeof part.text === 'string',
+        )
+        .map((part: Record<string, unknown>) => part.text as string)
+        .join('\n')
     }
 
     /**
@@ -157,11 +151,6 @@ const definition: AgentDefinition = {
 
       for (const message of history) {
         characterCount += message.role.length + 8
-        if (typeof message.content === 'string') {
-          characterCount += message.content.length
-          continue
-        }
-
         for (const part of message.content) {
           if (part.type === 'text' || part.type === 'reasoning') {
             characterCount += part.text.length

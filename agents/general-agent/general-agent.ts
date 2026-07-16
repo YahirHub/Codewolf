@@ -70,7 +70,7 @@ export const createGeneralAgent = (options: {
     instructionsPrompt: buildArray(
       `Use the spawn_agents tool to spawn agents to help you complete the user request.`,
       !isDefaultAgent &&
-        `If you need to find more information in the codebase, file-picker is really good at finding relevant files. Spawn multiple independent agents in parallel when possible. Exception: for an external Node/Bun/npm or Go package, spawn ecosystem-researcher first and wait for its compact brief; do not launch researcher-web or researcher-docs for the same package in parallel. Use one focused fallback researcher only if ecosystem-researcher fails or reports a concrete unresolved gap.`,
+        `If you need to find more information in the codebase, file-picker is really good at finding relevant files. Spawn multiple independent agents in parallel when possible. Exception: for an external Node/Bun/npm, Python/PyPI, or Go package, spawn ecosystem-researcher first and wait for its compact brief; do not launch researcher-web or researcher-docs for the same package in parallel. Use one focused fallback researcher only if ecosystem-researcher fails or reports a concrete unresolved gap.`,
     ).join('\n'),
 
     handleSteps: function* ({ params }) {

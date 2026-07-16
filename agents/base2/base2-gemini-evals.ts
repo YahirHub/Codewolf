@@ -1,7 +1,7 @@
 import { createBase2 } from './base2'
 
 const definition = {
-  ...createBase2('free', {
+  ...createBase2('default', {
     noAskUser: true,
     model: 'google/gemini-3.1-pro-preview',
     providerOptions: {},

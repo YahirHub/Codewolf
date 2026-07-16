@@ -630,19 +630,17 @@ export function removeCustomProvider(
   return true
 }
 
-export function getActiveCustomProviderRuntimeConfig(
+export function getCustomProviderRuntimeConfig(
+  providerId: string,
+  modelId: string,
   configDir = getConfigDir(),
 ): CustomProviderRuntimeConfig | undefined {
   const config = loadAvailableProvidersConfig(configDir)
-  const provider = config.providers.find(
-    (item) => item.id === config.activeProviderId,
-  )
+  const provider = config.providers.find((item) => item.id === providerId)
   if (!provider) return undefined
 
-  const model =
-    provider.models.find((item) => item.id === config.activeModelId) ??
-    provider.models[0]
-  if (!model) throw new Error(`El proveedor ${provider.name} no tiene modelos.`)
+  const model = provider.models.find((item) => item.id === modelId)
+  if (!model) return undefined
 
   const auth = loadProviderAuth(configDir)
   const apiKey = provider.apiKeyEnv
@@ -669,6 +667,23 @@ export function getActiveCustomProviderRuntimeConfig(
     maxOutputTokens: model.maxOutputTokens,
     maxContextTokens: resolveCustomModelMaxContextTokens(model),
   }
+}
+
+export function getActiveCustomProviderRuntimeConfig(
+  configDir = getConfigDir(),
+): CustomProviderRuntimeConfig | undefined {
+  const config = loadAvailableProvidersConfig(configDir)
+  const provider = config.providers.find(
+    (item) => item.id === config.activeProviderId,
+  )
+  if (!provider) return undefined
+
+  const model =
+    provider.models.find((item) => item.id === config.activeModelId) ??
+    provider.models[0]
+  if (!model) throw new Error(`El proveedor ${provider.name} no tiene modelos.`)
+
+  return getCustomProviderRuntimeConfig(provider.id, model.id, configDir)
 }
 
 export function getActiveCustomProviderCompactionThreshold(

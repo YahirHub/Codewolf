@@ -23,7 +23,7 @@ const inputSchema = z
       .string()
       .min(1)
       .optional()
-      .describe('Exact npm package name or Go package import path.'),
+      .describe('Exact npm/PyPI project name or Go package import path.'),
     module: z
       .string()
       .min(1)
@@ -54,17 +54,17 @@ const inputSchema = z
       .describe('Bypass the local research cache.'),
   })
   .describe(
-    'Query official npm Registry or pkg.go.dev APIs with compact, cached output.',
+    'Query official npm Registry, PyPI JSON, or pkg.go.dev APIs with compact, cached output.',
   )
 
 const description = `
-Internal ecosystem research tool. It queries official structured package services and returns compact metadata instead of full web pages.
+Internal ecosystem research tool. It queries official structured npm, PyPI, and Go package services and returns compact metadata instead of full web pages.
 
 Use this tool inside the ecosystem-researcher agent to:
-- Resolve the latest stable npm or Go package version.
+- Resolve published and stable npm, PyPI, or Go package versions.
 - Find an exact package from a short search query.
 - Inspect runtime requirements, repository links, dependency counts, install lifecycle scripts, and deprecation metadata.
-- Read a focused official npm README or pkg.go.dev documentation excerpt.
+- Read a focused npm README, PyPI project description, or pkg.go.dev documentation excerpt.
 - Query Go symbols, versions, and vulnerability data.
 
 Do not dump complete READMEs or large documentation pages. Use web_search/read_url only after this tool identifies the official package, repository, or documentation URL.
@@ -76,6 +76,18 @@ ${$getNativeToolCallExampleString({
     ecosystem: 'npm',
     operation: 'package',
     package: '@whiskeysockets/baileys',
+    version: 'latest',
+  },
+  endsAgentStep,
+})}
+
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: {
+    ecosystem: 'pypi',
+    operation: 'package',
+    package: 'python-telegram-bot',
     version: 'latest',
   },
   endsAgentStep,

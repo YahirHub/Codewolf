@@ -11,11 +11,31 @@ export const DEFAULT_RESEARCH_TIMEOUT_MINUTES = 15
 export const MIN_RESEARCH_TIMEOUT_MINUTES = 1
 export const MAX_RESEARCH_TIMEOUT_MINUTES = 120
 
+export const RESEARCH_MODEL_MODES = [
+  'automatic-economical',
+  'single-model',
+  'per-agent',
+] as const
+export type ResearchModelMode = (typeof RESEARCH_MODEL_MODES)[number]
+
+export const RESEARCH_AGENT_KINDS = [
+  'ecosystem',
+  'documentation',
+  'web',
+] as const
+export type ResearchAgentKind = (typeof RESEARCH_AGENT_KINDS)[number]
+
+export interface ResearchModelReference {
+  providerId: string
+  modelId: string
+}
+
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   projectContextEnabled: false,
   verifiedCommitsEnabled: false,
   researchTimeoutMinutes: DEFAULT_RESEARCH_TIMEOUT_MINUTES,
+  researchModelMode: 'automatic-economical' as const,
 }
 
 // Note: The old FREE mode has been renamed back to LITE; migrate on load.
@@ -35,6 +55,14 @@ export interface Settings {
   verifiedCommitsEnabled?: boolean
   /** Maximum wall-clock time for web/documentation research subagents. */
   researchTimeoutMinutes?: number
+  /** How research subagents choose their provider/model. */
+  researchModelMode?: ResearchModelMode
+  /** Shared provider/model used by all research subagents when configured. */
+  researchGeneralModel?: ResearchModelReference
+  /** Optional provider/model override for each research subagent category. */
+  researchAgentModels?: Partial<
+    Record<ResearchAgentKind, ResearchModelReference>
+  >
   /** Last first-run onboarding version completed by this installation. */
   onboardingVersion?: number
 }
@@ -103,7 +131,6 @@ const validateSettings = (parsed: unknown): Settings => {
     }
   }
 
-
   // Validate alwaysUseALaCarte (legacy)
   if (typeof obj.alwaysUseALaCarte === 'boolean') {
     settings.alwaysUseALaCarte = obj.alwaysUseALaCarte
@@ -113,7 +140,6 @@ const validateSettings = (parsed: unknown): Settings => {
   if (typeof obj.fallbackToALaCarte === 'boolean') {
     settings.fallbackToALaCarte = obj.fallbackToALaCarte
   }
-
 
   if (typeof obj.projectContextEnabled === 'boolean') {
     settings.projectContextEnabled = obj.projectContextEnabled
@@ -134,6 +160,55 @@ const validateSettings = (parsed: unknown): Settings => {
         Math.round(obj.researchTimeoutMinutes),
       ),
     )
+  }
+
+  if (
+    typeof obj.researchModelMode === 'string' &&
+    RESEARCH_MODEL_MODES.includes(obj.researchModelMode as ResearchModelMode)
+  ) {
+    settings.researchModelMode = obj.researchModelMode as ResearchModelMode
+  }
+
+  const parseModelReference = (
+    value: unknown,
+  ): ResearchModelReference | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined
+    }
+    const record = value as Record<string, unknown>
+    if (
+      typeof record.providerId !== 'string' ||
+      !record.providerId.trim() ||
+      typeof record.modelId !== 'string' ||
+      !record.modelId.trim()
+    ) {
+      return undefined
+    }
+    return {
+      providerId: record.providerId.trim(),
+      modelId: record.modelId.trim(),
+    }
+  }
+
+  const generalModel = parseModelReference(obj.researchGeneralModel)
+  if (generalModel) settings.researchGeneralModel = generalModel
+
+  if (
+    obj.researchAgentModels &&
+    typeof obj.researchAgentModels === 'object' &&
+    !Array.isArray(obj.researchAgentModels)
+  ) {
+    const source = obj.researchAgentModels as Record<string, unknown>
+    const agentModels: Partial<
+      Record<ResearchAgentKind, ResearchModelReference>
+    > = {}
+    for (const kind of RESEARCH_AGENT_KINDS) {
+      const reference = parseModelReference(source[kind])
+      if (reference) agentModels[kind] = reference
+    }
+    if (Object.keys(agentModels).length > 0) {
+      settings.researchAgentModels = agentModels
+    }
   }
 
   if (
@@ -190,7 +265,6 @@ export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
 
-
 export const isProjectContextEnabled = (): boolean =>
   loadSettings().projectContextEnabled === true
 
@@ -205,13 +279,55 @@ export const setVerifiedCommitsEnabled = (enabled: boolean): void => {
   saveSettings({ verifiedCommitsEnabled: enabled })
 }
 
-export const getResearchTimeoutMinutes = (): number =>
-  loadSettings().researchTimeoutMinutes ?? DEFAULT_RESEARCH_TIMEOUT_MINUTES
+export const getResearchTimeoutMinutes = (configDir?: string): number =>
+  loadSettings(configDir).researchTimeoutMinutes ??
+  DEFAULT_RESEARCH_TIMEOUT_MINUTES
 
-export const setResearchTimeoutMinutes = (minutes: number): void => {
+export const setResearchTimeoutMinutes = (
+  minutes: number,
+  configDir?: string,
+): void => {
   const normalized = Math.max(
     MIN_RESEARCH_TIMEOUT_MINUTES,
     Math.min(MAX_RESEARCH_TIMEOUT_MINUTES, Math.round(minutes)),
   )
-  saveSettings({ researchTimeoutMinutes: normalized })
+  saveSettings({ researchTimeoutMinutes: normalized }, configDir)
+}
+
+export const getResearchModelMode = (configDir?: string): ResearchModelMode =>
+  loadSettings(configDir).researchModelMode ?? 'automatic-economical'
+
+export const setResearchModelMode = (
+  mode: ResearchModelMode,
+  configDir?: string,
+): void => {
+  saveSettings({ researchModelMode: mode }, configDir)
+}
+
+export const getResearchGeneralModel = (
+  configDir?: string,
+): ResearchModelReference | undefined =>
+  loadSettings(configDir).researchGeneralModel
+
+export const setResearchGeneralModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ researchGeneralModel: reference }, configDir)
+}
+
+export const getResearchAgentModels = (
+  configDir?: string,
+): Partial<Record<ResearchAgentKind, ResearchModelReference>> =>
+  loadSettings(configDir).researchAgentModels ?? {}
+
+export const setResearchAgentModel = (
+  kind: ResearchAgentKind,
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  const next = { ...getResearchAgentModels(configDir) }
+  if (reference) next[kind] = reference
+  else delete next[kind]
+  saveSettings({ researchAgentModels: next }, configDir)
 }

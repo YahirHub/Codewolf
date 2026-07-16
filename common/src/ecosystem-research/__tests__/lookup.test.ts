@@ -313,3 +313,148 @@ describe('Go ecosystem lookup', () => {
     }
   })
 })
+
+describe('PyPI ecosystem lookup', () => {
+  test('returns compact project metadata and distinguishes prerelease from stable', async () => {
+    const cacheDir = createCacheDir()
+    let requestedUrl = ''
+    const fetchMock = (async (input: string | URL | Request) => {
+      requestedUrl = String(input)
+      return jsonResponse({
+        info: {
+          name: 'python-telegram-bot',
+          version: '23.0.0rc1',
+          summary: 'Telegram Bot API framework',
+          requires_python: '>=3.10',
+          requires_dist: [
+            'httpx>=0.27,<0.29',
+            'anyio>=4; extra == "rate-limiter"',
+          ],
+          license_expression: 'LGPL-3.0-or-later',
+          project_urls: {
+            Documentation: 'https://docs.python-telegram-bot.org/',
+            Repository: 'https://github.com/python-telegram-bot/python-telegram-bot',
+          },
+          classifiers: ['Programming Language :: Python :: 3'],
+        },
+        releases: {
+          '22.5': [
+            {
+              upload_time_iso_8601: '2026-05-01T00:00:00.000Z',
+              yanked: false,
+            },
+          ],
+          '23.0.0rc1': [
+            {
+              upload_time_iso_8601: '2026-07-01T00:00:00.000Z',
+              yanked: false,
+            },
+          ],
+        },
+        urls: [
+          {
+            filename: 'python_telegram_bot-23.0.0rc1-py3-none-any.whl',
+            packagetype: 'bdist_wheel',
+            requires_python: '>=3.10',
+            size: 1234,
+            yanked: false,
+            digests: { sha256: 'abc' },
+          },
+        ],
+        vulnerabilities: [
+          {
+            id: 'PYSEC-2026-1',
+            summary: 'Example issue',
+            fixed_in: ['23.0.0rc2'],
+          },
+        ],
+      })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const result = await runEcosystemLookup(
+        {
+          ecosystem: 'pypi',
+          operation: 'package',
+          package: 'python-telegram-bot',
+        },
+        { fetch: fetchMock, cacheDir },
+      )
+      const data = result.data as Record<string, any>
+
+      expect(new URL(requestedUrl).pathname).toBe(
+        '/pypi/python-telegram-bot/json',
+      )
+      expect(data.selectedVersion).toBe('23.0.0rc1')
+      expect(data.selectedVersionIsPrerelease).toBe(true)
+      expect(data.latestPublishedVersion).toBe('23.0.0rc1')
+      expect(data.latestPublishedIsPrerelease).toBe(true)
+      expect(data.latestStableVersion).toBe('22.5')
+      expect(data.requiresPython).toBe('>=3.10')
+      expect(data.dependencies).toEqual({
+        count: 2,
+        names: ['httpx', 'anyio'],
+      })
+      expect(data.documentation).toContain('docs.python-telegram-bot.org')
+      expect(data.vulnerabilityCount).toBe(1)
+      expect(data.files).toHaveLength(1)
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  test('uses exact-version JSON and extracts a focused project description', async () => {
+    const cacheDir = createCacheDir()
+    const fetchMock = (async () =>
+      jsonResponse({
+        info: {
+          name: 'aiogram',
+          version: '3.21.0',
+          description: [
+            '# aiogram',
+            'General introduction.',
+            '## Routers',
+            'Router registers message and callback query handlers.',
+            'Dispatcher includes routers and starts polling.',
+          ].join('\n'),
+          description_content_type: 'text/markdown',
+          project_urls: {
+            Documentation: 'https://docs.aiogram.dev/',
+          },
+        },
+        urls: [],
+        vulnerabilities: [],
+      })) as unknown as typeof globalThis.fetch
+
+    try {
+      const result = await runEcosystemLookup(
+        {
+          ecosystem: 'pypi',
+          operation: 'documentation',
+          package: 'aiogram',
+          version: '3.21.0',
+          topic: 'Router Dispatcher polling',
+        },
+        { fetch: fetchMock, cacheDir },
+      )
+      const data = result.data as Record<string, any>
+
+      expect(result.sourceUrl).toContain('/pypi/aiogram/3.21.0/json')
+      expect(data.excerpt).toContain('Router registers')
+      expect(data.excerpt).toContain('starts polling')
+      expect(data.contentType).toBe('text/markdown')
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  test('explains that candidate discovery uses focused web search', async () => {
+    await expect(
+      runEcosystemLookup({
+        ecosystem: 'pypi',
+        operation: 'search',
+        query: 'telegram bot',
+      }),
+    ).rejects.toThrow('does not provide a structured full-text search API')
+  })
+})
