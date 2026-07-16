@@ -1,12 +1,14 @@
 import { describe, expect, test, beforeEach, afterEach, mock } from 'bun:test'
+import { CHATGPT_CODEX_PROVIDER_ID } from '@codebuff/common/constants/chatgpt-oauth'
+import type { ChatGptOAuthCredentials } from '../../credentials'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
 
 describe('getModelForRequest free-mode guards', () => {
-  const mockGetValidChatGptOAuthCredentials = mock(() =>
-    Promise.resolve(null),
+  const mockGetValidChatGptOAuthCredentials = mock(
+    async (): Promise<ChatGptOAuthCredentials | null> => null,
   )
 
   beforeEach(async () => {
@@ -94,5 +96,53 @@ describe('getModelForRequest free-mode guards', () => {
     })
 
     expect(result.isChatGptOAuth).toBe(false)
+  })
+
+  test('routes the bundled Codex subscription provider through ChatGPT OAuth', async () => {
+    const { getModelForRequest } = await importFresh()
+
+    mockGetValidChatGptOAuthCredentials.mockResolvedValue({
+      accessToken: 'subscription-access-token',
+      refreshToken: 'subscription-refresh-token',
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      connectedAt: Date.now(),
+    })
+
+    const result = await getModelForRequest({
+      apiKey: 'local-custom-provider:openai-codex',
+      model: 'openai/gpt-5.6-sol',
+      customProvider: {
+        id: CHATGPT_CODEX_PROVIDER_ID,
+        name: 'ChatGPT Plus/Pro (Codex Subscription)',
+        baseUrl: 'https://chatgpt.com/backend-api',
+        modelId: 'openai/gpt-5.6-sol',
+        maxContextTokens: 272_000,
+        maxOutputTokens: 128_000,
+      },
+    })
+
+    expect(result.isChatGptOAuth).toBe(true)
+    expect(result.isCustomProvider).toBe(false)
+  })
+
+  test('does not fall back when the explicit Codex subscription has no session', async () => {
+    const { getModelForRequest } = await importFresh()
+
+    mockGetValidChatGptOAuthCredentials.mockResolvedValue(null)
+
+    await expect(
+      getModelForRequest({
+        apiKey: 'local-custom-provider:openai-codex',
+        model: 'openai/gpt-5.6-sol',
+        customProvider: {
+          id: CHATGPT_CODEX_PROVIDER_ID,
+          name: 'ChatGPT Plus/Pro (Codex Subscription)',
+          baseUrl: 'https://chatgpt.com/backend-api',
+          modelId: 'openai/gpt-5.6-sol',
+          maxContextTokens: 272_000,
+          maxOutputTokens: 128_000,
+        },
+      }),
+    ).rejects.toThrow('Vuelve a iniciar sesión desde /login')
   })
 })

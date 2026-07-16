@@ -12,6 +12,7 @@ import path from 'path'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   CHATGPT_BACKEND_BASE_URL,
+  CHATGPT_CODEX_PROVIDER_ID,
   CHATGPT_OAUTH_ENABLED,
   isChatGptOAuthModelAllowed,
   isOpenAIProviderModel,
@@ -124,6 +125,35 @@ export async function getModelForRequest(
 ): Promise<ModelResult> {
   const { apiKey, model, skipChatGptOAuth, costMode, customProvider } = params
 
+  if (customProvider?.id === CHATGPT_CODEX_PROVIDER_ID) {
+    if (!isChatGptOAuthModelAllowed(customProvider.modelId)) {
+      throw new Error(
+        `El modelo ${customProvider.modelId} no está habilitado para la suscripción de Codex. Selecciona otro modelo en /models.`,
+      )
+    }
+    if (isChatGptOAuthRateLimited()) {
+      throw new Error(
+        'La suscripción de Codex alcanzó temporalmente su límite. Espera a que se restablezca e inténtalo de nuevo.',
+      )
+    }
+
+    const credentials = await getValidChatGptOAuthCredentials()
+    if (!credentials) {
+      throw new Error(
+        'La sesión de ChatGPT/Codex no está disponible o no pudo renovarse. Vuelve a iniciar sesión desde /login.',
+      )
+    }
+
+    return {
+      model: createOpenAIOAuthModel(
+        customProvider.modelId,
+        credentials.accessToken,
+      ),
+      isChatGptOAuth: true,
+      isCustomProvider: false,
+    }
+  }
+
   if (customProvider) {
     return {
       model: createCustomProviderModel(customProvider),
@@ -175,7 +205,7 @@ export async function getModelForRequest(
       // In free mode, if credentials are unavailable, don't fall through to backend.
       if (costMode === 'free') {
         throw new Error(
-          'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
+          'ChatGPT OAuth credentials unavailable. Please reconnect from /login.',
         )
       }
     }

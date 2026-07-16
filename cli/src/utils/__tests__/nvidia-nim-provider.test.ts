@@ -47,7 +47,10 @@ describe('NVIDIA NIM provider', () => {
   test('configures NVIDIA from /models, filters non-chat endpoints, and enables stable transport', async () => {
     let requestedUrl = ''
     let authorization = ''
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       requestedUrl = String(input)
       authorization = new Headers(init?.headers).get('Authorization') ?? ''
       return Response.json({
@@ -134,7 +137,9 @@ describe('NVIDIA NIM provider', () => {
       'deepseek-ai/deepseek-v4-flash',
     ]
     globalThis.fetch = (async () =>
-      Response.json({ data: responseIds.map((id) => ({ id })) })) as unknown as typeof fetch
+      Response.json({
+        data: responseIds.map((id) => ({ id })),
+      })) as unknown as typeof fetch
 
     await configureNvidiaNim({ apiKey: 'nvapi-secret', configDir })
     responseIds = ['deepseek-ai/deepseek-v4-flash', 'z-ai/glm-5.2']

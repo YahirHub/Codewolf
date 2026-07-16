@@ -35,7 +35,10 @@ describe('bundled OpenCode providers', () => {
 
   test('refreshes OpenCode Free with only models ending in -free and no auth header', async () => {
     let authorization: string | null = null
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = (async (
+      _input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       authorization = new Headers(init?.headers).get('Authorization')
       return Response.json({
         data: [
@@ -63,7 +66,10 @@ describe('bundled OpenCode providers', () => {
   test('configures OpenCode Go with its dedicated endpoint and stored API key', async () => {
     let requestedUrl = ''
     let authorization = ''
-    globalThis.fetch = (async (input, init) => {
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       requestedUrl = String(input)
       authorization = new Headers(init?.headers).get('Authorization') ?? ''
       return Response.json({

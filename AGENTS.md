@@ -45,8 +45,8 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 ## Custom Edition Without Monetization
 
-- Codewolf does not expose ads, credits, subscriptions, purchase links, or commercial rate-limit dialogs. Do not register `/subscribe`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`. `/usage` is reserved exclusively for local technical token statistics and must never query billing, balances, quotas, or prices.
-- The chat must not query subscription/usage endpoints, request ads, display credit counters, or replace the editor with a purchase banner. Provider errors stay ordinary actionable errors.
+- Codewolf does not sell or manage its own subscription and does not expose ads, credits, purchase links, or commercial rate-limit dialogs. Connecting an existing external ChatGPT/Codex subscription through `/login` is allowed. Do not register `/subscribe`, `/ads:enable`, `/ads:disable`, or aliases such as `/strong`, `/sub`, `/buy-credits`, and `/credits`. `/usage` is reserved exclusively for local technical token statistics and must never query billing, balances, quotas, or prices.
+- The chat must not query billing/credit endpoints, request ads, display purchase counters, or replace the editor with a purchase banner. OAuth authentication and token refresh for an explicitly selected external provider are allowed; provider errors stay ordinary actionable errors.
 
 ## Local Token Usage Architecture
 
@@ -202,7 +202,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - On a fresh config, OpenCode Free may be the default. Once `providers.json` exists with no active provider, preserve the user's explicit choice of the Codewolf backend rather than reactivating OpenCode Free.
 - Only IDs ending exactly in `-free` belong to OpenCode Free. If discovery fails, retain the cache or embedded fallback instead of removing the provider.
 - `opencode-go` is a normal persisted provider with a secret stored only in `provider-auth.json`. Its base URL and model endpoint are fixed to the official Go service.
-- `/login` first selects the authentication method. Keep the subscription row visibly disabled until a real subscription implementation exists; API-key login may offer OpenCode Go and the generic provider wizard.
+- `/login` first selects the authentication method. The subscription path currently offers ChatGPT Plus/Pro (Codex Subscription); API-key login offers OpenCode Go, NVIDIA NIM, and the generic provider wizard.
 - `/providers` manages persisted providers only. OpenCode Free is selected from `/models` and must not be editable or deletable there.
 - To remove the temporary integration later, delete the two OpenCode modules, remove the available-provider merge/background refresh/login option, and keep the generic provider APIs unchanged.
 
@@ -214,3 +214,13 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - NVIDIA must keep `useNonStreaming: true`. The OpenAI-compatible model adapter performs a JSON completion and converts it into standard stream events because some NVIDIA SSE responses end without a final `finish_reason`, especially around tools.
 - Opening `/models` and starting the editor refresh all dynamic provider catalogs through `cli/src/utils/provider-catalogs.ts`. Catalog failures are non-fatal and must preserve the last stored list.
 - Current metadata should be reviewed against official NVIDIA model pages before changing IDs or context windows. Do not restore deprecated aliases as primary selectable models.
+
+## ChatGPT/Codex subscription provider
+
+- `common/src/constants/chatgpt-oauth.ts` is the shared boundary for OAuth endpoints, the reserved `openai-codex` provider ID, direct model aliases, and the current bundled Codex model IDs.
+- `/login` must offer both device-code authentication and the localhost PKCE browser callback. Device code is the recommended path for SSH, containers, and headless terminals; show the verification URL and one-time code and poll until completion or cancellation.
+- Store access and refresh tokens only in `~/.codewolf/credentials.json`. Preserve unrelated credentials in that file and enforce mode `0600` plus directory mode `0700` where POSIX permissions are supported. Never place OAuth tokens in `providers.json`, `provider-auth.json`, prompts, transcripts, logs, or terminal titles.
+- The bundled provider is visible in `/models` only when OAuth credentials exist. It is read-only, must not be persisted as a provider definition, edited, or deleted from `/providers`, and its reserved ID must be rejected by the generic provider wizard.
+- Selecting `openai-codex` must route through the ChatGPT Codex Responses endpoint with the OAuth bearer token and account header. Never treat it as a generic OpenAI-compatible API-key provider and never silently fall back to the Codewolf backend when credentials are missing, invalid, or rate-limited.
+- Refresh expired access tokens with the stored refresh token using form-encoded OAuth requests. Authentication failures must direct the user back to `/login` without exposing response bodies or tokens.
+- Keep the selectable catalog aligned with current official Codex model documentation. The account/workspace is authoritative for actual availability; do not infer entitlement from the presence of stored credentials.

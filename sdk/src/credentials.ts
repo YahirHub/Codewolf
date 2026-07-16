@@ -33,7 +33,7 @@ const credentialsFileSchema = z.object({
 
 const ensureDirectoryExistsSync = (dir: string) => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
 }
 
@@ -111,7 +111,9 @@ export const getChatGptOAuthCredentials = (
   if (fs.existsSync(credentialsPath)) {
     try {
       const credentialsFile = fs.readFileSync(credentialsPath, 'utf8')
-      const parsed = credentialsFileSchema.safeParse(JSON.parse(credentialsFile))
+      const parsed = credentialsFileSchema.safeParse(
+        JSON.parse(credentialsFile),
+      )
       if (parsed.success && parsed.data.chatgptOAuth) {
         return parsed.data.chatgptOAuth
       }
@@ -146,7 +148,14 @@ export const saveChatGptOAuthCredentials = (
     chatgptOAuth: credentials,
   }
 
-  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2))
+  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2), {
+    mode: 0o600,
+  })
+  try {
+    fs.chmodSync(credentialsPath, 0o600)
+  } catch {
+    // Windows keeps the file inside the current user's profile directory.
+  }
 }
 
 export const clearChatGptOAuthCredentials = (
@@ -160,7 +169,14 @@ export const clearChatGptOAuthCredentials = (
   try {
     const existingData = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
     delete existingData.chatgptOAuth
-    fs.writeFileSync(credentialsPath, JSON.stringify(existingData, null, 2))
+    fs.writeFileSync(credentialsPath, JSON.stringify(existingData, null, 2), {
+      mode: 0o600,
+    })
+    try {
+      fs.chmodSync(credentialsPath, 0o600)
+    } catch {
+      // Windows keeps the file inside the current user's profile directory.
+    }
   } catch {
     // Ignore errors
   }
@@ -194,9 +210,9 @@ export const refreshChatGptOAuthToken = async (
       const response = await fetch(CHATGPT_OAUTH_TOKEN_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
+        body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: credentials.refreshToken,
           client_id: CHATGPT_OAUTH_CLIENT_ID,
@@ -204,7 +220,9 @@ export const refreshChatGptOAuthToken = async (
       })
 
       if (!response.ok) {
-        console.debug(`ChatGPT OAuth token refresh failed (status ${response.status})`)
+        console.debug(
+          `ChatGPT OAuth token refresh failed (status ${response.status})`,
+        )
         return null
       }
 
@@ -219,7 +237,9 @@ export const refreshChatGptOAuthToken = async (
       }
 
       const expiresIn =
-        typeof data.expires_in === 'number' ? data.expires_in * 1000 : 3600 * 1000
+        typeof data.expires_in === 'number'
+          ? data.expires_in * 1000
+          : 3600 * 1000
 
       const newCredentials: ChatGptOAuthCredentials = {
         accessToken: data.access_token,
@@ -232,7 +252,10 @@ export const refreshChatGptOAuthToken = async (
 
       return newCredentials
     } catch (error) {
-      console.debug('ChatGPT OAuth token refresh failed:', error instanceof Error ? error.message : String(error))
+      console.debug(
+        'ChatGPT OAuth token refresh failed:',
+        error instanceof Error ? error.message : String(error),
+      )
       return null
     } finally {
       chatGptRefreshPromise = null

@@ -82,7 +82,8 @@ TypeScript con Bun, React y OpenTUI.
 # Estado funcional actual
 
 - Marca visible y binarios: `Codewolf`, `codewolf`, `codewolf.exe`.
-- Proveedores de modelos configurables mediante `/login`.
+- Proveedores de modelos configurables mediante `/login`, incluida una suscripción ChatGPT/Codex por código de dispositivo o callback local.
+- ChatGPT Plus/Pro (Codex Subscription) integrado mediante OAuth, con código de dispositivo recomendado, callback local alternativo, renovación automática y modelos Codex seleccionables desde `/models`.
 - NVIDIA NIM integrado mediante API key, catálogo dinámico de `/v1/models` y transporte JSON completo para evitar streams sin `finish_reason`.
 - Selector agrupado mediante `/models`.
 - Proveedor y modelo personalizados propagados a agente principal y subagentes.
@@ -98,8 +99,9 @@ TypeScript con Bun, React y OpenTUI.
   `<proyecto>/.codewolf/skills`.
 - Interfaz visible en español; comandos e identificadores técnicos permanecen
   estables.
-- La edición personalizada no ofrece anuncios, créditos, suscripciones ni
-  diálogos de compra. No reintroducir `/subscribe`, `/ads:enable`,
+- La edición personalizada no vende una suscripción propia ni ofrece anuncios,
+  créditos o diálogos de compra; sí puede autenticar una suscripción externa de
+  ChatGPT/Codex elegida por el usuario. No reintroducir `/subscribe`, `/ads:enable`,
   `/ads:disable` ni sus alias comerciales. `/usage` está reservado para
   estadísticas técnicas locales de tokens, sin precios ni cuotas.
 - Estadísticas locales mediante `/usage`, con cifras informadas por el proveedor
@@ -126,6 +128,7 @@ TypeScript con Bun, React y OpenTUI.
 ~/.codewolf/
 ├── providers.json
 ├── provider-auth.json
+├── credentials.json
 ├── search.json
 ├── search-auth.json
 ├── settings.json
@@ -202,6 +205,10 @@ lista exacta y versiones bloqueadas.
 - `agents/basher.ts`
 - `sdk/src/tools/run-terminal-command.ts`
 - `packages/llm-providers/src/openai-compatible/openai-compatible-error.ts`
+- `cli/src/providers/openai-codex-catalog.ts`
+- `cli/src/components/chatgpt-codex-login-screen.tsx`
+- `cli/src/utils/chatgpt-oauth.ts`
+- `common/src/constants/chatgpt-oauth.ts`
 - `cli/src/providers/nvidia-nim-catalog.ts`
 - `cli/src/utils/nvidia-nim-provider.ts`
 - `cli/src/utils/provider-catalogs.ts`

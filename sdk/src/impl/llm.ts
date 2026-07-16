@@ -326,7 +326,10 @@ function emitCacheDebugUsage(params: {
 }
 
 export type ChatGptOAuthStreamErrorPolicy =
-  'fallback-rate-limit' | 'fail-auth-reconnect' | 'fail-fast' | 'ignore'
+  | 'fallback-rate-limit'
+  | 'fail-auth-reconnect'
+  | 'fail-fast'
+  | 'ignore'
 
 export function classifyChatGptOAuthStreamError(params: {
   isChatGptOAuth: boolean
@@ -686,7 +689,7 @@ export async function* promptAiSdkStream(
         // In free mode, don't fall back to Codebuff backend — fail instead
         if (params.costMode === 'free') {
           throw new Error(
-            'ChatGPT OAuth authentication failed. Please reconnect with /connect:chatgpt and try again.',
+            'La autenticación de ChatGPT/Codex falló. Vuelve a iniciar sesión desde /login e inténtalo de nuevo.',
           )
         }
 
@@ -848,11 +851,16 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always skip OAuth for non-streaming
+    // Skip the legacy implicit OAuth route. An explicitly selected bundled
+    // Codex subscription still routes through OAuth via customProvider.
+    skipChatGptOAuth: true,
     customProvider,
   }
-  const { model: aiSDKModel, isCustomProvider } =
-    await getModelForRequest(modelParams)
+  const {
+    model: aiSDKModel,
+    isChatGptOAuth,
+    isCustomProvider,
+  } = await getModelForRequest(modelParams)
 
   const cappedMaxOutputTokens = customProvider?.maxOutputTokens
     ? Math.min(
@@ -867,7 +875,8 @@ export async function promptAiSdk(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    ...(isCustomProvider
+    ...(isChatGptOAuth && { maxRetries: 0 }),
+    ...(isChatGptOAuth || isCustomProvider
       ? {}
       : {
           providerOptions: getProviderOptions({
@@ -956,11 +965,16 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always skip OAuth for non-streaming
+    // Skip the legacy implicit OAuth route. An explicitly selected bundled
+    // Codex subscription still routes through OAuth via customProvider.
+    skipChatGptOAuth: true,
     customProvider,
   }
-  const { model: aiSDKModel, isCustomProvider } =
-    await getModelForRequest(modelParams)
+  const {
+    model: aiSDKModel,
+    isChatGptOAuth,
+    isCustomProvider,
+  } = await getModelForRequest(modelParams)
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...generateParams,
@@ -968,7 +982,8 @@ export async function promptAiSdkStructured<T>(
     model: aiSDKModel,
     output: 'object',
     messages: convertCbToModelMessages(params),
-    ...(isCustomProvider
+    ...(isChatGptOAuth && { maxRetries: 0 }),
+    ...(isChatGptOAuth || isCustomProvider
       ? {}
       : {
           providerOptions: getProviderOptions({

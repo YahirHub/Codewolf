@@ -3,12 +3,19 @@ import path from 'path'
 
 import { z } from 'zod'
 
+import { CHATGPT_CODEX_PROVIDER_ID } from '@codebuff/common/constants/chatgpt-oauth'
+import { getChatGptOAuthCredentials } from '@codebuff/sdk'
+
 import { getConfigDir } from './config-dir'
 import {
   OPENCODE_FREE_PROVIDER_ID,
   createOpenCodeFreeProvider,
   isOpenCodeFreeProviderId,
 } from '../providers/opencode-catalog'
+import {
+  createOpenAICodexProvider,
+  isOpenAICodexProviderId,
+} from '../providers/openai-codex-catalog'
 
 import {
   CONTEXT_COMPACTION_RATIO,
@@ -24,10 +31,7 @@ const MODEL_DISCOVERY_TIMEOUT_MS = 15_000
 const DEFAULT_CUSTOM_MODEL_CONTEXT_TOKENS = 400_000
 const DEEPSEEK_DEFAULT_CONTEXT_TOKENS = 1_000_000
 
-export {
-  CONTEXT_COMPACTION_RATIO,
-  getContextCompactionThreshold,
-}
+export { CONTEXT_COMPACTION_RATIO, getContextCompactionThreshold }
 
 const modelSchema = z.object({
   id: z.string().trim().min(1),
@@ -251,11 +255,18 @@ export function loadAvailableProvidersConfig(
   configDir = getConfigDir(),
 ): CustomProvidersConfig {
   const persisted = loadCustomProvidersConfig(configDir)
-  const bundledProvider = createOpenCodeFreeProvider(configDir)
+  const bundledProviders = [
+    createOpenCodeFreeProvider(configDir),
+    ...(getChatGptOAuthCredentials() ? [createOpenAICodexProvider()] : []),
+  ]
+  const reservedProviderIds = new Set([
+    OPENCODE_FREE_PROVIDER_ID,
+    CHATGPT_CODEX_PROVIDER_ID,
+  ])
   const providers = [
-    bundledProvider,
+    ...bundledProviders,
     ...persisted.providers.filter(
-      (provider) => provider.id !== OPENCODE_FREE_PROVIDER_ID,
+      (provider) => !reservedProviderIds.has(provider.id),
     ),
   ]
 
@@ -267,7 +278,9 @@ export function loadAvailableProvidersConfig(
     (provider) => provider.id === activeProviderId,
   )
   const activeModelId = activeProvider
-    ? activeProvider.models.some((model) => model.id === persisted.activeModelId)
+    ? activeProvider.models.some(
+        (model) => model.id === persisted.activeModelId,
+      )
       ? persisted.activeModelId
       : activeProvider.models[0]?.id
     : undefined
@@ -327,8 +340,8 @@ export function upsertCustomProvider(params: {
   const id = normalizeCustomProviderId(
     params.id?.trim() || createCustomProviderId(requestedName!),
   )
-  if (isOpenCodeFreeProviderId(id)) {
-    throw new Error('El identificador opencode-free está reservado por Codewolf.')
+  if (isOpenCodeFreeProviderId(id) || isOpenAICodexProviderId(id)) {
+    throw new Error(`El identificador ${id} está reservado por Codewolf.`)
   }
   const baseUrl = normalizeCustomProviderBaseUrl(params.baseUrl)
   const models = normalizeModels(params.models)
@@ -462,9 +475,12 @@ export function setActiveCustomProviderModel(
   if (!config.activeProviderId) {
     throw new Error('No hay un proveedor personalizado activo.')
   }
-  return activateCustomProviderModel(config.activeProviderId, modelId, configDir)
+  return activateCustomProviderModel(
+    config.activeProviderId,
+    modelId,
+    configDir,
+  )
 }
-
 
 export type CustomProviderAuthStatus =
   | { type: 'stored'; label: 'API key guardada' }
@@ -592,7 +608,7 @@ export function removeCustomProvider(
   configDir = getConfigDir(),
 ): boolean {
   const id = normalizeCustomProviderId(providerId)
-  if (isOpenCodeFreeProviderId(id)) return false
+  if (isOpenCodeFreeProviderId(id) || isOpenAICodexProviderId(id)) return false
   const config = loadCustomProvidersConfig(configDir)
   if (!config.providers.some((provider) => provider.id === id)) return false
 
@@ -680,8 +696,7 @@ export function formatCustomProviderStatus(
   const provider = config.providers.find(
     (item) => item.id === config.activeProviderId,
   )
-  if (!provider)
-    return 'Backend heredado (sin proveedor personalizado activo).'
+  if (!provider) return 'Backend heredado (sin proveedor personalizado activo).'
   const model =
     provider.models.find((item) => item.id === config.activeModelId) ??
     provider.models[0]
@@ -764,7 +779,10 @@ export async function discoverCustomProviderModels(params: {
 }): Promise<CustomProviderModel[]> {
   const baseUrl = normalizeCustomProviderBaseUrl(params.baseUrl)
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), MODEL_DISCOVERY_TIMEOUT_MS)
+  const timeout = setTimeout(
+    () => controller.abort(),
+    MODEL_DISCOVERY_TIMEOUT_MS,
+  )
   const onAbort = () => controller.abort()
   params.signal?.addEventListener('abort', onAbort, { once: true })
 
@@ -796,7 +814,9 @@ export async function discoverCustomProviderModels(params: {
     const payload = (await response.json()) as unknown
     const models = parseDiscoveredModels(payload)
     if (models.length === 0) {
-      throw new Error('La respuesta de /models no contiene modelos reconocibles.')
+      throw new Error(
+        'La respuesta de /models no contiene modelos reconocibles.',
+      )
     }
     return models
   } catch (error) {

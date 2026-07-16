@@ -4,13 +4,24 @@ The Codewolf editor can route all agent requests directly to an OpenAI-compatibl
 
 This feature is configured entirely inside the editor.
 
+## ChatGPT/Codex subscription
+
+`/login` separates subscription authentication from API-key providers. Under **Usar una suscripción**, choose **ChatGPT Plus/Pro (Codex Subscription)** and then either:
+
+- **Código de dispositivo:** Codewolf requests a one-time code, displays the verification URL, polls until the browser authorization completes, and exchanges the resulting authorization code for access and refresh tokens. This is the preferred path for SSH, containers, WSL without browser interop, and other headless environments.
+- **Navegador con callback local:** Codewolf starts the PKCE browser flow and listens on `127.0.0.1:1455` for the callback.
+
+OAuth credentials are stored in `~/.codewolf/credentials.json` with user-only POSIX permissions where supported. They never enter `providers.json`, `provider-auth.json`, prompts, transcripts, or terminal titles. Access tokens are refreshed automatically. The bundled `openai-codex` provider is visible in `/models` only after credentials exist and is not editable or deletable from `/providers`.
+
+The provider routes directly to the ChatGPT Codex Responses endpoint and never falls back to the normal Codewolf backend when credentials are missing, expired, unauthorized, or rate-limited. The selectable catalog contains the current documented Codex models, but the signed-in account and workspace remain authoritative for actual model access and usage limits.
+
 ## No `.env` file is required
 
 The standalone CLI supplies its own safe defaults for inherited public web variables. You can install dependencies and run `bun run dev` without creating `.env` in either the repository root or `cli/`. Explicit environment variables still override the built-in defaults. Analytics is disabled in the fallback configuration.
 
 ## Open the editor without an existing login
 
-The full editor opens on a fresh installation without legacy backend credentials. OpenCode Free supplies a no-key default, while `/login` remains available for NVIDIA NIM, OpenCode Go, or another OpenAI-compatible provider.
+The full editor opens on a fresh installation without legacy backend credentials. OpenCode Free supplies a no-key default, while `/login` remains available for a ChatGPT/Codex subscription, NVIDIA NIM, OpenCode Go, or another OpenAI-compatible provider.
 
 ## OpenCode Free built-in catalog
 
@@ -35,7 +46,7 @@ Enter:
 
 The first selector shows:
 
-1. **Usar una suscripción** — visible as a future option, but intentionally not implemented in this edition.
+1. **Usar una suscripción** — opens the ChatGPT/Codex subscription flow described above.
 2. **Usar una API key** — opens the API-provider selector.
 
 The API-key selector supports:
@@ -162,6 +173,7 @@ All persistent configuration is stored in Codewolf's single cross-platform home 
 
 - `~/.codewolf/providers.json` stores provider names, URLs, model lists, and the active selection.
 - `~/.codewolf/provider-auth.json` stores directly entered API keys separately and is written with user-only permissions where POSIX modes are supported.
+- `~/.codewolf/credentials.json` stores the ChatGPT/Codex OAuth access and refresh tokens separately from provider definitions and is also restricted to the current user where POSIX modes are supported.
 - `~/.codewolf/opencode-models.json` caches only the public OpenCode Free model catalog; it contains no credentials.
 - `~/.codewolf/skills/` stores global skills.
 - `~/.codewolf/projects/` stores project chat history and run state.

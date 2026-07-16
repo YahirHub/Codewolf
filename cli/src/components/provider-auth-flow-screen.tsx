@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useMemo, useState } from 'react'
 
 import { Button } from './button'
+import { ChatGptCodexLoginScreen } from './chatgpt-codex-login-screen'
 import { MultilineInput } from './multiline-input'
 import { ProviderLoginScreen } from './provider-login-screen'
 import { useTheme } from '../hooks/use-theme'
@@ -24,6 +25,7 @@ import {
   NVIDIA_NIM_PROVIDER_NAME,
 } from '../providers/nvidia-nim-catalog'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
+import { CHATGPT_CODEX_PROVIDER_NAME } from '@codebuff/common/constants/chatgpt-oauth'
 
 import type { InputValue } from '../types/store'
 import type { CustomProviderDefinition } from '../utils/custom-providers'
@@ -31,11 +33,14 @@ import type { KeyEvent } from '@opentui/core'
 
 type LoginView =
   | 'method'
+  | 'subscription-provider'
   | 'api-provider'
+  | 'chatgpt-codex'
   | 'opencode-go'
   | 'nvidia-nim'
   | 'custom'
 type AuthMethod = 'subscription' | 'api-key'
+type SubscriptionProvider = 'chatgpt-codex'
 type ApiProvider = 'opencode-go' | 'nvidia-nim' | 'custom'
 
 const AUTH_METHODS: Array<{
@@ -47,15 +52,26 @@ const AUTH_METHODS: Array<{
   {
     id: 'subscription',
     label: 'Usar una suscripción',
-    help: 'Reservado para una integración futura de suscripciones.',
-    enabled: false,
+    help: 'Conecta ChatGPT/Codex mediante navegador o código de dispositivo.',
+    enabled: true,
   },
   {
     id: 'api-key',
     label: 'Usar una API key',
-    help:
-      'Configura NVIDIA NIM, OpenCode Go o cualquier API compatible con OpenAI.',
+    help: 'Configura NVIDIA NIM, OpenCode Go o cualquier API compatible con OpenAI.',
     enabled: true,
+  },
+]
+
+const SUBSCRIPTION_PROVIDERS: Array<{
+  id: SubscriptionProvider
+  label: string
+  help: string
+}> = [
+  {
+    id: 'chatgpt-codex',
+    label: CHATGPT_CODEX_PROVIDER_NAME,
+    help: 'Usa la sesión y los límites disponibles en tu plan o workspace de Codex.',
   },
 ]
 
@@ -86,20 +102,31 @@ interface ProviderAuthFlowScreenProps {
   onCancel: () => void
 }
 
-export const ProviderAuthFlowScreen: React.FC<
-  ProviderAuthFlowScreenProps
-> = ({ onComplete, onCancel }) => {
+export const ProviderAuthFlowScreen: React.FC<ProviderAuthFlowScreenProps> = ({
+  onComplete,
+  onCancel,
+}) => {
   const theme = useTheme()
   const [view, setView] = useState<LoginView>('method')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
 
-  const rows = view === 'method' ? AUTH_METHODS : API_PROVIDERS
+  const rows =
+    view === 'method'
+      ? AUTH_METHODS
+      : view === 'subscription-provider'
+        ? SUBSCRIPTION_PROVIDERS
+        : API_PROVIDERS
 
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
-        if (view !== 'method' && view !== 'api-provider') return
+        if (
+          view !== 'method' &&
+          view !== 'subscription-provider' &&
+          view !== 'api-provider'
+        )
+          return
         if (key.name === 'escape') {
           if (view === 'method') onCancel()
           else {
@@ -124,19 +151,20 @@ export const ProviderAuthFlowScreen: React.FC<
         if (view === 'method') {
           const method = AUTH_METHODS[selectedIndex]
           if (!method) return
-          if (!method.enabled) {
-            setMessage(
-              'Las suscripciones todavía no están disponibles en esta edición. Usa una API key.',
-            )
-            return
-          }
-          setView('api-provider')
+          setView(
+            method.id === 'subscription'
+              ? 'subscription-provider'
+              : 'api-provider',
+          )
           setSelectedIndex(0)
           setMessage(null)
           return
         }
 
-        const provider = API_PROVIDERS[selectedIndex]
+        const provider =
+          view === 'subscription-provider'
+            ? SUBSCRIPTION_PROVIDERS[selectedIndex]
+            : API_PROVIDERS[selectedIndex]
         if (!provider) return
         setView(provider.id)
         setSelectedIndex(0)
@@ -145,6 +173,18 @@ export const ProviderAuthFlowScreen: React.FC<
       [onCancel, rows.length, selectedIndex, view],
     ),
   )
+
+  if (view === 'chatgpt-codex') {
+    return (
+      <ChatGptCodexLoginScreen
+        onComplete={onComplete}
+        onCancel={() => {
+          setView('subscription-provider')
+          setSelectedIndex(0)
+        }}
+      />
+    )
+  }
 
   if (view === 'custom') {
     return (
@@ -185,7 +225,9 @@ export const ProviderAuthFlowScreen: React.FC<
   const title =
     view === 'method'
       ? ' Selecciona el método de autenticación '
-      : ' Selecciona el proveedor '
+      : view === 'subscription-provider'
+        ? ' Selecciona la suscripción '
+        : ' Selecciona el proveedor '
 
   return (
     <box
@@ -210,18 +252,20 @@ export const ProviderAuthFlowScreen: React.FC<
               setSelectedIndex(index)
               if (view === 'method') {
                 const method = AUTH_METHODS[index]
-                if (!method?.enabled) {
-                  setMessage(
-                    'Las suscripciones todavía no están disponibles en esta edición. Usa una API key.',
-                  )
-                  return
-                }
-                setView('api-provider')
+                if (!method) return
+                setView(
+                  method.id === 'subscription'
+                    ? 'subscription-provider'
+                    : 'api-provider',
+                )
                 setSelectedIndex(0)
                 setMessage(null)
                 return
               }
-              const provider = API_PROVIDERS[index]
+              const provider =
+                view === 'subscription-provider'
+                  ? SUBSCRIPTION_PROVIDERS[index]
+                  : API_PROVIDERS[index]
               if (provider) setView(provider.id)
             }}
             onMouseOver={() => setSelectedIndex(index)}
@@ -247,7 +291,7 @@ export const ProviderAuthFlowScreen: React.FC<
                 {selected ? '→' : ' '} {row.label}
                 {disabled ? ' (próximamente)' : ''}
               </text>
-              <text style={{ fg: theme.muted }}>  {row.help}</text>
+              <text style={{ fg: theme.muted }}> {row.help}</text>
             </box>
           </Button>
         )
