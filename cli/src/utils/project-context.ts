@@ -16,6 +16,10 @@ const CACHE_VERSION = 1
 const MAX_CONTEXT_FILES = 200
 const MAX_CONTEXT_BYTES = 320_000
 const MAX_SINGLE_CONTEXT_FILE_BYTES = 80_000
+
+function stripUtf8Bom(value: string): string {
+  return value.replace(/^\uFEFF/, '')
+}
 export const PROJECT_METHODOLOGY_VIRTUAL_PATH =
   '.codewolf/metodologia-desarrollo.md'
 export const PROJECT_CONTEXT_SUMMARY_VIRTUAL_PATH =
@@ -84,7 +88,7 @@ const CONTEXT_SUMMARIZER_AGENT: AgentDefinition = {
   includeMessageHistory: false,
   spawnableAgents: [],
   toolNames: [],
-  systemPrompt: `You summarize persistent software-project context for another coding agent. The supplied knowledge files are ordered markdown records from contexto/. Treat higher numeric files as newer. Produce a compact but implementation-useful Spanish summary. Preserve hard constraints, architecture, compatibility requirements, important bugs, completed work, tests, risks and pending tasks. Do not invent facts and do not include secrets. Call out contradictions or stale notes in warnings. Do not write files or suggest a solution to a new coding task.`,
+  systemPrompt: `You summarize persistent software-project context for another coding agent. The supplied knowledge files are ordered markdown records from contexto/. Treat higher numeric files as newer. Produce a compact but implementation-useful Spanish summary. Preserve hard constraints, architecture, compatibility requirements, important bugs, completed work, tests, risks and pending tasks. Legacy records may contain filenames, titles or objectives copied from conversational requests; ignore that wording and recover only the confirmed technical facts from modified-file lists, decisions, solutions, tests and source code references. Never preserve phrases such as "puedes", "quiero", "ya funciona", raw prompts or truncated requests as project rules. Do not invent facts and do not include secrets. Put active hard rules and compatibility constraints before historical details. Call out contradictions or stale notes in warnings. Do not write files or suggest a solution to a new coding task.`,
   instructionsPrompt:
     'Read every supplied context file and return only the requested structured output.',
 }
@@ -213,7 +217,7 @@ export function discoverProjectContext(
     const fullPath = path.join(contextDir, entry.name)
     let content: string
     try {
-      content = fs.readFileSync(fullPath, 'utf8')
+      content = stripUtf8Bom(fs.readFileSync(fullPath, 'utf8'))
     } catch {
       truncated = true
       continue

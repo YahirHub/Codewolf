@@ -297,6 +297,49 @@ function normalizeNpmSearch(payload: unknown, limit: number): unknown {
   })
 }
 
+function isPrereleaseVersion(version: string | undefined): boolean {
+  if (!version) return false
+  const normalized = version.trim().replace(/^v/i, '')
+  const core = normalized.split('+', 1)[0] ?? normalized
+  return core.includes('-')
+}
+
+function compareSemverLike(a: string, b: string): number {
+  const parse = (value: string) =>
+    value
+      .replace(/^v/i, '')
+      .split('-', 1)[0]
+      .split('.')
+      .map((part) => Number.parseInt(part, 10))
+  const left = parse(a)
+  const right = parse(b)
+  const length = Math.max(left.length, right.length)
+  for (let index = 0; index < length; index++) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0)
+    if (difference !== 0) return difference
+  }
+  return a.localeCompare(b)
+}
+
+function latestNonPrereleaseVersion(
+  packument: Record<string, unknown>,
+): string | undefined {
+  const versions = Object.keys(asRecord(packument.versions)).filter(
+    (version) => !isPrereleaseVersion(version),
+  )
+  if (versions.length === 0) return undefined
+
+  const time = asRecord(packument.time)
+  return versions.sort((a, b) => {
+    const aTime = Date.parse(asString(time[a]) ?? '')
+    const bTime = Date.parse(asString(time[b]) ?? '')
+    if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) {
+      return bTime - aTime
+    }
+    return compareSemverLike(b, a)
+  })[0]
+}
+
 function selectNpmVersion(
   packument: Record<string, unknown>,
   requestedVersion: string | undefined,
@@ -339,7 +382,10 @@ function normalizeNpmPackage(params: {
   return compactObject({
     name: asString(packument.name) ?? params.packageName,
     selectedVersion: version,
-    latestStableVersion: asString(distTags.latest),
+    selectedVersionIsPrerelease: isPrereleaseVersion(version),
+    latestPublishedVersion: asString(distTags.latest),
+    latestPublishedIsPrerelease: isPrereleaseVersion(asString(distTags.latest)),
+    latestStableVersion: latestNonPrereleaseVersion(packument),
     distTags: Object.fromEntries(
       Object.entries(distTags)
         .filter(([, value]) => typeof value === 'string')

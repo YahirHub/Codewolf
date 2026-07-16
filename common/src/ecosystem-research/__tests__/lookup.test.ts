@@ -86,7 +86,10 @@ describe('npm ecosystem lookup', () => {
       expect(result.cached).toBe(false)
       expect(result.sourceUrl).toContain('%40whiskeysockets%2Fbaileys')
       expect(data.selectedVersion).toBe('7.0.0')
+      expect(data.latestPublishedVersion).toBe('7.0.0')
+      expect(data.latestPublishedIsPrerelease).toBe(false)
       expect(data.latestStableVersion).toBe('7.0.0')
+      expect(data.selectedVersionIsPrerelease).toBe(false)
       expect(data.distTags.beta).toBe('8.0.0-beta.1')
       expect(data.engines).toEqual({ node: '>=20' })
       expect(data.lifecycleScripts).toEqual({
@@ -98,6 +101,43 @@ describe('npm ecosystem lookup', () => {
       expect(data.exports).toBeTypeOf('string')
       expect(data.exports.length).toBeLessThanOrEqual(1_500)
       expect(fetchCalls).toHaveLength(1)
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  test('distinguishes npm latest prereleases from the newest stable version', async () => {
+    const cacheDir = createCacheDir()
+    const fetchMock = (async () =>
+      jsonResponse({
+        name: '@whiskeysockets/baileys',
+        'dist-tags': { latest: '7.0.0-rc13' },
+        time: {
+          '6.7.19': '2025-12-01T00:00:00.000Z',
+          '7.0.0-rc13': '2026-07-01T00:00:00.000Z',
+        },
+        versions: {
+          '6.7.19': { version: '6.7.19' },
+          '7.0.0-rc13': { version: '7.0.0-rc13' },
+        },
+      })) as unknown as typeof globalThis.fetch
+
+    try {
+      const result = await runEcosystemLookup(
+        {
+          ecosystem: 'npm',
+          operation: 'package',
+          package: '@whiskeysockets/baileys',
+        },
+        { fetch: fetchMock, cacheDir },
+      )
+      const data = result.data as Record<string, any>
+
+      expect(data.latestPublishedVersion).toBe('7.0.0-rc13')
+      expect(data.latestPublishedIsPrerelease).toBe(true)
+      expect(data.latestStableVersion).toBe('6.7.19')
+      expect(data.selectedVersion).toBe('7.0.0-rc13')
+      expect(data.selectedVersionIsPrerelease).toBe(true)
     } finally {
       rmSync(cacheDir, { recursive: true, force: true })
     }

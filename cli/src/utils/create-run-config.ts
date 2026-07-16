@@ -28,6 +28,7 @@ export type CreateRunConfigParams = {
   signal: AbortSignal
   costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
+  researchTimeoutMs?: number
   /** Auto-compaction threshold for Base2 agents, already calculated at 90%. */
   maxContextLength?: number
   /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
@@ -113,6 +114,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     eventHandlerState,
     costMode,
     extraCodebuffMetadata,
+    researchTimeoutMs,
     maxContextLength,
     onStateSnapshot,
     onBeforeFileMutation,
@@ -137,6 +139,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     signal: params.signal,
     costMode,
     extraCodebuffMetadata,
+    researchTimeoutMs,
     params:
       supportsContextPruning && maxContextLength
         ? { maxContextLength }

@@ -63,7 +63,6 @@ describe('automatic project context maintenance', () => {
     const result = await maintainProjectContext({
       projectRoot,
       client,
-      request: 'Actualiza el módulo de prueba.',
       changedPaths: ['src/example.ts'],
       runState,
     })
@@ -87,7 +86,6 @@ describe('automatic project context maintenance', () => {
     const result = await maintainProjectContext({
       projectRoot,
       client,
-      request: '/init',
       changedPaths: initialized,
       runState,
       forceInit: true,
@@ -152,8 +150,6 @@ describe('automatic project context maintenance', () => {
     const result = await maintainProjectContext({
       projectRoot,
       client: unusedClient,
-      request:
-        'Hay un detalle y es que no hay manera de detener el escaneo en proceso/escaneo activo, me gustaría que dando clic en él se detenga el escaneo.',
       changedPaths: [javaPath, iconPath],
       runState: detailedRunState,
     })
@@ -183,6 +179,43 @@ describe('automatic project context maintenance', () => {
     expect(master).not.toContain("The user's request")
   })
 
+
+  test('derives filenames from technical evidence instead of the user request', async () => {
+    const projectRoot = temporaryProject()
+    fs.mkdirSync(path.join(projectRoot, 'src'))
+    fs.writeFileSync(path.join(projectRoot, 'src/bot.ts'), 'export {}')
+
+    const result = await maintainProjectContext({
+      projectRoot,
+      client,
+      changedPaths: ['src/bot.ts'],
+      runState: {
+        traceSessionId: 'technical-title-test',
+        output: {
+          type: 'lastMessage',
+          value: [
+            {
+              role: 'assistant',
+              content: `# Soluciones implementadas
+
+- Función sendWithTyping(): activa composing, espera y termina en paused.
+- Se aplicó a respuestas de comandos y mensajes del bot.`,
+            },
+          ],
+        },
+      },
+    })
+
+    const recordPath = result.paths.find((entry) => /^contexto\/001-/.test(entry))
+    expect(recordPath).toBe(
+      'contexto/001-implementar-simulacion-de-escritura.md',
+    )
+    const content = fs.readFileSync(path.join(projectRoot, recordPath!), 'utf8')
+    expect(content).toContain('# 001 — Implementar simulación de escritura')
+    expect(content).not.toContain('Ya funciona')
+    expect(content).not.toContain('puedes hacer')
+  })
+
   test('bounds long conversational titles and omits empty optional sections', async () => {
     const projectRoot = temporaryProject()
     fs.mkdirSync(path.join(projectRoot, 'src'))
@@ -191,8 +224,6 @@ describe('automatic project context maintenance', () => {
     const result = await maintainProjectContext({
       projectRoot,
       client,
-      request:
-        'Por favor, me gustaría que implementaras una mejora extremadamente detallada para reorganizar completamente la navegación principal y después revisar muchos casos adicionales que no deben formar parte del nombre del archivo.',
       changedPaths: ['src/example.ts'],
       runState: {
         traceSessionId: 'bounded-title-test',
@@ -213,4 +244,75 @@ describe('automatic project context maintenance', () => {
     expect(content).not.toContain('# Problemas encontrados')
     expect(content).not.toContain('No se registraron')
   })
+
+  test('repairs low-quality legacy auto-context filenames from technical evidence', async () => {
+    const projectRoot = temporaryProject()
+    fs.mkdirSync(path.join(projectRoot, 'contexto'))
+    fs.mkdirSync(path.join(projectRoot, 'src'))
+    fs.writeFileSync(path.join(projectRoot, 'src/next.ts'), 'export {}')
+    fs.writeFileSync(
+      path.join(
+        projectRoot,
+        'contexto/001-actualizar-implementacion-del-proyecto.md',
+      ),
+      `<!-- codewolf:auto-context:record -->
+# 001 — Actualizar implementación del proyecto
+
+# Fecha
+
+2026-07-16
+
+# Objetivo
+
+Actualizar implementación del proyecto.
+
+# Archivos importantes modificados
+
+- src/bot.ts
+
+# Soluciones implementadas
+
+- makeWASocket con requestPairingCode para un bot de WhatsApp usando Baileys.
+`,
+    )
+
+    const result = await maintainProjectContext({
+      projectRoot,
+      client,
+      changedPaths: ['src/next.ts'],
+      runState: {
+        traceSessionId: 'legacy-context-repair',
+        output: {
+          type: 'lastMessage',
+          value: [
+            {
+              role: 'assistant',
+              content: '# Soluciones implementadas\n\n- Se actualizó next.ts.',
+            },
+          ],
+        },
+      },
+    })
+
+    expect(
+      fs.existsSync(
+        path.join(
+          projectRoot,
+          'contexto/001-implementar-bot-de-whatsapp-con-baileys.md',
+        ),
+      ),
+    ).toBe(true)
+    expect(
+      fs.existsSync(
+        path.join(
+          projectRoot,
+          'contexto/001-actualizar-implementacion-del-proyecto.md',
+        ),
+      ),
+    ).toBe(false)
+    expect(result.paths).toContain(
+      'contexto/001-implementar-bot-de-whatsapp-con-baileys.md',
+    )
+  })
+
 })

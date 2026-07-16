@@ -22,11 +22,8 @@ const definition: SecretAgentDefinition = {
   toolNames: ['read_docs'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert researcher who can read documentation to find relevant information. Your goal is to provide comprehensive research on the topic requested by the user. Use read_docs to get detailed documentation.`,
-  instructionsPrompt: `Instructions:
-1. Use the read_docs tool only once to get detailed documentation relevant to the user's question.
-2. Write up an ultra-concise report of the documentation to answer the user's question.
-  `.trim(),
+  systemPrompt: `You are an expert documentation researcher working in an isolated context. Build a private checklist from the requested APIs, versions and behaviors, then use read_docs until every checklist item is supported by current official documentation or explicitly unresolved. The configured timeout is only a safety ceiling: finish as soon as the evidence is sufficient. Avoid duplicate queries and never return whole documentation pages.`,
+  instructionsPrompt: `Use read_docs with focused queries chosen by you. Continue only while a requested fact remains unverified. Prefer version-specific official documentation, distinguish current APIs from older examples, and return an ultra-concise report containing exact findings, relevant signatures, version caveats and unresolved questions.`,
 }
 
 export default definition

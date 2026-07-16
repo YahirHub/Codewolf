@@ -218,6 +218,8 @@ export type RunOptions = {
    *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
    *  client-scoped identifiers required by compatible gateways. */
   extraCodebuffMetadata?: Record<string, string>
+  /** Maximum wall-clock duration for research subagents in this run. */
+  researchTimeoutMs?: number
   /** Optional checkpoint hook. Called once when the run starts and then
    * periodically while it is in flight, with a RunState snapshot that
    * preserves all progress so far (the user's prompt plus any completed
@@ -347,6 +349,7 @@ async function runOnce({
   drainSteeringMessages,
   costMode,
   extraCodebuffMetadata,
+  researchTimeoutMs,
   onStateSnapshot,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
@@ -759,6 +762,7 @@ async function runOnce({
       ...(extraCodebuffMetadata ?? {}),
       trace_session_id: traceSessionId,
     },
+    researchTimeoutMs,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     let errorMessage = isFetchIdleTimeoutError(error)

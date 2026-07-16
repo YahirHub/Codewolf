@@ -10,6 +10,7 @@ import { AGENT_MODE_TO_COST_MODE, AGENT_MODE_TO_ID } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { getActiveCustomProviderCompactionThreshold } from '../utils/custom-providers'
+import { PROJECT_CONTEXT_RUNTIME_INSTRUCTION } from '../utils/development-methodology'
 import {
   prepareProjectContextKnowledge,
   PROJECT_CONTEXT_SUMMARY_VIRTUAL_PATH,
@@ -20,6 +21,7 @@ import {
   maintainProjectContext,
 } from '../utils/project-context-maintenance'
 import {
+  getResearchTimeoutMinutes,
   isProjectContextEnabled,
   isVerifiedCommitsEnabled,
 } from '../utils/settings'
@@ -120,17 +122,20 @@ const resolveAgent = (
 const buildPromptWithContext = (
   promptWithBashContext: string,
   messageContent: MessageContent[] | undefined,
+  projectContextEnabled: boolean,
 ) => {
   const trimmedPrompt = promptWithBashContext.trim()
-  if (trimmedPrompt.length > 0) {
-    return promptWithBashContext
-  }
+  const prompt =
+    trimmedPrompt.length > 0
+      ? promptWithBashContext
+      : messageContent && messageContent.length > 0
+        ? 'Consulta las imágenes adjuntas'
+        : ''
 
-  if (messageContent && messageContent.length > 0) {
-    return 'Consulta las imágenes adjuntas'
-  }
+  if (!projectContextEnabled) return prompt
+  return `${PROJECT_CONTEXT_RUNTIME_INSTRUCTION}
 
-  return ''
+${prompt}`.trim()
 }
 
 export const useSendMessage = ({
@@ -622,6 +627,7 @@ export const useSendMessage = ({
         const effectivePrompt = buildPromptWithContext(
           promptWithBashContext,
           messageContent,
+          projectContextEnabled,
         )
 
         const eventHandlerState = createEventHandlerState({
@@ -653,6 +659,7 @@ export const useSendMessage = ({
           signal: abortController.signal,
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
           maxContextLength: getActiveCustomProviderCompactionThreshold(),
+          researchTimeoutMs: getResearchTimeoutMinutes() * 60_000,
           additionalKnowledgeFiles,
           excludedKnowledgeFilePaths: [
             ...(!projectContextEnabled
@@ -764,7 +771,6 @@ export const useSendMessage = ({
             const contextMaintenance = await maintainProjectContext({
               projectRoot: rewindProjectRoot,
               client,
-              request: content,
               changedPaths: mutatedPaths,
               runState,
               forceInit: isInitRequest,

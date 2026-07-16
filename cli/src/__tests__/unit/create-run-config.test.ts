@@ -103,6 +103,16 @@ describe('createRunConfig context pruning', () => {
     expect(result.params).toEqual({ maxContextLength: 900_000 })
   })
 
+  test('passes the configured research timeout to the runtime', () => {
+    const result = createRunConfig({
+      ...baseParams,
+      agent: 'base2',
+      researchTimeoutMs: 30 * 60_000,
+    })
+
+    expect(result.researchTimeoutMs).toBe(30 * 60_000)
+  })
+
   test('does not inject Base2-only params into arbitrary custom agents', () => {
     const result = createRunConfig({
       ...baseParams,

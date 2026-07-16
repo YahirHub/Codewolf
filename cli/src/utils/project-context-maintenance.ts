@@ -15,6 +15,62 @@ const MAX_TITLE_LENGTH = 72
 const MAX_OBJECTIVE_LENGTH = 280
 const MAX_ITEM_LENGTH = 240
 const MAX_ITEMS_PER_SECTION = 8
+const UTF8_BOM = '\uFEFF'
+
+function stripUtf8Bom(value: string): string {
+  return value.replace(/^\uFEFF/, '')
+}
+
+function encodeContextMarkdown(value: string): string {
+  const normalized = stripUtf8Bom(value)
+  return process.platform === 'win32' ? `${UTF8_BOM}${normalized}` : normalized
+}
+
+function writeContextMarkdown(filePath: string, value: string): void {
+  fs.writeFileSync(filePath, encodeContextMarkdown(value), 'utf8')
+}
+
+
+async function normalizeExistingContextEncoding(params: {
+  projectRoot: string
+  contextDir: string
+  onBeforeWrite?: (relativePath: string) => Promise<void>
+  onAfterWrite?: (relativePath: string) => Promise<void>
+}): Promise<string[]> {
+  if (process.platform !== 'win32') return []
+
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(params.contextDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const changed: string[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.md')) continue
+
+    const fullPath = path.join(params.contextDir, entry.name)
+    let raw: Buffer
+    try {
+      raw = fs.readFileSync(fullPath)
+    } catch {
+      continue
+    }
+    if (raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) {
+      continue
+    }
+
+    const relativePath = normalizePath(
+      path.relative(params.projectRoot, fullPath),
+    )
+    await params.onBeforeWrite?.(relativePath)
+    fs.writeFileSync(fullPath, Buffer.concat([Buffer.from(UTF8_BOM), raw]))
+    await params.onAfterWrite?.(relativePath)
+    changed.push(relativePath)
+  }
+  return changed
+}
 
 export type ProjectContextMaintenanceResult = {
   paths: string[]
@@ -101,10 +157,11 @@ const CONTEXT_WRITER_AGENT: AgentDefinition = {
   spawnableAgents: [],
   toolNames: [],
   systemPrompt: `Documenta únicamente hechos técnicos confirmados del proyecto en español.
-No copies la solicitud ni la respuesta completa. No uses texto conversacional, tablas Markdown, encabezados dentro de campos ni frases de relleno.
-El título debe ser una acción técnica corta, por ejemplo: "Agregar detención manual del escaneo".
+La solicitud original del usuario no se proporciona deliberadamente: deduce el registro solo del resultado técnico, los archivos realmente modificados y el inventario del proyecto.
+No copies respuestas completas, texto conversacional, tablas Markdown, encabezados dentro de campos ni frases de relleno.
+El título debe describir el cambio técnico completado, no la forma en que fue solicitado. Usa una acción corta en infinitivo, por ejemplo: "Agregar detención manual del escaneo" o "Corregir reconexión de Baileys".
 Cada elemento debe contener una sola idea verificable. Devuelve listas vacías cuando no haya información real.
-No inventes pruebas, decisiones, dependencias, arquitectura, problemas ni pendientes. No menciones asistentes, modelos, prompts ni inteligencia artificial.`,
+No inventes pruebas, decisiones, dependencias, arquitectura, problemas ni pendientes. No menciones usuarios, solicitudes, asistentes, modelos, prompts ni inteligencia artificial.`,
   instructionsPrompt:
     'Devuelve solo la salida estructurada y conserva cada campo breve y factual.',
 }
@@ -226,54 +283,15 @@ function slugify(value: string): string {
   return slug || 'actualizacion-proyecto'
 }
 
-const ACTION_VERBS: Array<[RegExp, string]> = [
-  [/^(?:agrega|agregar|añade|añadir)\b/i, 'Agregar'],
-  [/^(?:implementa|implementar)\b/i, 'Implementar'],
-  [/^(?:corrige|corregir|soluciona|solucionar|arregla|arreglar)\b/i, 'Corregir'],
-  [/^(?:mejora|mejorar|optimiza|optimizar)\b/i, 'Mejorar'],
-  [/^(?:actualiza|actualizar)\b/i, 'Actualizar'],
-  [/^(?:elimina|eliminar|quita|quitar)\b/i, 'Eliminar'],
-  [/^(?:renombra|renombrar)\b/i, 'Renombrar'],
-  [/^(?:integra|integrar)\b/i, 'Integrar'],
-  [/^(?:permite|permitir|habilita|habilitar)\b/i, 'Permitir'],
-  [/^(?:evita|evitar|impide|impedir)\b/i, 'Evitar'],
-  [/^(?:crea|crear)\b/i, 'Crear'],
-  [/^(?:documenta|documentar)\b/i, 'Documentar'],
-]
-
-function toInfinitiveAction(value: string): string {
-  const normalized = value.toLocaleLowerCase('es')
-  if (/^(?:agrega|agregar|añade|añadir)$/.test(normalized)) return 'Agregar'
-  if (/^(?:implementa|implementar)$/.test(normalized)) return 'Implementar'
-  if (/^(?:corrige|corregir|soluciona|solucionar|arregla|arreglar)$/.test(normalized)) return 'Corregir'
-  if (/^(?:mejora|mejorar|optimiza|optimizar)$/.test(normalized)) return 'Mejorar'
-  if (/^(?:actualiza|actualizar)$/.test(normalized)) return 'Actualizar'
-  if (/^(?:elimina|eliminar|quita|quitar)$/.test(normalized)) return 'Eliminar'
-  if (/^(?:renombra|renombrar)$/.test(normalized)) return 'Renombrar'
-  if (/^(?:integra|integrar)$/.test(normalized)) return 'Integrar'
-  if (/^(?:permite|permitir|habilita|habilitar)$/.test(normalized)) return 'Permitir'
-  if (/^(?:evita|evitar|impide|impedir)$/.test(normalized)) return 'Evitar'
-  if (/^(?:crea|crear)$/.test(normalized)) return 'Crear'
-  if (/^(?:documenta|documentar)$/.test(normalized)) return 'Documentar'
-  return ''
-}
-
-function findInlineAction(value: string): string | null {
-  const match = value.match(
-    /\b(agrega(?:r)?|añade|añadir|implementa(?:r)?|corrige|corregir|soluciona|solucionar|arregla|arreglar|mejora|mejorar|optimiza|optimizar|actualiza|actualizar|elimina|eliminar|quita|quitar|renombra|renombrar|integra|integrar|permite|permitir|habilita|habilitar|evita|evitar|impide|impedir|crea|crear|documenta|documentar)\b\s+(.+?)(?=\s*[,;.]|\s+(?:adem[aá]s|también|de paso|luego|después)\b|$)/i,
-  )
-  if (!match) return null
-  const action = toInfinitiveAction(match[1])
-  return action ? `${action} ${match[2]}` : null
-}
-
 function fallbackTitleFromPaths(changedPaths: string[]): string {
   const sourcePaths = changedPaths.filter((entry) => !contextPath(entry))
   if (sourcePaths.length === 1) {
     return `Actualizar ${path.posix.basename(normalizePath(sourcePaths[0]))}`
   }
   if (sourcePaths.length > 1) {
-    const parents = sourcePaths.map((entry) => path.posix.dirname(normalizePath(entry)))
+    const parents = sourcePaths.map((entry) =>
+      path.posix.dirname(normalizePath(entry)),
+    )
     if (parents.every((entry) => entry === parents[0]) && parents[0] !== '.') {
       return `Actualizar ${path.posix.basename(parents[0])}`
     }
@@ -281,80 +299,239 @@ function fallbackTitleFromPaths(changedPaths: string[]): string {
   return 'Actualizar implementación del proyecto'
 }
 
-function normalizeTechnicalPhrase(value: string): string {
-  let phrase = compactWhitespace(value)
-    .replace(/[“”"']/g, '')
-    .replace(/\s*\/\s*/g, ' o ')
-    .replace(/\bescaneo\s+en\s+proceso\s+o\s+escaneo\s+activo\b/gi, 'escaneo activo')
-    .replace(/\b(en proceso)\s+o\s+activo\b/gi, 'activo')
-    .replace(/\s+(?:por favor|gracias)$/i, '')
-    .replace(/[.!?,;:]+$/g, '')
-    .trim()
+function actionTitleFromTechnicalLine(value: string): string | null {
+  const cleaned = cleanContextItem(value)
+  if (!cleaned) return null
 
-  for (const [pattern, infinitive] of ACTION_VERBS) {
-    if (pattern.test(phrase)) {
-      phrase = phrase.replace(pattern, infinitive)
-      break
-    }
+  if (
+    /\bsendWithTyping\b|\bcomposing\b.*\bpaused\b|simul\w*\s+(?:el\s+)?escrib/i.test(
+      cleaned,
+    )
+  ) {
+    return 'Implementar simulación de escritura'
   }
-  return phrase
+  if (/\bWebSocket\b.*\bBun\b|\bBun\b.*\bWebSocket\b/i.test(cleaned)) {
+    return 'Corregir compatibilidad WebSocket con Bun'
+  }
+  if (/\b(?:detiene|detener|cancelar)\b.*\bescaneo\b/i.test(cleaned)) {
+    return 'Permitir detener el escaneo activo'
+  }
+  if (
+    /\b(?:Baileys|@whiskeysockets\/baileys)\b/i.test(cleaned) &&
+    /\b(?:makeWASocket|requestPairingCode|WhatsApp)\b/i.test(cleaned)
+  ) {
+    return 'Implementar bot de WhatsApp con Baileys'
+  }
+
+  if (
+    /\bOpenCode\b/i.test(cleaned) &&
+    /(?:-free\b|modelos? gratuitos?|\/zen\/v1)/i.test(cleaned)
+  ) {
+    return 'Integrar modelos gratuitos de OpenCode'
+  }
+
+  const functionMatch = cleaned.match(
+    /^Función\s+([A-Za-z_$][\w$]*)\s*\(.*?\)\s*:/i,
+  )
+  if (functionMatch?.[1]) return `Implementar ${functionMatch[1]}`
+
+  const completedAction = cleaned.match(
+    /^(?:Se\s+)?(implementó|agregó|añadió|corrigió|solucionó|actualizó|eliminó|integró|habilitó|creó|refactorizó)\s+(.+)/i,
+  )
+  if (completedAction?.[1] && completedAction[2]) {
+    const verbs: Record<string, string> = {
+      implementó: 'Implementar',
+      agregó: 'Agregar',
+      añadió: 'Agregar',
+      corrigió: 'Corregir',
+      solucionó: 'Corregir',
+      actualizó: 'Actualizar',
+      eliminó: 'Eliminar',
+      integró: 'Integrar',
+      habilitó: 'Habilitar',
+      creó: 'Crear',
+      refactorizó: 'Refactorizar',
+    }
+    const verb = verbs[completedAction[1].toLocaleLowerCase('es')]
+    if (verb) return `${verb} ${completedAction[2]}`
+  }
+
+  return null
 }
 
-function requestTitle(
-  request: string,
-  forceInit: boolean,
+function fallbackTechnicalTitleFromPaths(changedPaths: string[]): string {
+  const sourcePaths = changedPaths
+    .filter((entry) => !contextPath(entry))
+    .map(normalizePath)
+  const lower = sourcePaths.join(' ').toLocaleLowerCase('es')
+
+  if (/\b(?:bot|commands?|handlers?|telegram|whatsapp|baileys)\b/.test(lower)) {
+    return 'Actualizar lógica del bot'
+  }
+  if (/\b(?:auth|login|oauth|credentials?)\b/.test(lower)) {
+    return 'Actualizar autenticación'
+  }
+  if (/\b(?:provider|providers|models?|catalog)\b/.test(lower)) {
+    return 'Actualizar proveedores y modelos'
+  }
+  if (/\b(?:config|settings?)\b/.test(lower)) {
+    return 'Actualizar configuración'
+  }
+  return fallbackTitleFromPaths(sourcePaths)
+}
+
+function technicalTitleFromEvidence(
+  runSummary: string,
   changedPaths: string[],
+  forceInit: boolean,
 ): string {
   if (forceInit) return 'Inicializar contexto del proyecto'
 
-  const normalized = compactWhitespace(request)
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/^\/?(?:contin[uú]a|sigue|procede|hazlo)\.?$/i, '')
-  if (!normalized) return fallbackTitleFromPaths(changedPaths)
+  const extracted = extractTechnicalSummary(runSummary)
+  const candidates = [
+    ...extracted.solutions,
+    ...extracted.decisions,
+    ...extracted.problems,
+    ...runSummary.split(/\r?\n/).filter((line) => /^\s*(?:[-+•]|\d+[.)])\s+/.test(line)),
+  ]
 
-  const withoutPreamble = normalized
-    .replace(/^(?:(?:ahora|adem[aá]s|también|de paso|primero|por favor)\s*[,;:]?\s*)+/i, '')
-    .replace(/^antes de (?:empezar|continuar)[,;:]?\s*/i, '')
-    .replace(/^hay un detalle(?:\s+y\s+es\s+que)?\s*/i, '')
-    .replace(/^el (?:detalle|problema)(?:\s+actual)?\s+es\s+que\s*/i, '')
-    .replace(/^(?:quiero|necesito|me gustar[ií]a|quisiera|puedes|podr[ií]as)\s+(?:que\s+)?/i, '')
-
-  const noCapability = withoutPreamble.match(
-    /^no (?:hay|existe) (?:una )?manera de\s+(.+?)(?=\s*[,;.]|\s+(?:me gustar[ií]a|quiero|necesito|adem[aá]s|también)\b|$)/i,
-  )
-  const statedIssue = withoutPreamble.match(
-    /^(?:hay|existe) (?:un|una) (?:bug|error|fallo|problema)(?:\s+(?:donde|que|en))?\s+(.+)/i,
-  )
-  const inlineAction =
-    noCapability || statedIssue ? null : findInlineAction(withoutPreamble)
-  let candidate = noCapability
-    ? `Permitir ${noCapability[1]}`
-    : statedIssue
-      ? `Corregir fallo donde ${statedIssue[1]}`
-      : inlineAction ??
-        withoutPreamble.split(/(?<=[.!?;])\s+|\s*,\s*(?=(?:adem[aá]s|también|me gustar[ií]a|quiero|necesito)\b)/i)[0]
-
-  candidate = normalizeTechnicalPhrase(candidate)
-  if (/^Corregir (?:este|el|un) (?:error|bug|fallo|problema)$/i.test(candidate)) {
-    const detail = withoutPreamble.split(/[,;:]/).slice(1).join(' ').trim()
-    if (detail) candidate = `Corregir error cuando ${detail}`
-  }
-  if (!ACTION_VERBS.some(([pattern]) => pattern.test(candidate))) {
-    if (/\b(?:bug|error|fallo|problema)\b/i.test(candidate)) {
-      candidate = `Corregir ${candidate.replace(/^(?:un|una|el|la)?\s*(?:bug|error|fallo|problema)\s*(?:donde|que|en)?\s*/i, '')}`
-    } else if (!/^Permitir\b/i.test(candidate)) {
-      candidate = `Actualizar ${candidate}`
+  for (const candidate of candidates) {
+    const title = actionTitleFromTechnicalLine(candidate)
+    if (title) {
+      return truncateAtWord(title, MAX_TITLE_LENGTH)
     }
   }
 
-  candidate = normalizeTechnicalPhrase(candidate)
-  if (candidate.length < 8 || /^Actualizar\s+(?:esto|eso|cambio|detalle)$/i.test(candidate)) {
-    candidate = fallbackTitleFromPaths(changedPaths)
-  }
   return truncateAtWord(
-    candidate.charAt(0).toUpperCase() + candidate.slice(1),
+    fallbackTechnicalTitleFromPaths(changedPaths),
     MAX_TITLE_LENGTH,
   )
+}
+
+const LOW_QUALITY_AUTO_TITLE_PATTERNS = [
+  /^Actualizar implementación del proyecto$/i,
+  /^Corregir (?:este|el|un) (?:error|problema|fallo)$/i,
+  /\b(?:ya funciona|puedes|quiero|necesito|solicitud)\b/i,
+  /\bprompt\b.*\b(?:sistema|usuario|solicitud)\b/i,
+]
+
+function extractRecordChangedPaths(content: string): string[] {
+  const match = content.match(
+    /# Archivos importantes modificados\s*\n+([\s\S]*?)(?=\n# |$)/i,
+  )
+  if (!match?.[1]) return []
+  return uniqueItems(
+    match[1]
+      .split(/\r?\n/)
+      .filter((line) => /^\s*[-+•]\s+/.test(line))
+      .map((line) => stripMarkdown(line)),
+  )
+}
+
+function replaceRecordTitle(
+  content: string,
+  number: number,
+  title: string,
+): string {
+  const heading = new RegExp(`^#\\s+${String(number).padStart(3, '0')}\\s+[—-]\\s+.*$`, 'm')
+  let next = content.replace(
+    heading,
+    `# ${String(number).padStart(3, '0')} — ${title}`,
+  )
+  next = next.replace(
+    /(# Objetivo\s*\n+)[\s\S]*?(?=\n# |$)/i,
+    `$1${objectiveFromTitle(title)}\n`,
+  )
+  return next
+}
+
+async function repairAutoGeneratedContextRecords(params: {
+  projectRoot: string
+  contextDir: string
+  onBeforeWrite?: (relativePath: string) => Promise<void>
+  onAfterWrite?: (relativePath: string) => Promise<void>
+}): Promise<string[]> {
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(params.contextDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const changed: string[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^\d+[-_].*\.md$/i.test(entry.name)) continue
+
+    const numberMatch = entry.name.match(/^(\d+)[-_]/)
+    const number = Number.parseInt(numberMatch?.[1] ?? '', 10)
+    if (!Number.isFinite(number) || number === 0) continue
+
+    const oldFullPath = path.join(params.contextDir, entry.name)
+    let content: string
+    try {
+      content = stripUtf8Bom(fs.readFileSync(oldFullPath, 'utf8'))
+    } catch {
+      continue
+    }
+    if (!content.includes(AUTO_RECORD_MARKER)) continue
+
+    const titleMatch = content.match(
+      new RegExp(`^#\\s+${String(number).padStart(3, '0')}\\s+[—-]\\s+(.+)$`, 'm'),
+    )
+    const currentTitle = compactWhitespace(titleMatch?.[1] ?? '')
+    if (
+      !currentTitle ||
+      !LOW_QUALITY_AUTO_TITLE_PATTERNS.some((pattern) =>
+        pattern.test(currentTitle),
+      )
+    ) {
+      continue
+    }
+
+    const changedPaths = extractRecordChangedPaths(content)
+    const repairedTitle = technicalTitleFromEvidence(
+      content,
+      changedPaths,
+      false,
+    )
+    if (
+      repairedTitle === currentTitle ||
+      /^Actualizar (?:implementación del proyecto|lógica del bot)$/i.test(
+        repairedTitle,
+      )
+    ) {
+      continue
+    }
+
+    const prefix = String(number).padStart(3, '0')
+    const newName = `${prefix}-${slugify(repairedTitle)}.md`
+    const newFullPath = path.join(params.contextDir, newName)
+    if (newFullPath !== oldFullPath && fs.existsSync(newFullPath)) continue
+
+    const oldRelativePath = normalizePath(
+      path.relative(params.projectRoot, oldFullPath),
+    )
+    const newRelativePath = normalizePath(
+      path.relative(params.projectRoot, newFullPath),
+    )
+    await params.onBeforeWrite?.(oldRelativePath)
+    if (newRelativePath !== oldRelativePath) {
+      await params.onBeforeWrite?.(newRelativePath)
+    }
+
+    writeContextMarkdown(
+      newFullPath,
+      replaceRecordTitle(content, number, repairedTitle),
+    )
+    if (newFullPath !== oldFullPath) fs.unlinkSync(oldFullPath)
+
+    await params.onAfterWrite?.(oldRelativePath)
+    if (newRelativePath !== oldRelativePath) {
+      await params.onAfterWrite?.(newRelativePath)
+    }
+    changed.push(oldRelativePath, newRelativePath)
+  }
+  return [...new Set(changed)]
 }
 
 function objectiveFromTitle(title: string): string {
@@ -514,12 +691,15 @@ function projectInventory(projectRoot: string): string {
 }
 
 function localRecord(params: {
-  request: string
   changedPaths: string[]
   runSummary: string
   forceInit: boolean
 }): NormalizedContextRecord {
-  const title = requestTitle(params.request, params.forceInit, params.changedPaths)
+  const title = technicalTitleFromEvidence(
+    params.runSummary,
+    params.changedPaths,
+    params.forceInit,
+  )
   const extracted = extractTechnicalSummary(params.runSummary)
   const solutions =
     extracted.solutions.length > 0
@@ -547,16 +727,21 @@ function localRecord(params: {
 function normalizeOutput(
   output: ContextWriterOutput,
   params: {
-    request: string
     changedPaths: string[]
     runSummary: string
     forceInit: boolean
   },
   fallback: NormalizedContextRecord,
 ): NormalizedContextRecord {
-  // The local title is intentionally authoritative. It is deterministic,
-  // bounded and cannot become a copy of a long conversational request.
-  const title = requestTitle(params.request, params.forceInit, params.changedPaths)
+  const fallbackTitle = technicalTitleFromEvidence(
+    params.runSummary,
+    params.changedPaths,
+    params.forceInit,
+  )
+  const title = truncateAtWord(
+    safeString(output.title, fallbackTitle),
+    MAX_TITLE_LENGTH,
+  )
   const normalizedSolutions = toStringArray(output.solutions)
   return {
     title,
@@ -581,16 +766,17 @@ function normalizeOutput(
 async function generateRecord(params: {
   client: CodebuffClient
   projectRoot: string
-  request: string
   changedPaths: string[]
   runSummary: string
   forceInit: boolean
 }): Promise<{ record: NormalizedContextRecord; usedFallback: boolean }> {
   const deterministicRecord = localRecord(params)
 
-  // Normal implementation records are built locally from the request, changed
-  // paths and concise technical bullets. This avoids an extra model call after
-  // every turn and guarantees a useful fallback even when the provider is down.
+  // Normal implementation records are built only from changed paths and concise
+  // technical evidence. The original request is intentionally excluded so it
+  // can never leak into titles, filenames or objectives. This also avoids a
+  // model call after every turn and guarantees a useful fallback when the
+  // provider is unavailable.
   if (!params.forceInit) {
     return { record: deterministicRecord, usedFallback: false }
   }
@@ -668,7 +854,7 @@ async function writeMasterContext(params: {
   const section = autoMasterSection(params)
   let next: string
   try {
-    const current = fs.readFileSync(target, 'utf8')
+    const current = stripUtf8Bom(fs.readFileSync(target, 'utf8'))
     const pattern = new RegExp(
       `${AUTO_SECTION_START.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${AUTO_SECTION_END.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
     )
@@ -687,7 +873,7 @@ async function writeMasterContext(params: {
   const relativePath = 'contexto/000-contexto-maestro.md'
   await params.onBeforeWrite?.(relativePath)
   fs.mkdirSync(params.contextDir, { recursive: true })
-  fs.writeFileSync(target, next)
+  writeContextMarkdown(target, next)
   await params.onAfterWrite?.(relativePath)
   return { relativePath, changed: true }
 }
@@ -695,7 +881,6 @@ async function writeMasterContext(params: {
 export async function maintainProjectContext(params: {
   projectRoot: string
   client: CodebuffClient
-  request: string
   changedPaths: Iterable<string>
   runState: RunState
   forceInit?: boolean
@@ -722,13 +907,24 @@ export async function maintainProjectContext(params: {
 
   const contextDir = path.join(path.resolve(params.projectRoot), 'contexto')
   fs.mkdirSync(contextDir, { recursive: true })
+  const repairedContextPaths = await repairAutoGeneratedContextRecords({
+    projectRoot: params.projectRoot,
+    contextDir,
+    onBeforeWrite: params.onBeforeWrite,
+    onAfterWrite: params.onAfterWrite,
+  })
+  const encodingNormalizedPaths = await normalizeExistingContextEncoding({
+    projectRoot: params.projectRoot,
+    contextDir,
+    onBeforeWrite: params.onBeforeWrite,
+    onAfterWrite: params.onAfterWrite,
+  })
   const runSummary = summarizeRunState(params.runState)
   const documentedPaths =
     nonContextPaths.length > 0 ? nonContextPaths : existingContextPaths
   const { record, usedFallback } = await generateRecord({
     client: params.client,
     projectRoot: params.projectRoot,
-    request: params.request,
     changedPaths: documentedPaths,
     runSummary,
     forceInit,
@@ -742,7 +938,7 @@ export async function maintainProjectContext(params: {
     const fileName = `${String(nextNumber).padStart(3, '0')}-${slugify(record.title)}.md`
     recordPath = `contexto/${fileName}`
     await params.onBeforeWrite?.(recordPath)
-    fs.writeFileSync(
+    writeContextMarkdown(
       path.join(params.projectRoot, recordPath),
       renderRecord({
         number: nextNumber,
@@ -771,6 +967,8 @@ export async function maintainProjectContext(params: {
     paths: [
       ...new Set([
         ...existingContextPaths,
+        ...repairedContextPaths,
+        ...encodingNormalizedPaths,
         ...(recordPath ? [recordPath] : []),
         ...(master.changed ? [master.relativePath] : []),
       ]),
@@ -792,7 +990,7 @@ export async function ensureInitialProjectContext(params: {
   if (fs.existsSync(masterPath)) return []
   const placeholder = `# 000 — Contexto maestro del proyecto\n\n# Fecha\n\n${new Date().toISOString().slice(0, 10)}\n\n# Objetivo\n\nInicializar la memoria persistente del proyecto. El comando /init debe completar este documento después de analizar la estructura, documentación, dependencias y código relevante.\n\n# Decisiones tomadas\n\n- Usar contexto/ como memoria técnica persistente.\n\n# Arquitectura actual\n\n- Pendiente de análisis por /init.\n\n# Librerías usadas\n\n- Pendiente de análisis por /init.\n\n# Archivos importantes modificados\n\n- contexto/000-contexto-maestro.md\n\n# Problemas encontrados\n\n- Pendiente de análisis por /init.\n\n# Soluciones implementadas\n\n- Se creó la estructura inicial de contexto/.\n\n# Pendientes\n\n- Completar el análisis del proyecto.\n\n# Próximos pasos\n\n- Ejecutar el flujo de inicialización y crear el primer registro numerado.\n`
   await params.onBeforeWrite?.(relativePath)
-  fs.writeFileSync(masterPath, placeholder)
+  writeContextMarkdown(masterPath, placeholder)
   await params.onAfterWrite?.(relativePath)
   invalidateProjectContextCache(params.projectRoot)
   return [relativePath]

@@ -74,4 +74,6 @@ export type AgentRuntimeScopedDeps = {
 
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  /** Per-run maximum duration for research subagents. */
+  researchTimeoutMs?: number
 }

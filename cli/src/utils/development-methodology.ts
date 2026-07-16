@@ -54,6 +54,17 @@ Cuando el archivo virtual de resumen indique que la integración está activa:
 - Los comandos terminales ya se ejecutan en la raíz activa del proyecto con sintaxis Bash. No antepongas cd a la misma ruta, usa rutas relativas y no pegues rutas Windows C:\\... directamente en Bash.
 `.trim()
 
+
+export const PROJECT_CONTEXT_RUNTIME_INSTRUCTION = `<codewolf_project_context_rules>
+El contexto persistente del proyecto está ACTIVADO y estas reglas son obligatorias en este turno:
+- Antes de cambiar arquitectura, dependencias, contratos o comportamiento importante, consulta el resumen virtual .codewolf/contexto-resumen.md y abre los documentos fuente de contexto/ que correspondan.
+- Trata las reglas y restricciones vigentes de contexto/ como requisitos del proyecto, salvo que el código actual demuestre que están obsoletas; en ese caso informa y corrige el registro más reciente.
+- Después de un cambio importante conserva solo hechos técnicos confirmados: objetivo técnico, archivos modificados, decisiones, problemas, soluciones, pruebas reales y pendientes reales.
+- Nunca copies la solicitud del usuario, la respuesta del agente, razonamientos, texto conversacional ni fragmentos truncados como título, nombre de archivo u objetivo de contexto/.
+- Los nombres deben describir el cambio técnico completado, con un título corto en español; los Markdown deben guardarse como UTF-8.
+- No guardes secretos ni datos personales.
+</codewolf_project_context_rules>`.trim()
+
 export const CONTEXT_FILE_TEMPLATE = `# <número> — <título técnico breve>
 
 # Fecha

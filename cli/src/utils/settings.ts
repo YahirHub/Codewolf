@@ -7,10 +7,15 @@ import { logger } from './logger'
 
 import type { AgentMode } from './constants'
 
+export const DEFAULT_RESEARCH_TIMEOUT_MINUTES = 15
+export const MIN_RESEARCH_TIMEOUT_MINUTES = 1
+export const MAX_RESEARCH_TIMEOUT_MINUTES = 120
+
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   projectContextEnabled: false,
   verifiedCommitsEnabled: false,
+  researchTimeoutMinutes: DEFAULT_RESEARCH_TIMEOUT_MINUTES,
 }
 
 // Note: The old FREE mode has been renamed back to LITE; migrate on load.
@@ -28,6 +33,8 @@ export interface Settings {
   projectContextEnabled?: boolean
   /** Ask the user to verify structured edits before creating a Git commit. */
   verifiedCommitsEnabled?: boolean
+  /** Maximum wall-clock time for web/documentation research subagents. */
+  researchTimeoutMinutes?: number
   /** Last first-run onboarding version completed by this installation. */
   onboardingVersion?: number
 }
@@ -117,6 +124,19 @@ const validateSettings = (parsed: unknown): Settings => {
   }
 
   if (
+    typeof obj.researchTimeoutMinutes === 'number' &&
+    Number.isFinite(obj.researchTimeoutMinutes)
+  ) {
+    settings.researchTimeoutMinutes = Math.max(
+      MIN_RESEARCH_TIMEOUT_MINUTES,
+      Math.min(
+        MAX_RESEARCH_TIMEOUT_MINUTES,
+        Math.round(obj.researchTimeoutMinutes),
+      ),
+    )
+  }
+
+  if (
     typeof obj.onboardingVersion === 'number' &&
     Number.isInteger(obj.onboardingVersion) &&
     obj.onboardingVersion >= 1
@@ -183,4 +203,15 @@ export const isVerifiedCommitsEnabled = (): boolean =>
 
 export const setVerifiedCommitsEnabled = (enabled: boolean): void => {
   saveSettings({ verifiedCommitsEnabled: enabled })
+}
+
+export const getResearchTimeoutMinutes = (): number =>
+  loadSettings().researchTimeoutMinutes ?? DEFAULT_RESEARCH_TIMEOUT_MINUTES
+
+export const setResearchTimeoutMinutes = (minutes: number): void => {
+  const normalized = Math.max(
+    MIN_RESEARCH_TIMEOUT_MINUTES,
+    Math.min(MAX_RESEARCH_TIMEOUT_MINUTES, Math.round(minutes)),
+  )
+  saveSettings({ researchTimeoutMinutes: normalized })
 }

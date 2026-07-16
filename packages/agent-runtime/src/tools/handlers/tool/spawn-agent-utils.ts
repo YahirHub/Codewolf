@@ -95,6 +95,7 @@ export function extractSubagentContextParams(
     sendSubagentChunk: params.sendSubagentChunk,
     apiKey: params.apiKey,
     customProvider: params.customProvider,
+    researchTimeoutMs: params.researchTimeoutMs,
 
     // Core context params
     clientSessionId: params.clientSessionId,
@@ -335,28 +336,49 @@ export function logAgentSpawn(params: {
   )
 }
 
-const RESEARCHER_WEB_TIMEOUT_MS = 120_000
-const ECOSYSTEM_RESEARCHER_TIMEOUT_MS = 180_000
+const DEFAULT_RESEARCH_TIMEOUT_MS = 15 * 60_000
+const MIN_RESEARCH_TIMEOUT_MS = 60_000
+const MAX_RESEARCH_TIMEOUT_MS = 120 * 60_000
 const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60_000
+
+const RESEARCH_AGENT_IDS = new Set([
+  'ecosystem-researcher',
+  'researcher-docs',
+  'researcher-web',
+])
 
 export class SubagentTimeoutError extends Error {
   constructor(
     public readonly agentType: string,
     public readonly timeoutMs: number,
   ) {
-    super(
-      `Subagent ${agentType} exceeded the ${Math.round(timeoutMs / 1000)} second execution limit.`,
-    )
+    const minutes = timeoutMs / 60_000
+    const duration = Number.isInteger(minutes)
+      ? `${minutes} minute${minutes === 1 ? '' : 's'}`
+      : `${Math.round(timeoutMs / 1000)} seconds`
+    super(`Subagent ${agentType} exceeded the configured ${duration} execution limit.`)
     this.name = 'SubagentTimeoutError'
   }
 }
 
-export function getSubagentTimeoutMs(agentTemplate: AgentTemplate): number {
-  if (agentTemplate.id === 'researcher-web') return RESEARCHER_WEB_TIMEOUT_MS
-  if (agentTemplate.id === 'ecosystem-researcher') {
-    return ECOSYSTEM_RESEARCHER_TIMEOUT_MS
+export function getSubagentTimeoutMs(
+  agentTemplate: AgentTemplate,
+  configuredResearchTimeoutMs?: number,
+): number {
+  if (!RESEARCH_AGENT_IDS.has(agentTemplate.id)) {
+    return DEFAULT_SUBAGENT_TIMEOUT_MS
   }
-  return DEFAULT_SUBAGENT_TIMEOUT_MS
+
+  if (!Number.isFinite(configuredResearchTimeoutMs)) {
+    return DEFAULT_RESEARCH_TIMEOUT_MS
+  }
+  return Math.max(
+    MIN_RESEARCH_TIMEOUT_MS,
+    Math.min(
+      MAX_RESEARCH_TIMEOUT_MS,
+      Math.round(configuredResearchTimeoutMs as number),
+    ),
+  )
 }
 
 /**
@@ -420,7 +442,10 @@ export async function executeSubagent(
     parentSignal.addEventListener('abort', abortFromParent, { once: true })
   }
 
-  const timeoutMs = getSubagentTimeoutMs(agentTemplate)
+  const timeoutMs = getSubagentTimeoutMs(
+    agentTemplate,
+    withDefaults.researchTimeoutMs,
+  )
   let acceptLateChunks = true
   let timeoutId: ReturnType<typeof setTimeout> | undefined
 
