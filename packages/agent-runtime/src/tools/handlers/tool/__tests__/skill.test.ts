@@ -7,8 +7,13 @@ import { handleSkill } from '../skill'
 
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-function writeSkill(projectRoot: string, name: string, description: string) {
-  const skillDir = path.join(projectRoot, '.claude', 'skills', name)
+function writeSkill(
+  projectRoot: string,
+  name: string,
+  description: string,
+  root = '.claude',
+) {
+  const skillDir = path.join(projectRoot, root, 'skills', name)
   fs.mkdirSync(skillDir, { recursive: true })
   fs.writeFileSync(
     path.join(skillDir, 'SKILL.md'),
@@ -44,6 +49,20 @@ describe('handleSkill', () => {
     expect(value.name).toBe('demo')
     expect(value.description).toBe('installed at runtime')
     expect(value.content).toContain('body for installed at runtime')
+  })
+
+  it('loads project-local skills from .codewolf/skills', async () => {
+    writeSkill(projectRoot, 'project-demo', 'project local skill', '.codewolf')
+
+    const { output } = await callSkill('project-demo', {
+      projectRoot,
+      skills: {},
+    })
+    const value = (output as any)[0].value
+
+    expect(value.name).toBe('project-demo')
+    expect(value.description).toBe('project local skill')
+    expect(value.content).toContain('body for project local skill')
   })
 
   it('prefers the on-disk copy over a stale pre-loaded cache', async () => {

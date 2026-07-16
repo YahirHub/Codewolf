@@ -51,6 +51,7 @@ export type AgentContentBlock = {
   agentId: string
   agentName: string
   agentType: string
+  modelId?: string
   content: string
   status: 'running' | 'complete' | 'failed' | 'cancelled'
   blocks?: ContentBlock[]

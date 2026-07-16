@@ -23,12 +23,15 @@ async function loadSkillFromDisk(
 ): Promise<SkillDefinition | null> {
   const home = os.homedir()
   const skillsDirs = [
-    // Global directories first
-    path.join(home, '.agents', SKILLS_DIR_NAME),
-    path.join(home, '.claude', SKILLS_DIR_NAME),
-    // Project directories (later takes precedence for overwriting)
+    // Project-local Codewolf skills have the highest priority.
+    path.join(projectRoot, '.codewolf', SKILLS_DIR_NAME),
+    // Legacy project locations remain supported.
     path.join(projectRoot, '.agents', SKILLS_DIR_NAME),
     path.join(projectRoot, '.claude', SKILLS_DIR_NAME),
+    // Global Codewolf and legacy locations are fallbacks.
+    path.join(home, '.codewolf', SKILLS_DIR_NAME),
+    path.join(home, '.agents', SKILLS_DIR_NAME),
+    path.join(home, '.claude', SKILLS_DIR_NAME),
   ]
 
   for (const skillsDir of skillsDirs) {

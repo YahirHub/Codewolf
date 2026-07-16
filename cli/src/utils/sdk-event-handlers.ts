@@ -210,6 +210,7 @@ const handleSubagentStart = (
         parentAgentId: event.parentAgentId,
         params: event.params,
         prompt: event.prompt,
+        modelId: event.modelId,
       }),
     )
 
@@ -254,6 +255,7 @@ const handleSubagentStart = (
           parentAgentId: event.parentAgentId,
           params: event.params,
           prompt: event.prompt,
+          modelId: event.modelId,
         }),
       )
 
@@ -308,6 +310,7 @@ const handleSubagentStart = (
       prompt: event.prompt,
       params: event.params,
       parentAgentType,
+      modelId: event.modelId,
     })
 
     if (event.parentAgentId) {

@@ -27,6 +27,7 @@ interface SubagentStartEvent {
   agentId: string
   agentType: string
   displayName: string
+  modelId?: string
   onlyChild: boolean
   parentAgentId: string | undefined
   params: Record<string, unknown> | undefined
@@ -207,6 +208,7 @@ describe('sdk-event-handlers', () => {
       agentId: 'agent-real',
       agentType: 'codebuff/file-picker@1.0.0',
       displayName: 'Agent',
+      modelId: 'deepseek-ai/deepseek-v4-pro',
       onlyChild: false,
       parentAgentId: undefined,
       params: undefined,
@@ -216,6 +218,7 @@ describe('sdk-event-handlers', () => {
 
     const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
     expect(agentBlock.agentId).toBe('agent-real')
+    expect(agentBlock.modelId).toBe('deepseek-ai/deepseek-v4-pro')
     expect(getStreamingAgents().has('agent-real')).toBe(true)
     expect(getStreamingAgents().has('tool-1-0')).toBe(false)
   })

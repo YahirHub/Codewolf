@@ -1,3 +1,7 @@
+import {
+  getEcosystemResearchCacheDir,
+  getProjectEcosystemResearchCacheDir,
+} from '@codebuff/common/ecosystem-research/cache'
 import { runEcosystemLookup } from '@codebuff/common/ecosystem-research/lookup'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
@@ -14,16 +18,29 @@ export const handleEcosystemResearch = (async (params: {
   fetch: typeof globalThis.fetch
   signal?: AbortSignal
   logger: Logger
+  fileContext: { projectRoot: string }
 }): Promise<{
   output: CodebuffToolOutput<'ecosystem_research'>
   creditsUsed: number
 }> => {
-  const { previousToolCallFinished, toolCall, fetch, signal, logger } = params
+  const {
+    previousToolCallFinished,
+    toolCall,
+    fetch,
+    signal,
+    logger,
+    fileContext,
+  } = params
 
   await previousToolCallFinished
 
   try {
-    const result = await runEcosystemLookup(toolCall.input, { fetch, signal })
+    const result = await runEcosystemLookup(toolCall.input, {
+      fetch,
+      signal,
+      cacheDir: getProjectEcosystemResearchCacheDir(fileContext.projectRoot),
+      fallbackCacheDirs: [getEcosystemResearchCacheDir()],
+    })
     logger.info(
       {
         ecosystem: result.ecosystem,

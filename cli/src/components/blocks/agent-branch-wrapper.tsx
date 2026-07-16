@@ -459,6 +459,10 @@ export const AgentBranchWrapper = memo(
       onToggleCollapsed(agentBlock.agentId)
     }, [onToggleCollapsed, agentBlock.agentId])
 
+    const modelLabel = agentBlock.modelId
+      ? agentBlock.modelId.split('/').filter(Boolean).at(-1)
+      : undefined
+
     return (
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
@@ -472,6 +476,7 @@ export const AgentBranchWrapper = memo(
           statusColor={statusColor}
           statusIndicator={statusIndicator}
           onToggle={onToggle}
+          titleSuffix={modelLabel ? `· ${modelLabel}` : undefined}
         >
           <AgentBody
             agentBlock={agentBlock}

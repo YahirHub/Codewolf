@@ -1,5 +1,12 @@
+import { createHash } from 'crypto'
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync } from 'fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'fs'
 import { tmpdir } from 'os'
 import path from 'path'
 
@@ -7,6 +14,20 @@ import { runEcosystemLookup } from '../lookup'
 
 function createCacheDir(): string {
   return mkdtempSync(path.join(tmpdir(), 'codewolf-ecosystem-research-'))
+}
+
+
+function listFiles(directory: string): string[] {
+  const files: string[] = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const filePath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...listFiles(filePath))
+    } else if (entry.isFile()) {
+      files.push(filePath)
+    }
+  }
+  return files
 }
 
 function jsonResponse(value: unknown, status = 200): Response {
@@ -106,6 +127,57 @@ describe('npm ecosystem lookup', () => {
     }
   })
 
+  test('stores project research with readable language, registry, package and version paths', async () => {
+    const cacheDir = createCacheDir()
+    const fetchMock = (async () =>
+      jsonResponse({
+        name: '@whiskeysockets/baileys',
+        'dist-tags': { latest: '7.0.0-rc13' },
+        versions: {
+          '7.0.0-rc13': {
+            name: '@whiskeysockets/baileys',
+            version: '7.0.0-rc13',
+            license: 'MIT',
+          },
+        },
+      })) as unknown as typeof globalThis.fetch
+
+    try {
+      await runEcosystemLookup(
+        {
+          ecosystem: 'npm',
+          operation: 'package',
+          package: '@whiskeysockets/baileys',
+        },
+        { fetch: fetchMock, cacheDir },
+      )
+
+      const files = listFiles(cacheDir)
+      const normalized = files.map((file) => file.split(path.sep).join('/'))
+      const markdownPath = files.find((file) => file.endsWith('.md'))
+
+      expect(normalized.some((file) =>
+        file.includes(
+          '/nodejs/npm/@whiskeysockets/baileys/latest/package--7.0.0-rc13.json',
+        ),
+      )).toBe(true)
+      expect(normalized.some((file) =>
+        file.includes(
+          '/nodejs/npm/@whiskeysockets/baileys/latest/package--7.0.0-rc13.md',
+        ),
+      )).toBe(true)
+      expect(markdownPath).toBeDefined()
+      expect(readFileSync(markdownPath!, 'utf8')).toContain(
+        '# nodejs · npm · @whiskeysockets/baileys',
+      )
+      expect(readFileSync(markdownPath!, 'utf8')).toContain(
+        '**Versión:** 7.0.0-rc13',
+      )
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true })
+    }
+  })
+
   test('distinguishes npm latest prereleases from the newest stable version', async () => {
     const cacheDir = createCacheDir()
     const fetchMock = (async () =>
@@ -189,6 +261,78 @@ describe('npm ecosystem lookup', () => {
       expect(fetchCount).toBe(1)
     } finally {
       rmSync(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  test('migrates an old hashed global entry into the readable project cache', async () => {
+    const projectCacheDir = createCacheDir()
+    const legacyCacheDir = createCacheDir()
+    const now = new Date('2026-07-16T00:00:00.000Z')
+    const key = JSON.stringify({
+      ecosystem: 'npm',
+      operation: 'package',
+      package: 'example-package',
+      limit: 5,
+    })
+    const legacyPath = path.join(
+      legacyCacheDir,
+      `${createHash('sha256').update(key).digest('hex')}.json`,
+    )
+    writeFileSync(
+      legacyPath,
+      JSON.stringify({
+        version: 1,
+        key,
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+        value: {
+          ecosystem: 'npm',
+          operation: 'package',
+          sourceUrl: 'https://registry.npmjs.org/example-package',
+          fetchedAt: now.toISOString(),
+          data: {
+            name: 'example-package',
+            selectedVersion: '2.1.0',
+          },
+        },
+      }),
+    )
+    let fetchCount = 0
+    const fetchMock = (async () => {
+      fetchCount += 1
+      throw new Error('network should not be used')
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const result = await runEcosystemLookup(
+        {
+          ecosystem: 'npm',
+          operation: 'package',
+          package: 'example-package',
+        },
+        {
+          fetch: fetchMock,
+          cacheDir: projectCacheDir,
+          fallbackCacheDirs: [legacyCacheDir],
+          now,
+        },
+      )
+
+      expect(result.cached).toBe(true)
+      expect(fetchCount).toBe(0)
+      expect(listFiles(legacyCacheDir)).toEqual([])
+      expect(
+        listFiles(projectCacheDir)
+          .map((file) => file.split(path.sep).join('/'))
+          .some((file) =>
+            file.includes(
+              '/nodejs/npm/example-package/latest/package--2.1.0.md',
+            ),
+          ),
+      ).toBe(true)
+    } finally {
+      rmSync(projectCacheDir, { recursive: true, force: true })
+      rmSync(legacyCacheDir, { recursive: true, force: true })
     }
   })
 

@@ -21,7 +21,8 @@
     "build:binary": "bun run --cwd ./cli build:binary",
     "build:sdk": "cd sdk && bun run build",
     "buffbench": "bun --cwd evals run-buffbench",
-    "ci": "bun run build:sdk && bun run build:binary"
+    "ci": "bun run build:sdk && bun run build:binary",
+    "tests": "go run ./scripts/test-all.go"
   },
   "dependencies": {
     "canvas": "^3.2.0",

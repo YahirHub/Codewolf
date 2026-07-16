@@ -158,7 +158,7 @@ Version accuracy:
 
 Token discipline:
 - Never return a complete README, package manifest, search page, or documentation page.
-- Use ecosystem_research first for exact metadata and versions.
+- Use ecosystem_research first for exact metadata and versions. It checks the project-local .codewolf/research-cache/ecosystems cache before any network request and stores reusable JSON plus model-friendly Markdown under language/package-manager/package/version folders.
 - Keep extracted examples short and describe APIs instead of copying large code blocks.
 - Do not include general background unrelated to the requested implementation.
 - Do not guess signatures, exports, requirements, or behavior.

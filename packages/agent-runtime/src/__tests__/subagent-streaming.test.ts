@@ -48,7 +48,7 @@ describe('Subagent Streaming', () => {
       } as unknown as AgentTemplate['inputSchema']['prompt'],
       },
       spawnerPrompt: '',
-      model: '',
+      model: 'anthropic/claude-opus-4.8',
       includeMessageHistory: true,
       inheritParentSystemPrompt: false,
       toolNames: [],
@@ -164,13 +164,19 @@ describe('Subagent Streaming', () => {
     // First call is subagent_start
     expect(mockWriteToClient).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ type: 'subagent_start' }),
+      expect.objectContaining({
+        type: 'subagent_start',
+        modelId: 'anthropic/claude-opus-4.8',
+      }),
     )
 
     // Second call is subagent_finish
     expect(mockWriteToClient).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ type: 'subagent_finish' }),
+      expect.objectContaining({
+        type: 'subagent_finish',
+        modelId: 'anthropic/claude-opus-4.8',
+      }),
     )
     return
   })

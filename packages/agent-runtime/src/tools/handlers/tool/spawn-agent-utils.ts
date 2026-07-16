@@ -475,11 +475,24 @@ export async function executeSubagent(
     spawnParams,
   } = withDefaults
 
+  const providerContext = resolveSubagentProviderContext({
+    agentId: agentTemplate.id,
+    apiKey: withDefaults.apiKey,
+    customProvider: withDefaults.customProvider,
+    opusProvider: withDefaults.opusProvider,
+    codeReviewerProvider: withDefaults.codeReviewerProvider,
+    researchProviders: withDefaults.researchProviders,
+    agentModel: agentTemplate.model,
+  })
+  const selectedModelId =
+    providerContext.customProvider?.modelId ?? agentTemplate.model
+
   const startEvent = {
     type: 'subagent_start' as const,
     agentId: withDefaults.agentState.agentId,
     agentType: agentTemplate.id,
     displayName: agentTemplate.displayName,
+    modelId: selectedModelId,
     onlyChild: isOnlyChild,
     parentAgentId: parentAgentState.agentId,
     prompt,
@@ -521,15 +534,7 @@ export async function executeSubagent(
       apiKey: childApiKey,
       customProvider: childCustomProvider,
       usesDedicatedProvider,
-    } = resolveSubagentProviderContext({
-      agentId: agentTemplate.id,
-      apiKey: withDefaults.apiKey,
-      customProvider: withDefaults.customProvider,
-      opusProvider: withDefaults.opusProvider,
-      codeReviewerProvider: withDefaults.codeReviewerProvider,
-      researchProviders: withDefaults.researchProviders,
-      agentModel: agentTemplate.model,
-    })
+    } = providerContext
 
     const runPromise = loopAgentSteps({
       ...withDefaults,
@@ -585,6 +590,7 @@ export async function executeSubagent(
       agentId: withDefaults.agentState.agentId,
       agentType: agentTemplate.id,
       displayName: agentTemplate.displayName,
+      modelId: selectedModelId,
       onlyChild: isOnlyChild,
       parentAgentId: parentAgentState.agentId,
       prompt,

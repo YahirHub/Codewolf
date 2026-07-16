@@ -1,4 +1,6 @@
 import { loadSkills as sdkLoadSkills } from '@codebuff/sdk'
+import fs from 'fs'
+import path from 'path'
 
 import { getProjectRoot } from '../project-files'
 import { logger } from './logger'
@@ -23,6 +25,31 @@ export async function initializeSkillRegistry(): Promise<void> {
   const cwd = getProjectRoot() || process.cwd()
 
   try {
+    // Keep a predictable project-local import location available. Users can
+    // copy any skill directory containing SKILL.md into .codewolf/skills.
+    const projectCodewolfDir = path.join(cwd, '.codewolf')
+    fs.mkdirSync(path.join(projectCodewolfDir, 'skills'), { recursive: true })
+
+    // Research data is reproducible local cache, while project skills may be
+    // intentionally versioned. Keep only the cache out of Git by default.
+    const projectIgnorePath = path.join(projectCodewolfDir, '.gitignore')
+    const ignoreEntry = 'research-cache/'
+    const currentIgnore = fs.existsSync(projectIgnorePath)
+      ? fs.readFileSync(projectIgnorePath, 'utf8')
+      : ''
+    if (
+      !currentIgnore
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .includes(ignoreEntry)
+    ) {
+      const prefix = currentIgnore && !currentIgnore.endsWith('\n') ? '\n' : ''
+      fs.writeFileSync(
+        projectIgnorePath,
+        `${currentIgnore}${prefix}${ignoreEntry}\n`,
+      )
+    }
+
     // Load skills from global and project .codewolf/skills directories
     // The SDK handles merging, with project skills overriding global ones
     skillsCache = await sdkLoadSkills({

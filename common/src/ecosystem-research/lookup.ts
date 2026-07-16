@@ -1,4 +1,8 @@
-import { loadEcosystemCache, saveEcosystemCache } from './cache'
+import {
+  deleteEcosystemCache,
+  loadEcosystemCache,
+  saveEcosystemCache,
+} from './cache'
 
 export const ECOSYSTEM_IDS = ['npm', 'pypi', 'go'] as const
 export type EcosystemId = (typeof ECOSYSTEM_IDS)[number]
@@ -1069,6 +1073,7 @@ export async function runEcosystemLookup(
     fetch?: typeof globalThis.fetch
     signal?: AbortSignal
     cacheDir?: string
+    fallbackCacheDirs?: string[]
     now?: Date
   } = {},
 ): Promise<EcosystemLookupResponse> {
@@ -1092,6 +1097,38 @@ export async function runEcosystemLookup(
       now,
     })
     if (cached) return { ...cached.value, cached: true }
+
+    for (const fallbackCacheDir of options.fallbackCacheDirs ?? []) {
+      if (
+        !options.cacheDir ||
+        !fallbackCacheDir ||
+        fallbackCacheDir === options.cacheDir
+      ) {
+        continue
+      }
+      const fallback = loadEcosystemCache<
+        Omit<EcosystemLookupResponse, 'cached'>
+      >({
+        key,
+        cacheDir: fallbackCacheDir,
+        now,
+      })
+      if (!fallback) continue
+
+      const remainingTtlMs = Math.max(
+        1,
+        Date.parse(fallback.expiresAt) - now.getTime(),
+      )
+      saveEcosystemCache({
+        key,
+        value: fallback.value,
+        ttlMs: remainingTtlMs,
+        cacheDir: options.cacheDir,
+        now,
+      })
+      deleteEcosystemCache({ key, cacheDir: fallbackCacheDir })
+      return { ...fallback.value, cached: true }
+    }
   }
 
   const fetchImpl = options.fetch ?? globalThis.fetch
