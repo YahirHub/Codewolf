@@ -65,6 +65,8 @@ export interface Settings {
   >
   /** Optional model used by bundled OPUS/high-capability subagents. */
   opusModel?: ResearchModelReference
+  /** Optional model used by code-reviewer subagents. */
+  codeReviewerModel?: ResearchModelReference
   /** Last first-run onboarding version completed by this installation. */
   onboardingVersion?: number
 }
@@ -197,6 +199,9 @@ const validateSettings = (parsed: unknown): Settings => {
 
   const opusModel = parseModelReference(obj.opusModel)
   if (opusModel) settings.opusModel = opusModel
+
+  const codeReviewerModel = parseModelReference(obj.codeReviewerModel)
+  if (codeReviewerModel) settings.codeReviewerModel = codeReviewerModel
 
   if (
     obj.researchAgentModels &&
@@ -346,4 +351,16 @@ export const setOpusModel = (
   configDir?: string,
 ): void => {
   saveSettings({ opusModel: reference }, configDir)
+}
+
+export const getCodeReviewerModel = (
+  configDir?: string,
+): ResearchModelReference | undefined =>
+  loadSettings(configDir).codeReviewerModel
+
+export const setCodeReviewerModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ codeReviewerModel: reference }, configDir)
 }

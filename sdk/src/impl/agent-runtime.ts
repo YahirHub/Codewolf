@@ -61,6 +61,7 @@ export function getAgentRuntimeImpl(
     apiKey: string
     customProvider?: CustomProviderRuntimeConfig
     opusProvider?: CustomProviderRuntimeConfig
+    codeReviewerProvider?: CustomProviderRuntimeConfig
     researchProviders?: ResearchProviderOverrides
     clientEnv?: ClientEnv
   } & Pick<
@@ -83,6 +84,7 @@ export function getAgentRuntimeImpl(
     apiKey,
     customProvider,
     opusProvider,
+    codeReviewerProvider,
     researchProviders,
     clientEnv: clientEnvInput,
     handleStepsLogChunk,
@@ -192,6 +194,7 @@ export function getAgentRuntimeImpl(
     apiKey,
     customProvider,
     opusProvider,
+    codeReviewerProvider,
     researchProviders,
   }
 }

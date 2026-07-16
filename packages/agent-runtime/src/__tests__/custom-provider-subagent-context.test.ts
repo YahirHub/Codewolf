@@ -90,6 +90,68 @@ describe('custom provider subagent context', () => {
     })
   })
 
+  it('uses the configured code-reviewer provider before OPUS and /models', () => {
+    const parentProvider: CustomProviderRuntimeConfig = {
+      id: 'active-provider',
+      name: 'Active Provider',
+      baseUrl: 'https://active.example/v1',
+      apiKey: 'active-secret',
+      modelId: 'active-model',
+    }
+    const opusProvider: CustomProviderRuntimeConfig = {
+      id: 'power-provider',
+      name: 'Power Provider',
+      baseUrl: 'https://power.example/v1',
+      apiKey: 'power-secret',
+      modelId: 'power-model',
+    }
+    const codeReviewerProvider: CustomProviderRuntimeConfig = {
+      id: 'review-provider',
+      name: 'Review Provider',
+      baseUrl: 'https://review.example/v1',
+      apiKey: 'review-secret',
+      modelId: 'review-model',
+    }
+
+    for (const agentId of [
+      'code-reviewer',
+      'code-reviewer-opus',
+      'code-reviewer-lite',
+      'code-reviewer-multi-prompt',
+      'reviewer',
+    ]) {
+      expect(
+        resolveSubagentProviderContext({
+          agentId,
+          agentModel: 'anthropic/claude-opus-4.8',
+          apiKey: 'parent-api-key',
+          customProvider: parentProvider,
+          opusProvider,
+          codeReviewerProvider,
+        }),
+      ).toEqual({
+        apiKey: 'local-custom-provider:review-provider',
+        customProvider: codeReviewerProvider,
+        usesDedicatedProvider: true,
+      })
+    }
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'thinker',
+        agentModel: 'anthropic/claude-opus-4.8',
+        apiKey: 'parent-api-key',
+        customProvider: parentProvider,
+        opusProvider,
+        codeReviewerProvider,
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:power-provider',
+      customProvider: opusProvider,
+      usesDedicatedProvider: true,
+    })
+  })
+
   it('uses the configured OPUS provider for OPUS-class agents and otherwise inherits /models', () => {
     const parentProvider: CustomProviderRuntimeConfig = {
       id: 'active-provider',

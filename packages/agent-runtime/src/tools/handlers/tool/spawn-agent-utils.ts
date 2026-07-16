@@ -68,6 +68,7 @@ export function resolveSubagentProviderContext(params: {
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
   opusProvider?: CustomProviderRuntimeConfig
+  codeReviewerProvider?: CustomProviderRuntimeConfig
   researchProviders?: ResearchProviderOverrides
   agentModel?: string
 }): {
@@ -81,20 +82,35 @@ export function resolveSubagentProviderContext(params: {
   const researchProvider = isResearchAgent
     ? params.researchProviders?.[params.agentId as ResearchAgentId]
     : undefined
+  const isCodeReviewerAgent =
+    params.agentId === 'reviewer' ||
+    params.agentId === 'code-reviewer' ||
+    params.agentId.startsWith('code-reviewer-')
+  const codeReviewerProvider =
+    !researchProvider && isCodeReviewerAgent
+      ? params.codeReviewerProvider
+      : undefined
   const isOpusClassAgent =
     params.agentId.includes('opus') ||
     params.agentModel?.includes('claude-opus') === true
   const opusProvider =
-    !researchProvider && isOpusClassAgent ? params.opusProvider : undefined
+    !researchProvider && !codeReviewerProvider && isOpusClassAgent
+      ? params.opusProvider
+      : undefined
   const customProvider =
-    researchProvider ?? opusProvider ?? params.customProvider
+    researchProvider ??
+    codeReviewerProvider ??
+    opusProvider ??
+    params.customProvider
 
   return {
     apiKey: customProvider
       ? `local-custom-provider:${customProvider.id}`
       : params.apiKey,
     customProvider,
-    usesDedicatedProvider: Boolean(researchProvider ?? opusProvider),
+    usesDedicatedProvider: Boolean(
+      researchProvider ?? codeReviewerProvider ?? opusProvider,
+    ),
   }
 }
 
@@ -137,6 +153,7 @@ export function extractSubagentContextParams(
     apiKey: params.apiKey,
     customProvider: params.customProvider,
     opusProvider: params.opusProvider,
+    codeReviewerProvider: params.codeReviewerProvider,
     researchProviders: params.researchProviders,
     researchTimeoutMs: params.researchTimeoutMs,
 
@@ -509,6 +526,7 @@ export async function executeSubagent(
       apiKey: withDefaults.apiKey,
       customProvider: withDefaults.customProvider,
       opusProvider: withDefaults.opusProvider,
+      codeReviewerProvider: withDefaults.codeReviewerProvider,
       researchProviders: withDefaults.researchProviders,
       agentModel: agentTemplate.model,
     })

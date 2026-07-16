@@ -6,9 +6,11 @@ import { afterEach, describe, expect, test } from 'bun:test'
 
 import {
   DEFAULT_RESEARCH_TIMEOUT_MINUTES,
+  getCodeReviewerModel,
   getOpusModel,
   loadSettings,
   saveSettings,
+  setCodeReviewerModel,
   setOpusModel,
 } from '../settings'
 
@@ -47,7 +49,7 @@ describe('research timeout settings', () => {
   })
 })
 
-describe('research and OPUS model settings', () => {
+describe('research, OPUS, and code-reviewer model settings', () => {
   test('uses automatic economical routing by default', () => {
     const configDir = temporaryConfig()
     expect(loadSettings(configDir).researchModelMode).toBe(
@@ -55,7 +57,7 @@ describe('research and OPUS model settings', () => {
     )
   })
 
-  test('persists a general model, OPUS model, and per-agent overrides', () => {
+  test('persists general, OPUS, code-reviewer, and per-agent models', () => {
     const configDir = temporaryConfig()
     saveSettings(
       {
@@ -67,6 +69,10 @@ describe('research and OPUS model settings', () => {
         opusModel: {
           providerId: 'premium-provider',
           modelId: 'reasoning-large',
+        },
+        codeReviewerModel: {
+          providerId: 'review-provider',
+          modelId: 'review-large',
         },
         researchAgentModels: {
           ecosystem: {
@@ -91,6 +97,10 @@ describe('research and OPUS model settings', () => {
       opusModel: {
         providerId: 'premium-provider',
         modelId: 'reasoning-large',
+      },
+      codeReviewerModel: {
+        providerId: 'review-provider',
+        modelId: 'review-large',
       },
       researchAgentModels: {
         ecosystem: {
@@ -117,6 +127,18 @@ describe('research and OPUS model settings', () => {
     expect(getOpusModel(configDir)).toBeUndefined()
   })
 
+  test('clears the code-reviewer preference independently', () => {
+    const configDir = temporaryConfig()
+    setCodeReviewerModel(
+      { providerId: 'review-provider', modelId: 'review-large' },
+      configDir,
+    )
+    expect(getCodeReviewerModel(configDir)?.modelId).toBe('review-large')
+
+    setCodeReviewerModel(undefined, configDir)
+    expect(getCodeReviewerModel(configDir)).toBeUndefined()
+  })
+
   test('drops invalid model references instead of loading partial values', () => {
     const configDir = temporaryConfig()
     fs.writeFileSync(
@@ -125,6 +147,7 @@ describe('research and OPUS model settings', () => {
         researchModelMode: 'invalid',
         researchGeneralModel: { providerId: 'provider-only' },
         opusModel: { providerId: 'opus-only' },
+        codeReviewerModel: { modelId: 'review-only' },
         researchAgentModels: {
           ecosystem: { providerId: '', modelId: 'model' },
           documentation: { providerId: 'docs', modelId: 'small' },

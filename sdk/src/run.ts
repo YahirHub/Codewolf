@@ -135,6 +135,8 @@ export type CodebuffClientOptions = {
   customProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model override used by OPUS/high-capability subagents. */
   opusProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model override used by code-reviewer subagents. */
+  codeReviewerProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model overrides used only by research subagents. */
   researchProviders?: ResearchProviderOverrides
 
@@ -321,6 +323,7 @@ async function runOnce({
   fingerprintId,
   customProvider,
   opusProvider,
+  codeReviewerProvider,
   researchProviders,
 
   cwd,
@@ -569,6 +572,7 @@ async function runOnce({
     apiKey,
     customProvider,
     opusProvider,
+    codeReviewerProvider,
     researchProviders,
     handleStepsLogChunk: () => {
       // Does nothing for now
@@ -775,6 +779,7 @@ async function runOnce({
     },
     researchTimeoutMs,
     opusProvider,
+    codeReviewerProvider,
     researchProviders,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {

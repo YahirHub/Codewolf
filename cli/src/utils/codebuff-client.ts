@@ -11,6 +11,7 @@ import { recordTokenUsage } from './token-usage'
 import { createTraceWriter } from './trace-writer'
 import { getRgPath } from '../native/ripgrep'
 import {
+  resolveCodeReviewerProviderOverride,
   resolveOpusProviderOverride,
   resolveResearchProviderOverrides,
 } from './research-models'
@@ -98,6 +99,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         apiKey,
         customProvider,
         opusProvider: resolveOpusProviderOverride(),
+        codeReviewerProvider: resolveCodeReviewerProviderOverride(),
         researchProviders: resolveResearchProviderOverrides(),
         cwd: projectRoot,
         agentDefinitions,

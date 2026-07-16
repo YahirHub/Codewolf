@@ -17,6 +17,7 @@ import {
   MIN_RESEARCH_TIMEOUT_MINUTES,
   RESEARCH_AGENT_KINDS,
   RESEARCH_MODEL_MODES,
+  getCodeReviewerModel,
   getOpusModel,
   getResearchAgentModels,
   getResearchGeneralModel,
@@ -24,6 +25,7 @@ import {
   getResearchTimeoutMinutes,
   isProjectContextEnabled,
   isVerifiedCommitsEnabled,
+  setCodeReviewerModel,
   setOpusModel,
   setProjectContextEnabled,
   setResearchAgentModel,
@@ -69,7 +71,7 @@ type ChoiceConfigItem = {
   description: string
 }
 
-type ModelTarget = 'opus' | 'general' | ResearchAgentKind
+type ModelTarget = 'opus' | 'code-reviewer' | 'general' | ResearchAgentKind
 
 type ModelConfigItem = {
   id: `research-model-${ModelTarget}`
@@ -104,6 +106,14 @@ const BASE_CONFIG_ITEMS: ConfigItem[] = [
     title: 'Modelo para agentes OPUS',
     description:
       'Se usa en los subagentes de razonamiento, implementación y revisión de alta capacidad. Si se deja vacío, hereda el modelo activo de /models.',
+  },
+  {
+    id: 'research-model-code-reviewer',
+    kind: 'model',
+    target: 'code-reviewer',
+    title: 'Modelo para revisión de código',
+    description:
+      'Se usa en code-reviewer y sus variantes. Si se deja vacío, hereda la preferencia OPUS cuando corresponda o el modelo activo de /models.',
   },
   {
     id: 'research-timeout',
@@ -163,6 +173,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     getResearchModelMode(),
   )
   const [opusModel, setOpusModelState] = useState(() => getOpusModel())
+  const [codeReviewerModel, setCodeReviewerModelState] = useState(() =>
+    getCodeReviewerModel(),
+  )
   const [researchGeneralModel, setResearchGeneralModelState] = useState(() =>
     getResearchGeneralModel(),
   )
@@ -290,10 +303,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   const getModelReference = useCallback(
     (target: ModelTarget): ResearchModelReference | undefined => {
       if (target === 'opus') return opusModel
+      if (target === 'code-reviewer') return codeReviewerModel
       if (target === 'general') return researchGeneralModel
       return researchAgentModels[target]
     },
-    [opusModel, researchAgentModels, researchGeneralModel],
+    [codeReviewerModel, opusModel, researchAgentModels, researchGeneralModel],
   )
 
   const setModelReference = useCallback(
@@ -301,6 +315,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
       if (target === 'opus') {
         setOpusModel(reference)
         setOpusModelState(reference)
+      } else if (target === 'code-reviewer') {
+        setCodeReviewerModel(reference)
+        setCodeReviewerModelState(reference)
       } else if (target === 'general') {
         setResearchGeneralModel(reference)
         setResearchGeneralModelState(reference)
@@ -410,7 +427,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         title={
           modelPickerTarget === 'opus'
             ? 'Seleccionar modelo para agentes OPUS'
-            : modelPickerTarget === 'general'
+            : modelPickerTarget === 'code-reviewer'
+              ? 'Seleccionar modelo para revisión de código'
+              : modelPickerTarget === 'general'
               ? 'Seleccionar modelo de investigación'
               : `Modelo para ${RESEARCH_AGENT_LABELS[modelPickerTarget]}`
         }
@@ -446,6 +465,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     if (item.kind === 'choice') return MODE_LABELS[researchModelMode]
     const reference = getModelReference(item.target)
     if (item.target === 'opus' && !reference) return 'HEREDA /models'
+    if (item.target === 'code-reviewer' && !reference) {
+      return 'HEREDA OPUS O /models'
+    }
     return formatResearchModelReference(reference)
   }
 

@@ -5,6 +5,7 @@ import {
   loadAvailableProvidersConfig,
 } from './custom-providers'
 import {
+  getCodeReviewerModel,
   getOpusModel,
   getResearchAgentModels,
   getResearchGeneralModel,
@@ -126,4 +127,9 @@ export function resolveResearchProviderOverrides(
 /** Resolve the optional dedicated provider/model used by OPUS-class subagents. */
 export function resolveOpusProviderOverride(configDir?: string) {
   return resolveModelReference(getOpusModel(configDir), configDir)
+}
+
+/** Resolve the optional dedicated provider/model used by code-reviewer agents. */
+export function resolveCodeReviewerProviderOverride(configDir?: string) {
+  return resolveModelReference(getCodeReviewerModel(configDir), configDir)
 }

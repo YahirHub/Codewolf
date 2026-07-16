@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { upsertCustomProvider } from '../custom-providers'
 import {
   getAutomaticEconomicalResearchModelReference,
+  resolveCodeReviewerProviderOverride,
   resolveOpusProviderOverride,
   resolveResearchProviderOverrides,
 } from '../research-models'
@@ -63,6 +64,28 @@ describe('research model routing', () => {
   test('leaves OPUS unset so subagents inherit the active /models selection', () => {
     const configDir = temporaryConfig()
     expect(resolveOpusProviderOverride(configDir)).toBeUndefined()
+  })
+
+  test('resolves and clears a dedicated code-reviewer model', () => {
+    const configDir = temporaryConfig()
+    addProvider(configDir, 'review-provider', 'review-large')
+    saveSettings(
+      {
+        codeReviewerModel: {
+          providerId: 'review-provider',
+          modelId: 'review-large',
+        },
+      },
+      configDir,
+    )
+
+    expect(resolveCodeReviewerProviderOverride(configDir)).toMatchObject({
+      id: 'review-provider',
+      modelId: 'review-large',
+    })
+
+    saveSettings({ codeReviewerModel: undefined }, configDir)
+    expect(resolveCodeReviewerProviderOverride(configDir)).toBeUndefined()
   })
 
   test('prefers an available OpenCode Free model in automatic mode', () => {
