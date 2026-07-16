@@ -2,59 +2,6 @@
 
 Codewolf es un editor y agente de programación para terminal con proveedores de modelos y motores de búsqueda configurables. El modo de desarrollo y los binarios compilados comparten toda la información persistente desde `~/.codewolf`.
 
-## Funciones principales
-
-- Onboarding de primera ejecución con atribución, suscripción, proveedor personalizado u OpenCode Free.
-- OpenCode Free integrado sin API key, con catálogo dinámico de modelos `-free`.
-- ChatGPT Plus/Pro (Codex Subscription) mediante navegador o código de dispositivo desde `/login`.
-- NVIDIA NIM, OpenCode Go y proveedores OpenAI-compatible configurables desde `/login`.
-- Selector de modelos agrupados por proveedor mediante `/models`.
-- Agente auxiliar genérico mediante `/agent`, usando el modelo activo de la sesión.
-- Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
-- Fallback automático entre motores de búsqueda configurados.
-- Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
-- Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
-- Conversaciones con nombre visible, historial, exportación e importación portable.
-- Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
-- Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
-- Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
-- Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
-- Conversaciones y configuración compartidas entre desarrollo y binarios.
-- Binarios para Linux, macOS y Windows en x64/ARM64, con variantes baseline y musl.
-- Instalador/actualizador `install.sh` con verificación SHA-256 y respaldo de `~/.codewolf`.
-
-## Retomar el proyecto desde un ZIP
-
-La memoria técnica vive en `contexto/`. Al iniciar en otro entorno o
-conversación, el orden obligatorio es:
-
-1. `contexto/000-contexto-maestro.md`
-2. `README.md`
-3. `AGENTS.md`
-4. El resto de `contexto/` en orden numérico
-5. El código relacionado con la tarea
-
-Cada cambio importante debe crear el siguiente documento numerado. Así el ZIP
-del proyecto contiene suficiente información para continuar sin depender del
-historial de una sesión anterior.
-
-## Edición personalizada
-
-Codewolf usa proveedores y motores configurados por el usuario. Esta edición no
-vende ni administra una suscripción propia, no expone anuncios, créditos ni
-enlaces de compra. Puede conectarse a una suscripción externa de ChatGPT/Codex
-que el usuario ya tenga. Los comandos
-`/subscribe`, `/ads:enable`, `/ads:disable` y sus alias comerciales no forman
-parte del CLI. `/usage` existe únicamente para mostrar estadísticas técnicas
-locales de tokens; no consulta saldo, cuotas, precios ni servicios comerciales.
-
-## Requisitos de desarrollo
-
-- Bun `1.3.14`.
-- Git.
-
-La versión requerida de Bun también está declarada en `.bun-version` y `package.json`.
-
 ## Instalación rápida
 
 Linux, macOS y terminales Git Bash/MSYS en Windows pueden instalar la última
@@ -76,6 +23,34 @@ cambiar el repositorio o las rutas mediante `CODEWOLF_REPOSITORY`,
 
 Consulta [docs/install.md](docs/install.md) para conocer detección, actualización
 y variables avanzadas.
+
+## Funciones principales
+
+- Onboarding de primera ejecución con atribución, suscripción, proveedor personalizado u OpenCode Free.
+- OpenCode Free integrado sin API key, con catálogo dinámico de modelos `-free`.
+- ChatGPT Plus/Pro (Codex Subscription) mediante navegador o código de dispositivo desde `/login`.
+- NVIDIA NIM, OpenCode Go y proveedores OpenAI-compatible configurables desde `/login`.
+- Selector de modelos agrupados por proveedor mediante `/models`.
+- Agente auxiliar genérico mediante `/agent`, usando el modelo activo de la sesión.
+- Búsqueda web multiproveedor con Tavily, Brave Search, Exa, Linkup, Firecrawl, SerpApi y Zenserp.
+- Fallback automático entre motores de búsqueda configurados.
+- Estadísticas locales de tokens por sesión, proyecto, agente y modelo mediante `/usage`.
+- Skills globales en `~/.codewolf/skills` y skills locales en `.codewolf/skills`.
+- Conversaciones con nombre visible, historial, exportación e importación portable.
+- Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
+- Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
+- Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
+- Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
+- Conversaciones y configuración compartidas entre desarrollo y binarios.
+- Binarios para Linux, macOS y Windows en x64/ARM64, con variantes baseline y musl.
+- Instalador/actualizador `install.sh` con verificación SHA-256 y respaldo de `~/.codewolf`.
+
+## Requisitos de desarrollo
+
+- Bun `1.3.14`.
+- Git.
+
+La versión requerida de Bun también está declarada en `.bun-version` y `package.json`.
 
 ## Instalar dependencias para desarrollo
 
@@ -456,18 +431,3 @@ modificar y redistribuir el código, incluidas distribuciones comerciales,
 siempre que se conserven la licencia, los avisos aplicables y la indicación de
 que el trabajo fue modificado. Codewolf conserva `LICENSE` y `NOTICE`, añade su
 atribución como obra modificada y empaqueta ambos archivos en cada release.
-
-## Limpieza de instalaciones anteriores
-
-Esta edición ya no incluye el workspace Freebuff, sesiones gratuitas, anuncios,
-créditos, suscripciones, referidos ni wrappers de release heredados. Si copias
-el ZIP sobre una versión anterior, primero revisa y después ejecuta:
-
-```powershell
-.\scripts\cleanup-codewolf-obsolete.ps1 -WhatIf
-.\scripts\cleanup-codewolf-obsolete.ps1
-```
-
-El script solo elimina rutas auditadas dentro del proyecto. No renombra
-`@codebuff/*`, `CodebuffClient` ni variables `CODEBUFF_*`, porque todavía forman
-parte del contrato interno y público del SDK compatible.
