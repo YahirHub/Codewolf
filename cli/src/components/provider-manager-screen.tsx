@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
 import { ProviderLoginScreen } from './provider-login-screen'
@@ -12,12 +12,13 @@ import {
 } from '../state/custom-provider-store'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import {
-  getCustomProviderAuthStatus,
+  getCustomProviderAuthStatuses,
   removeCustomProvider,
   setActiveCustomProvider,
 } from '../utils/custom-providers'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { isOpenCodeFreeProviderId } from '../providers/opencode-catalog'
+import { isOpenAICodexProviderId } from '../providers/openai-codex-catalog'
 
 import type { CustomProviderDefinition } from '../utils/custom-providers'
 import type { KeyEvent } from '@opentui/core'
@@ -41,6 +42,16 @@ const PROVIDER_ACTIONS: ProviderAction[] = [
   'delete',
   'back',
 ]
+
+const MANAGED_PROVIDER_ACTIONS: ProviderAction[] = [
+  'activate',
+  'models',
+  'back',
+]
+
+function isManagedProvider(providerId: string): boolean {
+  return isOpenAICodexProviderId(providerId)
+}
 
 function actionLabel(action: ProviderAction, active: boolean): string {
   switch (action) {
@@ -85,6 +96,10 @@ export const ProviderManagerScreen: React.FC<
     ],
     [providers],
   )
+  const authStatuses = useMemo(
+    () => getCustomProviderAuthStatuses(providers.map((provider) => provider.id)),
+    [providers],
+  )
   const selectedProvider = useMemo(
     () =>
       providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -92,6 +107,26 @@ export const ProviderManagerScreen: React.FC<
   )
   const selectedIsActive =
     selectedProvider?.id === config.activeProviderId
+  const selectedIsManaged = Boolean(
+    selectedProvider && isManagedProvider(selectedProvider.id),
+  )
+  const providerActions = selectedIsManaged
+    ? MANAGED_PROVIDER_ACTIONS
+    : PROVIDER_ACTIONS
+
+  useEffect(() => {
+    refreshCustomProviderStore()
+  }, [])
+
+  useEffect(() => {
+    const maxIndex =
+      view === 'list'
+        ? rows.length - 1
+        : view === 'actions'
+          ? providerActions.length - 1
+          : 1
+    setSelectedIndex((current) => Math.max(0, Math.min(current, maxIndex)))
+  }, [providerActions.length, rows.length, view])
 
   const goList = useCallback((status?: string) => {
     refreshCustomProviderStore()
@@ -117,7 +152,7 @@ export const ProviderManagerScreen: React.FC<
   }, [goList, selectedProvider])
 
   const deleteProvider = useCallback(() => {
-    if (!selectedProvider) return
+    if (!selectedProvider || isManagedProvider(selectedProvider.id)) return
     const deleted = removeCustomProvider(selectedProvider.id)
     refreshCustomProviderStore()
     resetCodebuffClient()
@@ -169,14 +204,14 @@ export const ProviderManagerScreen: React.FC<
           }
           if (key.name === 'down') {
             setSelectedIndex((previous) =>
-              Math.min(PROVIDER_ACTIONS.length - 1, previous + 1),
+              Math.min(providerActions.length - 1, previous + 1),
             )
             return
           }
           if (!isPlainEnterKey(key)) return
-          const action = PROVIDER_ACTIONS[selectedIndex]
+          const action = providerActions[selectedIndex]
           if (!action) return
-          if (action === 'edit') setView('editor')
+          if (action === 'edit' && !selectedIsManaged) setView('editor')
           if (action === 'activate' && !selectedIsActive) activateProvider()
           if (action === 'models') onOpenModels()
           if (action === 'delete') {
@@ -205,8 +240,10 @@ export const ProviderManagerScreen: React.FC<
         onOpenModels,
         openProvider,
         rows,
+        providerActions,
         selectedIndex,
         selectedIsActive,
+        selectedIsManaged,
         view,
       ],
     ),
@@ -239,7 +276,7 @@ export const ProviderManagerScreen: React.FC<
         height,
         maxHeight: height,
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: theme.primary,
         paddingLeft: 1,
         paddingRight: 1,
         flexDirection: 'column',
@@ -247,11 +284,26 @@ export const ProviderManagerScreen: React.FC<
     >
       {view === 'list' && (
         <>
-          <text
-            style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}
+          <box
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              paddingLeft: 1,
+              paddingRight: 1,
+            }}
           >
-            Proveedores configurados
-          </text>
+            <text
+              style={{
+                fg: theme.foreground,
+                attributes: TextAttributes.BOLD,
+              }}
+            >
+              Proveedores configurados
+            </text>
+            <text style={{ fg: theme.info }}>
+              {providers.length} disponibles
+            </text>
+          </box>
           <scrollbox
             scrollX={false}
             scrollbarOptions={{ visible: false }}
@@ -273,8 +325,10 @@ export const ProviderManagerScreen: React.FC<
             {rows.map((row, index) => {
               const selected = index === selectedIndex
               if (row.type === 'provider') {
-                const auth = getCustomProviderAuthStatus(row.provider.id)
+                const authLabel =
+                  authStatuses[row.provider.id]?.label ?? 'Estado no disponible'
                 const active = row.provider.id === config.activeProviderId
+                const managed = isManagedProvider(row.provider.id)
                 return (
                   <Button
                     key={row.provider.id}
@@ -282,23 +336,32 @@ export const ProviderManagerScreen: React.FC<
                     onMouseOver={() => setSelectedIndex(index)}
                     style={{
                       width: '100%',
-                      height: 2,
+                      height: 4,
                       paddingLeft: 1,
                       paddingRight: 1,
-                      backgroundColor: selected ? theme.surfaceHover : 'transparent',
+                      borderStyle: 'single',
+                      borderColor: selected ? theme.primary : theme.border,
+                      backgroundColor: selected
+                        ? theme.surfaceHover
+                        : 'transparent',
                     }}
                   >
                     <box style={{ flexDirection: 'column' }}>
                       <text
                         style={{
-                          fg: selected ? theme.foreground : theme.muted,
+                          fg: active
+                            ? theme.success
+                            : selected
+                              ? theme.foreground
+                              : theme.muted,
                           attributes: selected ? TextAttributes.BOLD : undefined,
                         }}
                       >
                         {selected ? '❯' : ' '} {active ? '●' : '○'} {row.provider.name}
                       </text>
                       <text style={{ fg: theme.muted }}>
-                        {row.provider.models.length} modelo(s) · {auth.label} · {row.provider.baseUrl}
+                        {row.provider.models.length} modelo(s) · {authLabel}
+                        {managed ? ' · administrado por Codewolf' : ''}
                       </text>
                     </box>
                   </Button>
@@ -318,13 +381,28 @@ export const ProviderManagerScreen: React.FC<
                   onMouseOver={() => setSelectedIndex(index)}
                   style={{
                     width: '100%',
-                    height: 1,
+                    height: 3,
                     paddingLeft: 1,
                     paddingRight: 1,
-                    backgroundColor: selected ? theme.surfaceHover : 'transparent',
+                    borderStyle: 'single',
+                    borderColor: selected ? theme.primary : theme.border,
+                    backgroundColor: selected
+                      ? theme.surfaceHover
+                      : 'transparent',
                   }}
                 >
-                  <text style={{ fg: selected ? theme.foreground : theme.muted }}>
+                  <text
+                    style={{
+                      fg:
+                        row.type === 'add'
+                          ? theme.success
+                          : selected
+                            ? theme.foreground
+                            : theme.muted,
+                      attributes:
+                        row.type === 'add' ? TextAttributes.BOLD : undefined,
+                    }}
+                  >
                     {selected ? '❯' : ' '} {label}
                   </text>
                 </Button>
@@ -344,8 +422,14 @@ export const ProviderManagerScreen: React.FC<
           <text style={{ fg: theme.muted, wrapMode: 'word' }}>
             {selectedProvider.baseUrl} · {selectedProvider.models.length} modelo(s)
           </text>
+          {selectedIsManaged && (
+            <text style={{ fg: theme.info, wrapMode: 'word' }}>
+              Este proveedor se administra desde /login y solo permite
+              activarlo o elegir sus modelos.
+            </text>
+          )}
           <box style={{ flexDirection: 'column', marginTop: 1, flexGrow: 1 }}>
-            {PROVIDER_ACTIONS.map((action, index) => {
+            {providerActions.map((action, index) => {
               const selected = index === selectedIndex
               const disabled = action === 'activate' && selectedIsActive
               return (
@@ -437,7 +521,9 @@ export const ProviderManagerScreen: React.FC<
         </text>
       )}
       <text style={{ fg: theme.muted }}>
-        ↑↓ navegar · Enter seleccionar · Esc volver/cerrar
+        <span fg={theme.primary}>↑↓</span> navegar ·{' '}
+        <span fg={theme.success}>Enter</span> seleccionar ·{' '}
+        <span fg={theme.warning}>Esc</span> volver/cerrar
       </text>
     </box>
   )

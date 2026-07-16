@@ -485,36 +485,62 @@ export function setActiveCustomProviderModel(
 export type CustomProviderAuthStatus =
   | { type: 'stored'; label: 'API key guardada' }
   | { type: 'environment'; label: string; envName: string; available: boolean }
+  | { type: 'subscription'; label: 'Suscripción conectada' }
   | { type: 'none'; label: 'Sin autenticación' }
+
+export function getCustomProviderAuthStatuses(
+  providerIds: string[],
+  configDir = getConfigDir(),
+): Record<string, CustomProviderAuthStatus> {
+  const normalizedIds = providerIds.map((providerId) =>
+    normalizeCustomProviderId(providerId),
+  )
+  const config = loadCustomProvidersConfig(configDir)
+  const providersById = new Map(
+    config.providers.map((provider) => [provider.id, provider] as const),
+  )
+  const auth = loadProviderAuth(configDir)
+  const statuses: Record<string, CustomProviderAuthStatus> = {}
+
+  for (const id of normalizedIds) {
+    if (isOpenCodeFreeProviderId(id)) {
+      statuses[id] = { type: 'none', label: 'Sin autenticación' }
+      continue
+    }
+    if (isOpenAICodexProviderId(id)) {
+      statuses[id] = { type: 'subscription', label: 'Suscripción conectada' }
+      continue
+    }
+
+    const provider = providersById.get(id)
+    if (!provider) continue
+    if (provider.apiKeyEnv) {
+      statuses[id] = {
+        type: 'environment',
+        label: process.env[provider.apiKeyEnv]
+          ? `Variable ${provider.apiKeyEnv}`
+          : `Variable ${provider.apiKeyEnv} no disponible`,
+        envName: provider.apiKeyEnv,
+        available: Boolean(process.env[provider.apiKeyEnv]),
+      }
+      continue
+    }
+    statuses[id] = auth.apiKeys[id]
+      ? { type: 'stored', label: 'API key guardada' }
+      : { type: 'none', label: 'Sin autenticación' }
+  }
+
+  return statuses
+}
 
 export function getCustomProviderAuthStatus(
   providerId: string,
   configDir = getConfigDir(),
 ): CustomProviderAuthStatus {
   const id = normalizeCustomProviderId(providerId)
-  if (isOpenCodeFreeProviderId(id)) {
-    return { type: 'none', label: 'Sin autenticación' }
-  }
-  const config = loadCustomProvidersConfig(configDir)
-  const provider = config.providers.find((item) => item.id === id)
-  if (!provider) throw new Error(`No existe el proveedor ${id}.`)
-
-  if (provider.apiKeyEnv) {
-    return {
-      type: 'environment',
-      label: process.env[provider.apiKeyEnv]
-        ? `Variable ${provider.apiKeyEnv}`
-        : `Variable ${provider.apiKeyEnv} no disponible`,
-      envName: provider.apiKeyEnv,
-      available: Boolean(process.env[provider.apiKeyEnv]),
-    }
-  }
-
-  const auth = loadProviderAuth(configDir)
-  if (auth.apiKeys[id]) {
-    return { type: 'stored', label: 'API key guardada' }
-  }
-  return { type: 'none', label: 'Sin autenticación' }
+  const status = getCustomProviderAuthStatuses([id], configDir)[id]
+  if (!status) throw new Error(`No existe el proveedor ${id}.`)
+  return status
 }
 
 export function getCustomProviderApiKey(

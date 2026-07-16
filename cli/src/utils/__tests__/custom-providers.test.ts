@@ -4,6 +4,8 @@ import path from 'path'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { CHATGPT_CODEX_PROVIDER_ID } from '@codebuff/common/constants/chatgpt-oauth'
+
 import {
   activateCustomProviderModel,
   createCustomProviderId,
@@ -16,6 +18,7 @@ import {
   getCustomProviderApiKey,
   getCustomProviderAuthPath,
   getCustomProviderAuthStatus,
+  getCustomProviderAuthStatuses,
   getCustomProvidersPath,
   loadAvailableProvidersConfig,
   loadCustomProvidersConfig,
@@ -70,6 +73,46 @@ describe('custom providers', () => {
     })
     expect(fs.existsSync(getCustomProviderAuthPath(configDir))).toBe(false)
     expect(fs.existsSync(getCustomProvidersPath(configDir))).toBe(false)
+  })
+
+  test('reports bundled Codex authentication without reading custom provider storage', () => {
+    expect(getCustomProviderAuthStatus(CHATGPT_CODEX_PROVIDER_ID, configDir)).toEqual({
+      type: 'subscription',
+      label: 'Suscripción conectada',
+    })
+  })
+
+  test('loads authentication statuses for multiple providers in one pass', () => {
+    upsertCustomProvider({
+      id: 'stored-provider',
+      name: 'Stored provider',
+      baseUrl: 'https://stored.example.test/v1',
+      apiKeyInput: 'stored-secret',
+      models: 'model-a',
+      configDir,
+    })
+    upsertCustomProvider({
+      id: 'public-provider',
+      name: 'Public provider',
+      baseUrl: 'https://public.example.test/v1',
+      apiKeyInput: 'none',
+      models: 'model-b',
+      configDir,
+    })
+
+    expect(
+      getCustomProviderAuthStatuses(
+        ['stored-provider', 'public-provider', CHATGPT_CODEX_PROVIDER_ID],
+        configDir,
+      ),
+    ).toEqual({
+      'stored-provider': { type: 'stored', label: 'API key guardada' },
+      'public-provider': { type: 'none', label: 'Sin autenticación' },
+      [CHATGPT_CODEX_PROVIDER_ID]: {
+        type: 'subscription',
+        label: 'Suscripción conectada',
+      },
+    })
   })
 
   test('keeps OpenCode Free ephemeral when selecting one of its models', () => {

@@ -50,35 +50,41 @@ interface ConfigScreenProps {
   onProjectContextChanged?: (enabled: boolean) => void
 }
 
-type ToggleConfigItem = {
+type ConfigSection = 'general' | 'agents' | 'research'
+
+const CONFIG_SECTION_LABELS: Record<ConfigSection, string> = {
+  general: 'GENERAL',
+  agents: 'MODELOS DE AGENTES',
+  research: 'INVESTIGACIÓN',
+}
+
+type ConfigItemBase = {
+  section: ConfigSection
+  title: string
+  description: string
+}
+
+type ToggleConfigItem = ConfigItemBase & {
   id: 'project-context' | 'verified-commits'
   kind: 'toggle'
-  title: string
-  description: string
 }
 
-type NumberConfigItem = {
+type NumberConfigItem = ConfigItemBase & {
   id: 'research-timeout'
   kind: 'number'
-  title: string
-  description: string
 }
 
-type ChoiceConfigItem = {
+type ChoiceConfigItem = ConfigItemBase & {
   id: 'research-model-mode'
   kind: 'choice'
-  title: string
-  description: string
 }
 
 type ModelTarget = 'opus' | 'code-reviewer' | 'general' | ResearchAgentKind
 
-type ModelConfigItem = {
+type ModelConfigItem = ConfigItemBase & {
   id: `research-model-${ModelTarget}`
   kind: 'model'
   target: ModelTarget
-  title: string
-  description: string
 }
 
 type ConfigItem =
@@ -88,46 +94,52 @@ const BASE_CONFIG_ITEMS: ConfigItem[] = [
   {
     id: 'project-context',
     kind: 'toggle',
-    title: 'Contexto persistente del proyecto',
+    section: 'general',
+    title: 'Contexto del proyecto',
     description:
-      'Resume contexto/, inyecta sus reglas en cada turno y mantiene registros técnicos después de cambios importantes.',
+      'Lee e inyecta las reglas de contexto/ y conserva la memoria técnica del proyecto.',
   },
   {
     id: 'verified-commits',
     kind: 'toggle',
-    title: 'Commits automáticos verificados',
+    section: 'general',
+    title: 'Commits verificados',
     description:
-      'Después de editar, pide probar los cambios y solo crea el commit cuando confirmas que funcionan.',
+      'Solicita validar los cambios antes de crear automáticamente un commit.',
   },
   {
     id: 'research-model-opus',
     kind: 'model',
     target: 'opus',
-    title: 'Modelo para agentes OPUS',
+    section: 'agents',
+    title: 'Agentes OPUS',
     description:
-      'Se usa en los subagentes de razonamiento, implementación y revisión de alta capacidad. Si se deja vacío, hereda el modelo activo de /models.',
+      'Modelo de alta capacidad para razonamiento e implementación. Vacío: hereda /models.',
   },
   {
     id: 'research-model-code-reviewer',
     kind: 'model',
     target: 'code-reviewer',
-    title: 'Modelo para revisión de código',
+    section: 'agents',
+    title: 'Revisión de código',
     description:
-      'Se usa en code-reviewer y sus variantes. Si se deja vacío, hereda la preferencia OPUS cuando corresponda o el modelo activo de /models.',
+      'Modelo para code-reviewer y sus variantes. Vacío: hereda OPUS o /models.',
   },
   {
     id: 'research-timeout',
     kind: 'number',
-    title: 'Tiempo máximo de investigación',
+    section: 'research',
+    title: 'Tiempo máximo',
     description:
-      'Límite de seguridad para agentes de búsqueda y documentación. El agente termina antes cuando ya reunió evidencia suficiente.',
+      'Límite de seguridad; cada investigador termina antes al reunir evidencia suficiente.',
   },
   {
     id: 'research-model-mode',
     kind: 'choice',
-    title: 'Asignación de modelos de investigación',
+    section: 'research',
+    title: 'Estrategia de modelos',
     description:
-      'Usa OpenCode Free automáticamente, un solo modelo para todos o modelos distintos por investigador.',
+      'Selecciona modelos económicos automáticamente o asigna uno general o por agente.',
   },
 ]
 
@@ -198,16 +210,18 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         id: 'research-model-general',
         kind: 'model',
         target: 'general',
-        title: 'Modelo general de investigación',
+        section: 'research',
+        title: 'Modelo general',
         description:
-          'Se utilizará para ecosistemas, documentación y búsqueda web.',
+          'Se utiliza en investigación de ecosistemas, documentación y búsqueda web.',
       })
     } else if (researchModelMode === 'per-agent') {
       items.push({
         id: 'research-model-general',
         kind: 'model',
         target: 'general',
-        title: 'Modelo base de investigación',
+        section: 'research',
+        title: 'Modelo base',
         description:
           'Se usa cuando un investigador no tiene un modelo específico.',
       })
@@ -216,8 +230,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
           id: `research-model-${kind}`,
           kind: 'model',
           target: kind,
+          section: 'research',
           title: RESEARCH_AGENT_LABELS[kind],
-          description: `Modelo específico para ${RESEARCH_AGENT_LABELS[kind].toLowerCase()}; si se deja vacío hereda el modelo base.`,
+          description: `Asignación específica. Vacío: hereda el modelo base de investigación.`,
         })
       }
     }
@@ -234,14 +249,25 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     const scrollbox = scrollRef.current
     if (!scrollbox) return
 
-    // Each option occupies roughly four rows including its margin.
-    const row = selectedIndex * 4
+    // Rows are taller than a regular list because each option includes a
+    // description and section headers are rendered between groups.
+    let row = 0
+    let previousSection: ConfigSection | undefined
+    for (let index = 0; index < selectedIndex; index += 1) {
+      const item = configItems[index]
+      if (!item) continue
+      if (item.section !== previousSection) row += 2
+      row += 6
+      previousSection = item.section
+    }
+    const selected = configItems[selectedIndex]
+    if (selected && selected.section !== previousSection) row += 2
     const viewportHeight = scrollbox.viewport.height
     if (row < scrollbox.scrollTop) scrollbox.scrollTop = row
-    if (row + 3 >= scrollbox.scrollTop + viewportHeight) {
-      scrollbox.scrollTop = Math.max(0, row - viewportHeight + 4)
+    if (row + 5 >= scrollbox.scrollTop + viewportHeight) {
+      scrollbox.scrollTop = Math.max(0, row - viewportHeight + 6)
     }
-  }, [selectedIndex])
+  }, [configItems, selectedIndex])
 
   const saveResearchTimeout = useCallback((minutes: number) => {
     const normalized = clampResearchMinutes(minutes)
@@ -459,16 +485,35 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
 
   const getStatus = (item: ConfigItem): string => {
     if (item.kind === 'toggle') {
-      return toggleValue(item) ? '● ACTIVADO' : '○ DESACTIVADO'
+      return toggleValue(item) ? 'Activado' : 'Desactivado'
     }
-    if (item.kind === 'number') return `${researchTimeoutMinutes} MINUTOS`
+    if (item.kind === 'number') return `${researchTimeoutMinutes} minutos`
     if (item.kind === 'choice') return MODE_LABELS[researchModelMode]
     const reference = getModelReference(item.target)
-    if (item.target === 'opus' && !reference) return 'HEREDA /models'
+    if (item.target === 'opus' && !reference) return 'Hereda /models'
     if (item.target === 'code-reviewer' && !reference) {
-      return 'HEREDA OPUS O /models'
+      return 'Hereda OPUS o /models'
     }
+    if (item.target === 'general' && !reference) return 'Selección automática'
+    if (!reference) return 'Hereda el modelo base'
     return formatResearchModelReference(reference)
+  }
+
+  const getStatusColor = (item: ConfigItem): string => {
+    if (item.kind === 'toggle') {
+      return toggleValue(item) ? theme.success : theme.muted
+    }
+    if (item.kind === 'number') return theme.info
+    if (item.kind === 'choice') return theme.warning
+    const status = getStatus(item)
+    if (status.startsWith('No disponible')) return theme.error
+    return getModelReference(item.target) ? theme.info : theme.muted
+  }
+
+  const getSectionColor = (section: ConfigSection): string => {
+    if (section === 'general') return theme.primary
+    if (section === 'agents') return theme.info
+    return theme.warning
   }
 
   return (
@@ -480,16 +525,25 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         height: configHeight,
         maxHeight: configHeight,
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: theme.primary,
         paddingLeft: 1,
         paddingRight: 1,
         flexDirection: 'column',
       }}
     >
-      <text style={{ fg: theme.muted }}>
-        Estas opciones se guardan en ~/.codewolf/settings.json y se aplican a
-        todos los proyectos.
-      </text>
+      <box
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
+        <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
+          Preferencias globales
+        </text>
+        <text style={{ fg: theme.muted }}>~/.codewolf/settings.json</text>
+      </box>
 
       <scrollbox
         ref={scrollRef}
@@ -518,18 +572,41 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
       >
         {configItems.map((item, index) => {
           const selected = index === selectedIndex
+          const previousSection = configItems[index - 1]?.section
+          const showSection = previousSection !== item.section
           return (
             <React.Fragment key={item.id}>
+              {showSection && (
+                <box
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: index === 0 ? 1 : 2,
+                    paddingLeft: 1,
+                  }}
+                >
+                  <text
+                    style={{
+                      fg: getSectionColor(item.section),
+                      attributes: TextAttributes.BOLD,
+                    }}
+                  >
+                    {CONFIG_SECTION_LABELS[item.section]}
+                  </text>
+                </box>
+              )}
               <Button
                 onClick={() => activateItem(item)}
                 onMouseOver={() => setSelectedIndex(index)}
                 style={{
                   width: '100%',
-                  minHeight: 3,
-                  marginTop: 1,
+                  minHeight: 5,
+                  marginTop: 0,
                   paddingLeft: 1,
                   paddingRight: 1,
                   flexDirection: 'column',
+                  borderStyle: 'single',
+                  borderColor: selected ? theme.primary : theme.border,
                   backgroundColor: selected
                     ? theme.surfaceHover
                     : 'transparent',
@@ -537,13 +614,27 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
               >
                 <text
                   style={{
-                    fg: selected ? theme.foreground : theme.muted,
+                    fg: theme.foreground,
                     attributes: selected ? TextAttributes.BOLD : undefined,
                   }}
                 >
-                  {selected ? '❯' : ' '} {getStatus(item)} · {item.title}
+                  <span fg={selected ? theme.primary : theme.muted}>
+                    {selected ? '❯' : '•'}{' '}
+                  </span>
+                  {item.title}
                 </text>
                 <text style={{ fg: theme.muted, paddingLeft: 2 }}>
+                  <span fg={theme.muted}>Valor: </span>
+                  <span
+                    fg={getStatusColor(item)}
+                    attributes={TextAttributes.BOLD}
+                  >
+                    {getStatus(item)}
+                  </span>
+                </text>
+                <text
+                  style={{ fg: theme.muted, paddingLeft: 2, wrapMode: 'word' }}
+                >
                   {item.description}
                 </text>
               </Button>
@@ -605,11 +696,22 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
       </scrollbox>
 
       {timeoutError && <text style={{ fg: theme.error }}>{timeoutError}</text>}
-      <text style={{ fg: theme.muted, marginTop: 1 }}>
-        {editingTimeout
-          ? `Enter: guardar (${MIN_RESEARCH_TIMEOUT_MINUTES}-${MAX_RESEARCH_TIMEOUT_MINUTES} min) · Esc: cancelar`
-          : '↑/↓ o Tab: navegar · ←/→: ajustar · Enter: cambiar · Supr: limpiar modelo · Esc: cerrar'}
-      </text>
+      {editingTimeout ? (
+        <text style={{ fg: theme.muted, marginTop: 1 }}>
+          <span fg={theme.success}>Enter</span>: guardar (
+          {MIN_RESEARCH_TIMEOUT_MINUTES}-{MAX_RESEARCH_TIMEOUT_MINUTES} min) ·{' '}
+          <span fg={theme.warning}>Esc</span>: cancelar
+        </text>
+      ) : (
+        <text style={{ fg: theme.muted, marginTop: 1 }}>
+          <span fg={theme.primary}>↑/↓</span> o{' '}
+          <span fg={theme.primary}>Tab</span>: navegar ·{' '}
+          <span fg={theme.info}>←/→</span>: ajustar ·{' '}
+          <span fg={theme.success}>Enter</span>: cambiar ·{' '}
+          <span fg={theme.warning}>Supr</span>: limpiar modelo ·{' '}
+          <span fg={theme.warning}>Esc</span>: cerrar
+        </text>
+      )}
     </box>
   )
 }
