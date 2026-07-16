@@ -27,7 +27,7 @@ export type StatusIndicatorStateArgs = {
   showReconnectionMessage?: boolean
   /**
    * Whether the ask_user tool is currently active (waiting for user input).
-   * When true, hides the "trabajando..." y "pensando..." indicators.
+   * When true, hides the "trabajando..." indicator.
    */
   isAskUserActive?: boolean
 }

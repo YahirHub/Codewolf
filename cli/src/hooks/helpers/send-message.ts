@@ -30,8 +30,26 @@ import type { StreamStatus } from '../use-message-queue'
 import type { MessageContent, RunState } from '@codebuff/sdk'
 import type { MutableRefObject, SetStateAction } from 'react'
 
+export type BeginMessageSendStateParams = {
+  isChainInProgressRef: MutableRefObject<boolean>
+  updateChainInProgress: (value: boolean) => void
+  setCanProcessQueue: (can: boolean) => void
+  setStreamStatus: (status: StreamStatus) => void
+}
+
+/** Marks a turn busy before any asynchronous preparation begins. */
+export const beginMessageSendState = (
+  params: BeginMessageSendStateParams,
+): void => {
+  params.isChainInProgressRef.current = true
+  params.updateChainInProgress(true)
+  params.setCanProcessQueue(false)
+  params.setStreamStatus('waiting')
+}
+
 /** Resets queue state on early return (before streaming starts). */
 export type ResetEarlyReturnStateParams = {
+  setStreamStatus?: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   updateChainInProgress: (value: boolean) => void
   isProcessingQueueRef?: MutableRefObject<boolean>
@@ -42,12 +60,14 @@ export const resetEarlyReturnState = (
   params: ResetEarlyReturnStateParams,
 ): void => {
   const {
+    setStreamStatus,
     setCanProcessQueue,
     updateChainInProgress,
     isProcessingQueueRef,
     isQueuePausedRef,
   } = params
 
+  setStreamStatus?.('idle')
   updateChainInProgress(false)
   setCanProcessQueue(!isQueuePausedRef?.current)
   if (isProcessingQueueRef) {

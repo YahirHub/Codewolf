@@ -60,6 +60,7 @@ import {
 } from '../utils/send-message-helpers'
 import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
+  beginMessageSendState,
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
@@ -289,14 +290,18 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback<SendMessageFn>(
     async ({ content, agentMode, postUserMessage, attachments }) => {
-      // CRITICAL: Set chain in progress immediately (synchronously) before any async work.
-      // This ensures the router can detect that we're busy and queue subsequent messages.
-      // Set the ref directly first to guarantee immediate visibility to other code paths,
-      // then call updateChainInProgress to also update React state for re-renders.
-      isChainInProgressRef.current = true
-      updateChainInProgress(true)
-      setCanProcessQueue(false)
-
+      // Mark the turn busy synchronously so the status bar changes before
+      // checkpoints, context loading, image processing, validation, or provider
+      // startup can introduce latency.
+      beginMessageSendState({
+        isChainInProgressRef,
+        updateChainInProgress,
+        setCanProcessQueue,
+        setStreamStatus,
+      })
+      // Yield one frame so OpenTUI paints the working indicator before any
+      // filesystem or provider preflight work begins.
+      await yieldToEventLoop()
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
@@ -389,6 +394,7 @@ export const useSendMessage = ({
           ),
         ])
         resetEarlyReturnState({
+          setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
           isProcessingQueueRef,
@@ -430,6 +436,7 @@ export const useSendMessage = ({
             }),
           )
           resetEarlyReturnState({
+            setStreamStatus,
             setCanProcessQueue,
             updateChainInProgress,
             isProcessingQueueRef,
@@ -453,6 +460,7 @@ export const useSendMessage = ({
         setTimeout(() => scrollToLatest(), 0)
 
         resetEarlyReturnState({
+          setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
           isProcessingQueueRef,
@@ -484,6 +492,7 @@ export const useSendMessage = ({
         await yieldToEventLoop()
         setTimeout(() => scrollToLatest(), 0)
         resetEarlyReturnState({
+          setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
           isProcessingQueueRef,

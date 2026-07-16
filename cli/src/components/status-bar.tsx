@@ -134,7 +134,7 @@ export const StatusBar = ({
       case 'waiting':
         return (
           <ShimmerText
-            text="pensando..."
+            text="trabajando..."
             interval={SHIMMER_INTERVAL_MS}
             primaryColor={theme.secondary}
           />

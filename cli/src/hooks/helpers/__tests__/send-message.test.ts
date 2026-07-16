@@ -30,6 +30,7 @@ const { useChatStore } = await import('../../../state/chat-store')
 const { createStreamController } = await import('../../stream-state')
 const {
   setupStreamingContext,
+  beginMessageSendState,
   handleRunCompletion,
   handleRunError,
   finalizeQueueState,
@@ -72,6 +73,33 @@ const createBaseMessages = (): ChatMessage[] => [
     timestamp: 'now',
   },
 ]
+
+describe('beginMessageSendState', () => {
+  test('shows working state synchronously before asynchronous preparation', () => {
+    const isChainInProgressRef = { current: false }
+    let chainInProgress = false
+    let canProcessQueue = true
+    const streamStatusCalls: StreamStatus[] = []
+
+    beginMessageSendState({
+      isChainInProgressRef,
+      updateChainInProgress: (value) => {
+        chainInProgress = value
+      },
+      setCanProcessQueue: (value) => {
+        canProcessQueue = value
+      },
+      setStreamStatus: (value) => {
+        streamStatusCalls.push(value)
+      },
+    })
+
+    expect(isChainInProgressRef.current).toBe(true)
+    expect(chainInProgress).toBe(true)
+    expect(canProcessQueue).toBe(false)
+    expect(streamStatusCalls).toEqual(['waiting'])
+  })
+})
 
 describe('setupStreamingContext', () => {
   describe('abort flow', () => {
@@ -1412,6 +1440,19 @@ describe('CLI-level race condition: abort run A, attempt run B before A resolves
  * - validation exception
  */
 describe('resetEarlyReturnState', () => {
+  test('clears the immediate working status on an early return', () => {
+    const streamStatusCalls: StreamStatus[] = []
+
+    resetEarlyReturnState({
+      setStreamStatus: (value) => {
+        streamStatusCalls.push(value)
+      },
+      updateChainInProgress: () => {},
+      setCanProcessQueue: () => {},
+    })
+
+    expect(streamStatusCalls).toEqual(['idle'])
+  })
   describe('prepareUserMessage exception path', () => {
     test('resets chain in progress to false', () => {
       let chainInProgress = true

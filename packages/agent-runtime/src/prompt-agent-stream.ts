@@ -14,6 +14,15 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/common/types/agent-template'
 import type { ToolSet } from 'ai'
 
+/**
+ * Maximum number of provider request attempts for each model turn.
+ * AI SDK's maxRetries counts retries after the initial request, so five total
+ * attempts are represented by four retries.
+ */
+export const MAX_PROVIDER_REQUEST_ATTEMPTS = 5
+export const MAX_PROVIDER_REQUEST_RETRIES =
+  MAX_PROVIDER_REQUEST_ATTEMPTS - 1
+
 export const getAgentStreamFromTemplate = (params: {
   agentId?: string
   apiKey: string
@@ -91,7 +100,7 @@ export const getAgentStreamFromTemplate = (params: {
     logger,
     localAgentTemplates,
     maxOutputTokens: undefined,
-    maxRetries: 3,
+    maxRetries: MAX_PROVIDER_REQUEST_RETRIES,
     messages,
     model,
     runId,
