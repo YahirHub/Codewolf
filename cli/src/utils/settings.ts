@@ -28,20 +28,21 @@ export interface Settings {
   projectContextEnabled?: boolean
   /** Ask the user to verify structured edits before creating a Git commit. */
   verifiedCommitsEnabled?: boolean
+  /** Last first-run onboarding version completed by this installation. */
+  onboardingVersion?: number
 }
 
 /**
  * Get the settings file path
  */
-export const getSettingsPath = (): string => {
-  return path.join(getConfigDir(), 'settings.json')
+export const getSettingsPath = (configDir = getConfigDir()): string => {
+  return path.join(configDir, 'settings.json')
 }
 
 /**
  * Ensure the config directory exists, creating it if necessary
  */
-const ensureConfigDirExists = (): void => {
-  const configDir = getConfigDir()
+const ensureConfigDirExists = (configDir = getConfigDir()): void => {
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true })
   }
@@ -51,11 +52,11 @@ const ensureConfigDirExists = (): void => {
  * Load all settings from file system
  * @returns The saved settings object, with defaults for missing values
  */
-export const loadSettings = (): Settings => {
-  const settingsPath = getSettingsPath()
+export const loadSettings = (configDir = getConfigDir()): Settings => {
+  const settingsPath = getSettingsPath(configDir)
 
   if (!fs.existsSync(settingsPath)) {
-    ensureConfigDirExists()
+    ensureConfigDirExists(configDir)
     // Create default settings file
     fs.writeFileSync(settingsPath, JSON.stringify(DEFAULT_SETTINGS, null, 2))
     return DEFAULT_SETTINGS
@@ -115,20 +116,31 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.verifiedCommitsEnabled = obj.verifiedCommitsEnabled
   }
 
+  if (
+    typeof obj.onboardingVersion === 'number' &&
+    Number.isInteger(obj.onboardingVersion) &&
+    obj.onboardingVersion >= 1
+  ) {
+    settings.onboardingVersion = obj.onboardingVersion
+  }
+
   return settings
 }
 
 /**
  * Save settings to file system (merges with existing settings)
  */
-export const saveSettings = (newSettings: Partial<Settings>): void => {
-  const settingsPath = getSettingsPath()
+export const saveSettings = (
+  newSettings: Partial<Settings>,
+  configDir = getConfigDir(),
+): void => {
+  const settingsPath = getSettingsPath(configDir)
 
   try {
-    ensureConfigDirExists()
+    ensureConfigDirExists(configDir)
 
     // Load existing settings and merge
-    const existingSettings = loadSettings()
+    const existingSettings = loadSettings(configDir)
     const mergedSettings = { ...existingSettings, ...newSettings }
 
     fs.writeFileSync(settingsPath, JSON.stringify(mergedSettings, null, 2))

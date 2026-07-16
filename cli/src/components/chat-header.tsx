@@ -1,12 +1,10 @@
-import { memo, useState } from 'react'
+import { memo } from 'react'
 
-import { useLogo } from '../hooks/use-logo'
-import { useSheenAnimation } from '../hooks/use-sheen-animation'
+import { AnimatedCodewolfLogo } from './animated-codewolf-logo'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { openFileAtPath } from '../utils/open-file'
 import { formatCwd } from '../utils/path-helpers'
-import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import { TerminalLink } from './terminal-link'
 
 export const ChatHeader = memo(function ChatHeader({
@@ -16,26 +14,8 @@ export const ChatHeader = memo(function ChatHeader({
   projectRoot: string
   animationEnabled: boolean
 }) {
-  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
+  const { contentMaxWidth } = useTerminalDimensions()
   const theme = useTheme()
-  const [sheenPosition, setSheenPosition] = useState(0)
-  const blockColor = getLogoBlockColor(theme.name)
-  const accentColor = getLogoAccentColor(theme.name)
-  const { applySheenToChar } = useSheenAnimation({
-    enabled: animationEnabled,
-    logoColor: theme.foreground,
-    accentColor,
-    blockColor,
-    terminalWidth,
-    sheenPosition,
-    setSheenPosition,
-  })
-  const { component: logoComponent } = useLogo({
-    availableWidth: contentMaxWidth,
-    accentColor,
-    blockColor,
-    applySheenToChar,
-  })
 
   return (
     <box
@@ -53,11 +33,13 @@ export const ChatHeader = memo(function ChatHeader({
           marginTop: 2,
         }}
       >
-        {logoComponent}
+        <AnimatedCodewolfLogo
+          availableWidth={contentMaxWidth}
+          animationEnabled={animationEnabled}
+        />
       </box>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
-        Codewolf ejecutará comandos en tu nombre
-        para ayudarte a desarrollar.
+        Codewolf ejecutará comandos en tu nombre para ayudarte a desarrollar.
       </text>
       <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
         Directorio{' '}

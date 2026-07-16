@@ -4,6 +4,7 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 
 ## Funciones principales
 
+- Onboarding de primera ejecución con atribución, suscripción, proveedor personalizado u OpenCode Free.
 - OpenCode Free integrado sin API key, con catálogo dinámico de modelos `-free`.
 - ChatGPT Plus/Pro (Codex Subscription) mediante navegador o código de dispositivo desde `/login`.
 - NVIDIA NIM, OpenCode Go y proveedores OpenAI-compatible configurables desde `/login`.
@@ -19,7 +20,8 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 - Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
 - Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
-- Binarios independientes para Windows y Linux.
+- Binarios para Linux, macOS y Windows en x64/ARM64, con variantes baseline y musl.
+- Instalador/actualizador `install.sh` con verificación SHA-256 y respaldo de `~/.codewolf`.
 
 ## Retomar el proyecto desde un ZIP
 
@@ -53,7 +55,29 @@ locales de tokens; no consulta saldo, cuotas, precios ni servicios comerciales.
 
 La versión requerida de Bun también está declarada en `.bun-version` y `package.json`.
 
-## Instalar dependencias
+## Instalación rápida
+
+Linux, macOS y terminales Git Bash/MSYS en Windows pueden instalar la última
+release publicada con:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/YahirHub/codewolf/main/install.sh | sh
+```
+
+El instalador detecta sistema operativo, arquitectura, libc musl y compatibilidad
+AVX2 para elegir la variante correcta. Instala `codewolf` y
+`tree-sitter.wasm` en `~/.local/bin`, agrega esa ruta a `~/.bashrc` y verifica
+`SHA256SUMS.txt` antes de reemplazar archivos.
+
+Si ya existe Codewolf, descarga nuevamente la release `latest` y crea primero
+un respaldo comprimido de `~/.codewolf` en `~/.codewolf-backups`. Se puede
+cambiar el repositorio o las rutas mediante `CODEWOLF_REPOSITORY`,
+`CODEWOLF_BIN_DIR`, `CODEWOLF_CONFIG_DIR` y `CODEWOLF_BACKUP_DIR`.
+
+Consulta [docs/install.md](docs/install.md) para conocer detección, actualización
+y variables avanzadas.
+
+## Instalar dependencias para desarrollo
 
 Desde la raíz:
 
@@ -94,7 +118,19 @@ Consulta [docs/project-methodology.md](docs/project-methodology.md) para conocer
 
 ## Configurar modelos
 
-En una instalación nueva, Codewolf incorpora temporalmente **OpenCode Free** como proveedor activo. No requiere API key. Al iniciar y al abrir `/models`, consulta `https://opencode.ai/zen/v1/models`, conserva únicamente los IDs terminados en `-free` y usa una lista integrada como respaldo si la consulta no está disponible. El catálogo dinámico se guarda en `~/.codewolf/opencode-models.json`; nunca se escribe una credencial para este proveedor.
+En una instalación nueva, Codewolf muestra primero un onboarding visual y adaptable con el logotipo animado de Codewolf. La pantalla explica el origen del proyecto y permite iniciar sesión con una suscripción, agregar un proveedor personalizado o comenzar con **OpenCode Free**. Si se elige omitir la configuración, OpenCode Free queda activo. No requiere API key. Al iniciar y al abrir `/models`, consulta `https://opencode.ai/zen/v1/models`, conserva únicamente los IDs terminados en `-free` y usa una lista integrada como respaldo si la consulta no está disponible. El catálogo dinámico se guarda en `~/.codewolf/opencode-models.json`; nunca se escribe una credencial para este proveedor.
+
+Para volver a abrir la configuración inicial sin borrar credenciales ni
+historial:
+
+```bash
+codewolf --onboarding
+```
+
+La decisión de mostrar el onboarding se captura antes de que el inicio cree
+directorios, analítica local o `recent-projects.json`; esos archivos generados
+durante el mismo arranque no hacen que una instalación nueva se confunda con
+una actualización.
 
 Para autenticar otro proveedor:
 
@@ -325,7 +361,7 @@ cli/bin/tree-sitter.wasm
 
 `tree-sitter.wasm` debe permanecer en la misma carpeta que el ejecutable.
 
-## Publicar Windows y Linux con GitHub Actions
+## Publicar binarios multiplataforma con GitHub Actions
 
 El workflow está en:
 
@@ -359,13 +395,17 @@ segmento:
 ```
 
 Las etiquetas y releases no utilizan el prefijo `v`. El workflow usa un solo
-runner Linux, reutiliza la misma instalación para ambos sistemas y genera:
+runner Linux, reutiliza la generación de agentes y SDK, y crea paquetes para:
 
 ```text
-codewolf-linux-x64.tar.gz
-codewolf-windows-x64.zip
-SHA256SUMS.txt
+Linux:  x64, x64 baseline, ARM64, x64 musl, x64 musl baseline y ARM64 musl
+macOS:  x64, x64 baseline y ARM64
+Windows: x64, x64 baseline y ARM64
 ```
+
+Cada paquete incluye el ejecutable, `tree-sitter.wasm`, `LICENSE`, `NOTICE` y
+`README.md`. La release también publica `SHA256SUMS.txt`, utilizado por
+`install.sh` para verificar integridad.
 
 Consulta [docs/build-binaries.md](docs/build-binaries.md) para conocer el flujo
 completo y los requisitos para que GitHub muestre el botón manual.
@@ -408,7 +448,14 @@ La suite también evita depender del `PATH` para lanzar Bun, no requiere Infisic
 
 ## Licencia y atribución
 
-Este proyecto conserva los archivos `LICENSE` y `NOTICE` del código base del que deriva. Las atribuciones legales deben mantenerse al redistribuirlo.
+Codewolf fue creado y es mantenido por [YahirHub](https://github.com/YahirHub)
+usando como base [Codebuff](https://github.com/CodebuffAI/codebuff).
+
+Codebuff está publicado bajo Apache License 2.0. Esa licencia permite usar,
+modificar y redistribuir el código, incluidas distribuciones comerciales,
+siempre que se conserven la licencia, los avisos aplicables y la indicación de
+que el trabajo fue modificado. Codewolf conserva `LICENSE` y `NOTICE`, añade su
+atribución como obra modificada y empaqueta ambos archivos en cada release.
 
 ## Limpieza de instalaciones anteriores
 

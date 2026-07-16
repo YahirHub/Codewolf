@@ -56,6 +56,7 @@ export type ParsedArgs = {
   continueId?: string | null
   cwd?: string
   initialMode?: AgentMode
+  showOnboarding: boolean
 }
 
 export function loadPackageVersion(): string {
@@ -97,6 +98,10 @@ export function parseArgs({
     .option(
       '--clear-logs',
       'Eliminar los registros existentes del CLI antes de iniciar',
+    )
+    .option(
+      '--onboarding',
+      'Mostrar nuevamente la configuración inicial',
     )
     .option(
       '--continue [conversation-id]',
@@ -145,5 +150,6 @@ export function parseArgs({
         : null,
     cwd: options.cwd,
     initialMode,
+    showOnboarding: Boolean(options.onboarding),
   }
 }

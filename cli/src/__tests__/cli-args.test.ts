@@ -184,6 +184,16 @@ describe('Codewolf command parsing', () => {
 
     expect(result.initialMode).toBe('LITE')
   })
+
+  test('allows reopening the onboarding explicitly', () => {
+    const result = parseArgs({
+      argv: ['node', 'codewolf', '--onboarding'],
+      version: '1.0.0',
+    })
+
+    expect(result.showOnboarding).toBe(true)
+    expect(result.initialPrompt).toBeNull()
+  })
 })
 
 describe('custom provider editor-only configuration', () => {

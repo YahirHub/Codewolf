@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
+import { FirstRunOnboardingScreen } from './components/first-run-onboarding-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
@@ -16,6 +17,7 @@ import { abortActiveRun } from './utils/active-run'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
 import { findGitRoot } from './utils/git'
+import { completeFirstRunOnboarding } from './utils/first-run-onboarding'
 
 import type { ChatHistorySelection } from './components/chat-history-screen'
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -32,6 +34,7 @@ interface AppProps {
   continueChat: boolean
   continueChatId?: string
   initialMode?: AgentMode
+  initialShowFirstRunOnboarding: boolean
   showProjectPicker: boolean
   onProjectChange: (projectPath: string) => void | Promise<void>
 }
@@ -45,6 +48,7 @@ export const App = ({
   continueChat,
   continueChatId,
   initialMode,
+  initialShowFirstRunOnboarding,
   showProjectPicker,
   onProjectChange,
 }: AppProps) => {
@@ -102,6 +106,9 @@ export const App = ({
   )
   const showGitRootBanner = Boolean(gitRoot && gitRoot !== projectRoot)
   const [gitRootBannerDismissed, setGitRootBannerDismissed] = useState(false)
+  const [showFirstRunOnboarding, setShowFirstRunOnboarding] = useState(
+    initialShowFirstRunOnboarding,
+  )
   const prevTopBannerRef = useRef<TopBannerType | null>(null)
 
   useEffect(() => {
@@ -210,9 +217,18 @@ export const App = ({
     // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
-  // Render project picker FIRST when at home directory or outside a project.
-  // This deliberately precedes the login/auth and free-session gates so the
-  // user always gets to pick a working directory before anything else — auth
+  if (showFirstRunOnboarding) {
+    return (
+      <FirstRunOnboardingScreen
+        onComplete={() => {
+          completeFirstRunOnboarding()
+          setShowFirstRunOnboarding(false)
+        }}
+      />
+    )
+  }
+
+  // Render project picker after onboarding when at home or outside a project.
   if (showProjectPicker) {
     return (
       <ProjectPickerScreen

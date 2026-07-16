@@ -97,17 +97,24 @@ const API_PROVIDERS: Array<{
   },
 ]
 
+export type ProviderAuthInitialView =
+  | 'method'
+  | 'subscription-provider'
+  | 'api-provider'
+
 interface ProviderAuthFlowScreenProps {
   onComplete: (provider: CustomProviderDefinition) => void
   onCancel: () => void
+  initialView?: ProviderAuthInitialView
 }
 
 export const ProviderAuthFlowScreen: React.FC<ProviderAuthFlowScreenProps> = ({
   onComplete,
   onCancel,
+  initialView = 'method',
 }) => {
   const theme = useTheme()
-  const [view, setView] = useState<LoginView>('method')
+  const [view, setView] = useState<LoginView>(initialView)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -128,9 +135,9 @@ export const ProviderAuthFlowScreen: React.FC<ProviderAuthFlowScreenProps> = ({
         )
           return
         if (key.name === 'escape') {
-          if (view === 'method') onCancel()
+          if (view === initialView) onCancel()
           else {
-            setView('method')
+            setView(initialView)
             setSelectedIndex(0)
             setMessage(null)
           }
@@ -170,7 +177,7 @@ export const ProviderAuthFlowScreen: React.FC<ProviderAuthFlowScreenProps> = ({
         setSelectedIndex(0)
         setMessage(null)
       },
-      [onCancel, rows.length, selectedIndex, view],
+      [initialView, onCancel, rows.length, selectedIndex, view],
     ),
   )
 

@@ -56,6 +56,8 @@ Secciones opcionales cuando exista información confirmada:
 # Problemas encontrados
 
 - OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
+- El onboarding de primera ejecución registra su versión, ofrece suscripción/proveedor/OpenCode Free, muestra branding animado adaptable y evita mostrarse retroactivamente a usuarios con estado previo. Su decisión se captura antes de que el arranque cree `recent-projects.json`; `--onboarding` permite reabrirlo sin borrar datos. La presentación usa `AnimatedCodewolfLogo`, tarjetas seleccionables y un modo compacto compatible con terminales de 80x24.
+- El instalador y workflow comparten nombres deterministas de assets para actualizar de forma verificable en Linux, macOS y Windows.
 - NVIDIA NIM se configura desde `/login`, guarda la clave únicamente en `provider-auth.json`, actualiza el catálogo global de modelos al iniciar y abrir `/models`, y usa solicitudes no SSE adaptadas al contrato de streaming interno para mantener estables las herramientas.
 
 # Pendientes
@@ -121,6 +123,8 @@ TypeScript con Bun, React y OpenTUI.
 - Con contexto persistente activo, las implementaciones con cambios reales garantizan la creación o actualización de un registro numerado y del contexto maestro. Los registros normales se generan localmente sin otra llamada al proveedor, con títulos técnicos breves, filtrado de metatexto y secciones opcionales solo cuando existen hechos confirmados. `/init` puede enriquecer el análisis mediante una única salida estructurada y siempre conserva un fallback local.
 - La terminal normaliza wrappers `cd` incompatibles entre Windows, Git Bash y WSL, y `basher` devuelve el resultado sin una segunda llamada al proveedor.
 - `bun test` omite las E2E de agentes sin habilitación explícita y excluye los runners manuales de browser-use/librarian; los typechecks de CLI son compatibles con Bun 1.3.14.
+- Las instalaciones nuevas muestran onboarding con atribución, acceso por suscripción, proveedor personalizado u OpenCode Free; los usuarios existentes se migran sin interrumpir su configuración.
+- `install.sh` instala o actualiza desde la release `latest`, verifica SHA-256 y respalda `~/.codewolf` antes de reemplazar una instalación existente.
 
 # Persistencia
 
@@ -153,6 +157,8 @@ Windows usa `C:\Users\<usuario>\.codewolf`; Linux usa
   predeterminada y GitHub Actions está habilitado.
 - Primera release: `1.0.0`; cada ejecución incrementa el parche y usa etiquetas
   estrictamente numéricas, sin prefijo `v`.
+- Targets: Linux x64/ARM64 glibc y musl, macOS x64/ARM64 y Windows x64/ARM64; las variantes x64 baseline cubren CPU sin AVX2.
+- Cada paquete incluye ejecutable, `tree-sitter.wasm`, `LICENSE`, `NOTICE` y `README.md`, además de `SHA256SUMS.txt` global.
 
 # Librerías usadas
 
@@ -177,6 +183,10 @@ lista exacta y versiones bloqueadas.
 - `packages/agent-runtime/src/tools/handlers/tool/`
 - `cli/src/utils/sdk-event-handlers.ts`
 - `cli/src/scripts/build-binary.ts`
+- `cli/src/components/first-run-onboarding-screen.tsx`
+- `cli/src/utils/first-run-onboarding.ts`
+- `install.sh`
+- `docs/install.md`
 - `.github/workflows/build-binaries.yml`
 - `AGENTS.md`
 - `README.md`
@@ -295,6 +305,8 @@ lista exacta y versiones bloqueadas.
 - La suite local de Windows usa `process.execPath` para procesos de Bun, entorno de pruebas autónomo, escrituras atómicas serializadas y expectativas alineadas con la interfaz española; las integraciones externas se separan por rutas explícitas.
 
 - OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
+- El onboarding de primera ejecución registra su versión, ofrece suscripción/proveedor/OpenCode Free, muestra branding animado adaptable y evita mostrarse retroactivamente a usuarios con estado previo.
+- El instalador y workflow comparten nombres deterministas de assets para actualizar de forma verificable en Linux, macOS y Windows.
 
 # Pendientes
 
@@ -344,3 +356,7 @@ al terminar.
 - `030`: suite local de Windows, entorno autónomo y escrituras atómicas serializadas.
 - `031`: OpenCode Free integrado y autenticación OpenCode Go desde `/login`.
 - `032`: NVIDIA NIM con catálogo dinámico, modelos actuales y transporte estable sin SSE.
+- `033`: login ChatGPT/Codex por suscripción, código de dispositivo y OAuth.
+- `034`: onboarding, instalador con respaldo y releases multiplataforma.
+- `035`: corrección del orden de detección del onboarding y opción `--onboarding`.
+- `036`: rediseño visual del onboarding y componente reutilizable de branding animado.

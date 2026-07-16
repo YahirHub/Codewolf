@@ -118,6 +118,11 @@ function getTargetInfo(): TargetInfo {
       platform: 'win32',
       arch: 'x64',
     },
+    'win32-arm64': {
+      bunTarget: 'bun-windows-arm64',
+      platform: 'win32',
+      arch: 'arm64',
+    },
   }
 
   const key = `${platform}-${arch}`
@@ -131,10 +136,11 @@ function getTargetInfo(): TargetInfo {
 }
 
 function getCliTargetLabel(targetInfo: TargetInfo): string {
-  const baseTarget = `${targetInfo.platform}-${targetInfo.arch}`
-  return targetInfo.bunTarget.endsWith('-baseline')
-    ? `${baseTarget}-baseline`
-    : baseTarget
+  const labels = [targetInfo.platform, targetInfo.arch]
+  if (targetInfo.bunTarget.includes('-musl')) labels.push('musl')
+  if (targetInfo.bunTarget.endsWith('-baseline')) labels.push('baseline')
+  if (targetInfo.bunTarget.endsWith('-modern')) labels.push('modern')
+  return labels.join('-')
 }
 
 async function main() {

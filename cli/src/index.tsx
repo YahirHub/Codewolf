@@ -35,6 +35,7 @@ import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { trimOversizedChatLogs } from './utils/chat-history'
+import { shouldShowFirstRunOnboarding } from './utils/first-run-onboarding'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
@@ -180,11 +181,19 @@ async function main(): Promise<void> {
     continueId,
     cwd,
     initialMode,
+    showOnboarding,
   } = parseArgs()
 
   const isLoginCommand = command === 'login'
   const isPublishCommand = command === 'publish'
   const hasAgentOverride = Boolean(agent?.trim())
+
+  // Capture the first-run decision before initializeApp() and the rest of the
+  // startup path create layout, analytics, project-history or catalog files.
+  // Otherwise a genuinely fresh installation can look like an existing one
+  // by the time React renders the first screen.
+  const initialShowFirstRunOnboarding =
+    showOnboarding || shouldShowFirstRunOnboarding()
 
   await initializeApp({ cwd })
 
@@ -350,6 +359,7 @@ async function main(): Promise<void> {
         continueChat={continueChat}
         continueChatId={continueId ?? undefined}
         initialMode={initialMode}
+        initialShowFirstRunOnboarding={initialShowFirstRunOnboarding}
         showProjectPicker={showProjectPickerScreen}
         onProjectChange={handleProjectChange}
       />
