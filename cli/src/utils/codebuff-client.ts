@@ -10,7 +10,10 @@ import { logger } from './logger'
 import { recordTokenUsage } from './token-usage'
 import { createTraceWriter } from './trace-writer'
 import { getRgPath } from '../native/ripgrep'
-import { resolveResearchProviderOverrides } from './research-models'
+import {
+  resolveOpusProviderOverride,
+  resolveResearchProviderOverrides,
+} from './research-models'
 import { getProjectRoot } from '../project-files'
 
 import type { ClientToolCall } from '@codebuff/common/tools/list'
@@ -94,6 +97,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
       clientInstance = new CodebuffClient({
         apiKey,
         customProvider,
+        opusProvider: resolveOpusProviderOverride(),
         researchProviders: resolveResearchProviderOverrides(),
         cwd: projectRoot,
         agentDefinitions,

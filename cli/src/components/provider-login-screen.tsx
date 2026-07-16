@@ -51,6 +51,38 @@ const STEP_COPY: Record<
   },
 }
 
+function consumeNavigationKey(key: KeyEvent): void {
+  const event = key as KeyEvent & {
+    preventDefault?: () => void
+    stopPropagation?: () => void
+  }
+  event.preventDefault?.()
+  event.stopPropagation?.()
+}
+
+export function shouldReturnToPreviousProviderStep(params: {
+  key: {
+    name?: string
+    ctrl?: boolean
+    meta?: boolean
+    option?: boolean
+  }
+  currentValue: string
+  cursorPosition: number
+  stepIndex: number
+}): boolean {
+  const { key, currentValue, cursorPosition, stepIndex } = params
+  return (
+    key.name === 'backspace' &&
+    !key.ctrl &&
+    !key.meta &&
+    !key.option &&
+    currentValue.length === 0 &&
+    cursorPosition === 0 &&
+    stepIndex > 0
+  )
+}
+
 interface ProviderLoginScreenProps {
   onComplete: (provider: CustomProviderDefinition) => void
   onCancel: () => void
@@ -142,13 +174,13 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
         const baseUrl = values.baseUrl.trim()
         const apiKeyInput = values.apiKey.trim()
         const normalizedApiKeyInput = apiKeyInput.toLowerCase()
-        const discoveryApiKey = normalizedApiKeyInput === 'none'
-          ? undefined
-          : normalizedApiKeyInput.startsWith('env:')
-            ? process.env[apiKeyInput.slice(4).trim()]
-            : apiKeyInput || (provider
-                ? getCustomProviderApiKey(provider.id)
-                : undefined)
+        const discoveryApiKey =
+          normalizedApiKeyInput === 'none'
+            ? undefined
+            : normalizedApiKeyInput.startsWith('env:')
+              ? process.env[apiKeyInput.slice(4).trim()]
+              : apiKeyInput ||
+                (provider ? getCustomProviderApiKey(provider.id) : undefined)
         const models = modelsInput.trim()
           ? parseCustomProviderModels(modelsInput)
           : await discoverCustomProviderModels({
@@ -179,7 +211,8 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
       } finally {
         setLoading(false)
       }
-    }, [onComplete, provider, values.apiKey, values.baseUrl, values.name],
+    },
+    [onComplete, provider, values.apiKey, values.baseUrl, values.name],
   )
 
   const handleSubmit = useCallback(() => {
@@ -243,17 +276,23 @@ export const ProviderLoginScreen: React.FC<ProviderLoginScreenProps> = ({
         return true
       }
       if (
-        key.name === 'backspace' &&
-        currentValue.length === 0 &&
-        cursorPosition === 0 &&
-        stepIndex > 0
+        shouldReturnToPreviousProviderStep({
+          key,
+          currentValue,
+          cursorPosition,
+          stepIndex,
+        })
       ) {
+        // OpenTUI can apply Backspace to the field rendered after the step
+        // transition unless the original key event is explicitly consumed.
+        // Consume it before navigating so the previous value stays intact.
+        consumeNavigationKey(key)
         goBack()
         return true
       }
       return false
     },
-    [currentValue.length, cursorPosition, goBack, onCancel, stepIndex],
+    [currentValue, cursorPosition, goBack, onCancel, stepIndex],
   )
 
   return (

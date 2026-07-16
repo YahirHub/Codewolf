@@ -5,6 +5,7 @@ import {
   loadAvailableProvidersConfig,
 } from './custom-providers'
 import {
+  getOpusModel,
   getResearchAgentModels,
   getResearchGeneralModel,
   getResearchModelMode,
@@ -14,10 +15,7 @@ import type {
   ResearchAgentId,
   ResearchProviderOverrides,
 } from '@codebuff/common/types/custom-provider'
-import type {
-  ResearchAgentKind,
-  ResearchModelReference,
-} from './settings'
+import type { ResearchAgentKind, ResearchModelReference } from './settings'
 
 export const RESEARCH_AGENT_KIND_TO_ID: Record<
   ResearchAgentKind,
@@ -50,7 +48,7 @@ export function formatResearchModelReference(
   return `${provider.name} · ${model.name ?? model.id}`
 }
 
-function resolveReference(
+export function resolveModelReference(
   reference: ResearchModelReference | undefined,
   configDir?: string,
 ) {
@@ -109,7 +107,7 @@ export function resolveResearchProviderOverrides(
           ? [general, automatic]
           : [perAgent[kind], general, automatic]
     for (const reference of candidates) {
-      const resolved = resolveReference(reference, configDir)
+      const resolved = resolveModelReference(reference, configDir)
       if (resolved) return resolved
     }
     return undefined
@@ -123,4 +121,9 @@ export function resolveResearchProviderOverrides(
     if (provider) overrides[RESEARCH_AGENT_KIND_TO_ID[kind]] = provider
   }
   return overrides
+}
+
+/** Resolve the optional dedicated provider/model used by OPUS-class subagents. */
+export function resolveOpusProviderOverride(configDir?: string) {
+  return resolveModelReference(getOpusModel(configDir), configDir)
 }

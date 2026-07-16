@@ -77,6 +77,8 @@ export type AgentRuntimeScopedDeps = {
 
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model override used by OPUS/high-capability subagents. */
+  opusProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model overrides used only by research subagents. */
   researchProviders?: ResearchProviderOverrides
   /** Per-run maximum duration for research subagents. */

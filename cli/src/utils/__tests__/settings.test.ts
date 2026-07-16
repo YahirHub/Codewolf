@@ -6,8 +6,10 @@ import { afterEach, describe, expect, test } from 'bun:test'
 
 import {
   DEFAULT_RESEARCH_TIMEOUT_MINUTES,
+  getOpusModel,
   loadSettings,
   saveSettings,
+  setOpusModel,
 } from '../settings'
 
 const temporaryDirectories: string[] = []
@@ -45,7 +47,7 @@ describe('research timeout settings', () => {
   })
 })
 
-describe('research model settings', () => {
+describe('research and OPUS model settings', () => {
   test('uses automatic economical routing by default', () => {
     const configDir = temporaryConfig()
     expect(loadSettings(configDir).researchModelMode).toBe(
@@ -53,7 +55,7 @@ describe('research model settings', () => {
     )
   })
 
-  test('persists a general model and per-agent overrides', () => {
+  test('persists a general model, OPUS model, and per-agent overrides', () => {
     const configDir = temporaryConfig()
     saveSettings(
       {
@@ -61,6 +63,10 @@ describe('research model settings', () => {
         researchGeneralModel: {
           providerId: 'opencode-free',
           modelId: 'fast-free',
+        },
+        opusModel: {
+          providerId: 'premium-provider',
+          modelId: 'reasoning-large',
         },
         researchAgentModels: {
           ecosystem: {
@@ -82,6 +88,10 @@ describe('research model settings', () => {
         providerId: 'opencode-free',
         modelId: 'fast-free',
       },
+      opusModel: {
+        providerId: 'premium-provider',
+        modelId: 'reasoning-large',
+      },
       researchAgentModels: {
         ecosystem: {
           providerId: 'nvidia-nim',
@@ -95,6 +105,18 @@ describe('research model settings', () => {
     })
   })
 
+  test('clears the OPUS preference so agents inherit /models again', () => {
+    const configDir = temporaryConfig()
+    setOpusModel(
+      { providerId: 'premium-provider', modelId: 'reasoning-large' },
+      configDir,
+    )
+    expect(getOpusModel(configDir)?.modelId).toBe('reasoning-large')
+
+    setOpusModel(undefined, configDir)
+    expect(getOpusModel(configDir)).toBeUndefined()
+  })
+
   test('drops invalid model references instead of loading partial values', () => {
     const configDir = temporaryConfig()
     fs.writeFileSync(
@@ -102,6 +124,7 @@ describe('research model settings', () => {
       JSON.stringify({
         researchModelMode: 'invalid',
         researchGeneralModel: { providerId: 'provider-only' },
+        opusModel: { providerId: 'opus-only' },
         researchAgentModels: {
           ecosystem: { providerId: '', modelId: 'model' },
           documentation: { providerId: 'docs', modelId: 'small' },

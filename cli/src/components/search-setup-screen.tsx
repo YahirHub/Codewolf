@@ -156,13 +156,21 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
 
   const providerOptions = useMemo(() => {
     const options: Array<
-      'api-key' | 'toggle' | 'remove-key' | 'test' | 'back'
+      'api-key' | 'make-default' | 'toggle' | 'remove-key' | 'test' | 'back'
     > = ['api-key']
+    if (providerState.enabled && effectiveOrder[0] !== selectedProvider) {
+      options.push('make-default')
+    }
     if (providerState.configured) options.push('toggle', 'remove-key')
     if (providerState.enabled) options.push('test')
     options.push('back')
     return options
-  }, [providerState.configured, providerState.enabled])
+  }, [
+    effectiveOrder,
+    providerState.configured,
+    providerState.enabled,
+    selectedProvider,
+  ])
 
   const providerOptionLabel = useCallback(
     (option: (typeof providerOptions)[number]) => {
@@ -171,6 +179,8 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
           return providerState.configured
             ? 'Reemplazar API key'
             : 'Configurar API key'
+        case 'make-default':
+          return 'Usar como motor predeterminado'
         case 'toggle':
           return providerState.enabled
             ? 'Deshabilitar motor'
@@ -320,6 +330,14 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
               lastEditDueToNav: false,
             })
             setView('api-key')
+            return
+          case 'make-default':
+            setDefaultSearchProvider(selectedProvider)
+            reload()
+            setMessage(
+              `${SEARCH_PROVIDER_LABELS[selectedProvider]} es ahora el motor predeterminado.`,
+            )
+            setSelectedIndex(0)
             return
           case 'toggle':
             setSearchProviderEnabled(selectedProvider, !providerState.enabled)
@@ -548,6 +566,10 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
               .join(' → ')
           : 'ningún motor configurado'}
       </text>
+      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+        El predeterminado se intenta primero. Si alcanza su límite, falla o no
+        devuelve resultados útiles, Codewolf continúa con el siguiente respaldo.
+      </text>
 
       <scrollbox
         scrollX={false}
@@ -757,6 +779,10 @@ export const SearchSetupScreen: React.FC<SearchSetupScreenProps> = ({
     <>
       <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
         Motor predeterminado
+      </text>
+      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+        Este motor se usa primero; ante límite de cuota, error o resultados
+        vacíos, se continúa automáticamente con el orden de respaldo.
       </text>
       <box style={{ flexDirection: 'column', marginTop: 1 }}>
         {activeProviders.map((provider, index) => {

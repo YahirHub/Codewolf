@@ -133,6 +133,8 @@ export type CodebuffClientOptions = {
   apiKey?: string
   /** Optional active OpenAI-compatible provider/model override. */
   customProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model override used by OPUS/high-capability subagents. */
+  opusProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model overrides used only by research subagents. */
   researchProviders?: ResearchProviderOverrides
 
@@ -318,6 +320,7 @@ async function runOnce({
   apiKey,
   fingerprintId,
   customProvider,
+  opusProvider,
   researchProviders,
 
   cwd,
@@ -565,6 +568,7 @@ async function runOnce({
     usageProjectPath: cwd,
     apiKey,
     customProvider,
+    opusProvider,
     researchProviders,
     handleStepsLogChunk: () => {
       // Does nothing for now
@@ -770,6 +774,7 @@ async function runOnce({
       trace_session_id: traceSessionId,
     },
     researchTimeoutMs,
+    opusProvider,
     researchProviders,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {

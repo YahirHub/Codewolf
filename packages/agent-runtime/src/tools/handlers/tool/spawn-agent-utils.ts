@@ -67,11 +67,13 @@ export function resolveSubagentProviderContext(params: {
   agentId: string
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  opusProvider?: CustomProviderRuntimeConfig
   researchProviders?: ResearchProviderOverrides
+  agentModel?: string
 }): {
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
-  usesDedicatedResearchProvider: boolean
+  usesDedicatedProvider: boolean
 } {
   const isResearchAgent = RESEARCH_AGENT_IDS.includes(
     params.agentId as ResearchAgentId,
@@ -79,14 +81,20 @@ export function resolveSubagentProviderContext(params: {
   const researchProvider = isResearchAgent
     ? params.researchProviders?.[params.agentId as ResearchAgentId]
     : undefined
-  const customProvider = researchProvider ?? params.customProvider
+  const isOpusClassAgent =
+    params.agentId.includes('opus') ||
+    params.agentModel?.includes('claude-opus') === true
+  const opusProvider =
+    !researchProvider && isOpusClassAgent ? params.opusProvider : undefined
+  const customProvider =
+    researchProvider ?? opusProvider ?? params.customProvider
 
   return {
     apiKey: customProvider
       ? `local-custom-provider:${customProvider.id}`
       : params.apiKey,
     customProvider,
-    usesDedicatedResearchProvider: Boolean(researchProvider),
+    usesDedicatedProvider: Boolean(researchProvider ?? opusProvider),
   }
 }
 
@@ -128,6 +136,7 @@ export function extractSubagentContextParams(
     sendSubagentChunk: params.sendSubagentChunk,
     apiKey: params.apiKey,
     customProvider: params.customProvider,
+    opusProvider: params.opusProvider,
     researchProviders: params.researchProviders,
     researchTimeoutMs: params.researchTimeoutMs,
 
@@ -386,7 +395,9 @@ export class SubagentTimeoutError extends Error {
     const duration = Number.isInteger(minutes)
       ? `${minutes} minute${minutes === 1 ? '' : 's'}`
       : `${Math.round(timeoutMs / 1000)} seconds`
-    super(`Subagent ${agentType} exceeded the configured ${duration} execution limit.`)
+    super(
+      `Subagent ${agentType} exceeded the configured ${duration} execution limit.`,
+    )
     this.name = 'SubagentTimeoutError'
   }
 }
@@ -492,17 +503,19 @@ export async function executeSubagent(
     const {
       apiKey: childApiKey,
       customProvider: childCustomProvider,
-      usesDedicatedResearchProvider,
+      usesDedicatedProvider,
     } = resolveSubagentProviderContext({
       agentId: agentTemplate.id,
       apiKey: withDefaults.apiKey,
       customProvider: withDefaults.customProvider,
+      opusProvider: withDefaults.opusProvider,
       researchProviders: withDefaults.researchProviders,
+      agentModel: agentTemplate.model,
     })
 
     const runPromise = loopAgentSteps({
       ...withDefaults,
-      ...(usesDedicatedResearchProvider
+      ...(usesDedicatedProvider
         ? {
             getUserInfoFromApiKey: async ({ fields }) =>
               Object.fromEntries(

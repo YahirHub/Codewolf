@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { upsertCustomProvider } from '../custom-providers'
 import {
   getAutomaticEconomicalResearchModelReference,
+  resolveOpusProviderOverride,
   resolveResearchProviderOverrides,
 } from '../research-models'
 import { saveSettings } from '../settings'
@@ -40,6 +41,30 @@ afterEach(() => {
 })
 
 describe('research model routing', () => {
+  test('resolves an optional dedicated OPUS model without changing the active model', () => {
+    const configDir = temporaryConfig()
+    addProvider(configDir, 'power-provider', 'reasoning-large')
+    saveSettings(
+      {
+        opusModel: {
+          providerId: 'power-provider',
+          modelId: 'reasoning-large',
+        },
+      },
+      configDir,
+    )
+
+    expect(resolveOpusProviderOverride(configDir)).toMatchObject({
+      id: 'power-provider',
+      modelId: 'reasoning-large',
+    })
+  })
+
+  test('leaves OPUS unset so subagents inherit the active /models selection', () => {
+    const configDir = temporaryConfig()
+    expect(resolveOpusProviderOverride(configDir)).toBeUndefined()
+  })
+
   test('prefers an available OpenCode Free model in automatic mode', () => {
     const configDir = temporaryConfig()
     const reference = getAutomaticEconomicalResearchModelReference(configDir)

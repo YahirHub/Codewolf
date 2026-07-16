@@ -63,6 +63,8 @@ export interface Settings {
   researchAgentModels?: Partial<
     Record<ResearchAgentKind, ResearchModelReference>
   >
+  /** Optional model used by bundled OPUS/high-capability subagents. */
+  opusModel?: ResearchModelReference
   /** Last first-run onboarding version completed by this installation. */
   onboardingVersion?: number
 }
@@ -192,6 +194,9 @@ const validateSettings = (parsed: unknown): Settings => {
 
   const generalModel = parseModelReference(obj.researchGeneralModel)
   if (generalModel) settings.researchGeneralModel = generalModel
+
+  const opusModel = parseModelReference(obj.opusModel)
+  if (opusModel) settings.opusModel = opusModel
 
   if (
     obj.researchAgentModels &&
@@ -330,4 +335,15 @@ export const setResearchAgentModel = (
   if (reference) next[kind] = reference
   else delete next[kind]
   saveSettings({ researchAgentModels: next }, configDir)
+}
+
+export const getOpusModel = (
+  configDir?: string,
+): ResearchModelReference | undefined => loadSettings(configDir).opusModel
+
+export const setOpusModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ opusModel: reference }, configDir)
 }

@@ -71,7 +71,7 @@ describe('custom provider subagent context', () => {
     ).toEqual({
       apiKey: 'local-custom-provider:cheap-provider',
       customProvider: cheapProvider,
-      usesDedicatedResearchProvider: true,
+      usesDedicatedProvider: true,
     })
 
     expect(
@@ -86,8 +86,66 @@ describe('custom provider subagent context', () => {
     ).toEqual({
       apiKey: 'local-custom-provider:main-provider',
       customProvider: parentProvider,
-      usesDedicatedResearchProvider: false,
+      usesDedicatedProvider: false,
     })
   })
 
+  it('uses the configured OPUS provider for OPUS-class agents and otherwise inherits /models', () => {
+    const parentProvider: CustomProviderRuntimeConfig = {
+      id: 'active-provider',
+      name: 'Active Provider',
+      baseUrl: 'https://active.example/v1',
+      apiKey: 'active-secret',
+      modelId: 'active-model',
+    }
+    const opusProvider: CustomProviderRuntimeConfig = {
+      id: 'power-provider',
+      name: 'Power Provider',
+      baseUrl: 'https://power.example/v1',
+      apiKey: 'power-secret',
+      modelId: 'power-model',
+    }
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'thinker',
+        agentModel: 'anthropic/claude-opus-4.8',
+        apiKey: 'parent-api-key',
+        customProvider: parentProvider,
+        opusProvider,
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:power-provider',
+      customProvider: opusProvider,
+      usesDedicatedProvider: true,
+    })
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'code-reviewer-opus',
+        agentModel: 'openai/gpt-5.4',
+        apiKey: 'parent-api-key',
+        customProvider: parentProvider,
+        opusProvider,
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:power-provider',
+      customProvider: opusProvider,
+      usesDedicatedProvider: true,
+    })
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'basher',
+        agentModel: 'openai/gpt-5.4',
+        apiKey: 'parent-api-key',
+        customProvider: parentProvider,
+        opusProvider,
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:active-provider',
+      customProvider: parentProvider,
+      usesDedicatedProvider: false,
+    })
+  })
 })
