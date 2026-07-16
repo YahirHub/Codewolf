@@ -69,6 +69,10 @@ import {
 } from './helpers/send-message'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import { yieldToEventLoop } from '../utils/yield-to-event-loop'
+import {
+  buildEffectiveAgentPrompt,
+  isManualCompactPrompt,
+} from '../utils/internal-control-prompts'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -117,26 +121,6 @@ const resolveAgent = (
       : undefined
 
   return selectedAgentDefinition ?? agentId ?? AGENT_MODE_TO_ID[agentMode]
-}
-
-// Respect bash context, but avoid sending empty prompts when only images are attached.
-const buildPromptWithContext = (
-  promptWithBashContext: string,
-  messageContent: MessageContent[] | undefined,
-  projectContextEnabled: boolean,
-) => {
-  const trimmedPrompt = promptWithBashContext.trim()
-  const prompt =
-    trimmedPrompt.length > 0
-      ? promptWithBashContext
-      : messageContent && messageContent.length > 0
-        ? 'Consulta las imágenes adjuntas'
-        : ''
-
-  if (!projectContextEnabled) return prompt
-  return `${PROJECT_CONTEXT_RUNTIME_INSTRUCTION}
-
-${prompt}`.trim()
 }
 
 export const useSendMessage = ({
@@ -305,6 +289,7 @@ export const useSendMessage = ({
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
+      const manualCompaction = isManualCompactPrompt(content)
       const projectContextEnabled = isProjectContextEnabled()
       const verifiedCommitsEnabled = isVerifiedCommitsEnabled()
       const shouldPrepareVerifiedCommit =
@@ -377,6 +362,7 @@ export const useSendMessage = ({
           agentMode,
           postUserMessage,
           attachments,
+          preservePendingContext: manualCompaction,
         })
         userMessageId = prepared.userMessageId
         messageContent = prepared.messageContent
@@ -529,16 +515,18 @@ export const useSendMessage = ({
       }
 
       let additionalKnowledgeFiles: Record<string, string> | undefined
-      try {
-        additionalKnowledgeFiles = await prepareProjectContextKnowledge({
-          projectRoot: rewindProjectRoot,
-          client,
-        })
-      } catch (error) {
-        logger.warn(
-          { error },
-          '[contexto] Failed to prepare persistent project context',
-        )
+      if (!manualCompaction) {
+        try {
+          additionalKnowledgeFiles = await prepareProjectContextKnowledge({
+            projectRoot: rewindProjectRoot,
+            client,
+          })
+        } catch (error) {
+          logger.warn(
+            { error },
+            '[contexto] Failed to prepare persistent project context',
+          )
+        }
       }
 
       // Create AI message shell and setup streaming context
@@ -633,11 +621,13 @@ export const useSendMessage = ({
         const promptWithBashContext = bashContextForPrompt
           ? bashContextForPrompt + finalContent
           : finalContent
-        const effectivePrompt = buildPromptWithContext(
-          promptWithBashContext,
-          messageContent,
+        const effectivePrompt = buildEffectiveAgentPrompt({
+          rawContent: content,
+          promptWithTransientContext: promptWithBashContext,
+          hasMessageContent: Boolean(messageContent?.length),
           projectContextEnabled,
-        )
+          projectContextInstruction: PROJECT_CONTEXT_RUNTIME_INSTRUCTION,
+        })
 
         const eventHandlerState = createEventHandlerState({
           streamRefs,
@@ -661,7 +651,7 @@ export const useSendMessage = ({
           logger,
           agent: resolvedAgent,
           prompt: effectivePrompt,
-          content: messageContent,
+          content: manualCompaction ? undefined : messageContent,
           previousRunState: previousRunStateRef.current,
           agentDefinitions,
           eventHandlerState,

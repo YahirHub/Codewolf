@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -173,6 +173,77 @@ describe('rewind checkpoints', () => {
     expect(result.messages).toBeUndefined()
     expect(result.runState).toBeUndefined()
     expect(fs.readFileSync(trackedFile, 'utf8')).toBe('before')
+  })
+
+  test('skips a file that remains locked after retries instead of aborting the rewind', async () => {
+    const trackedFile = path.join(projectRoot, 'src', 'context.ts')
+    fs.mkdirSync(path.dirname(trackedFile), { recursive: true })
+    fs.writeFileSync(trackedFile, 'before')
+    const checkpoint = await createRewindCheckpoint({
+      chatDir,
+      projectRoot,
+      prompt: 'Cambiar contexto',
+      messages: [],
+      runState: null,
+    })
+    await recordFileBeforeMutation({
+      chatDir,
+      projectRoot,
+      filePath: 'src/context.ts',
+    })
+    fs.writeFileSync(trackedFile, 'after')
+    await recordFileAfterMutation({
+      chatDir,
+      projectRoot,
+      filePath: 'src/context.ts',
+    })
+
+    const originalRename = fs.promises.rename.bind(fs.promises)
+    const originalCopyFile = fs.promises.copyFile.bind(fs.promises)
+    const renameSpy = spyOn(fs.promises, 'rename').mockImplementation(
+      async (source, destination) => {
+        if (path.resolve(String(destination)) === path.resolve(trackedFile)) {
+          const error = new Error('EPERM: file locked') as NodeJS.ErrnoException
+          error.code = 'EPERM'
+          throw error
+        }
+        await originalRename(source, destination)
+      },
+    )
+    const copySpy = spyOn(fs.promises, 'copyFile').mockImplementation(
+      async (source, destination, mode) => {
+        if (path.resolve(String(destination)) === path.resolve(trackedFile)) {
+          const error = new Error('EBUSY: file locked') as NodeJS.ErrnoException
+          error.code = 'EBUSY'
+          throw error
+        }
+        await originalCopyFile(source, destination, mode)
+      },
+    )
+
+    const result = await (async () => {
+      try {
+        return await restoreRewindCheckpoint({
+          chatDir,
+          projectRoot,
+          checkpointId: checkpoint.id,
+          mode: 'files',
+        })
+      } finally {
+        renameSpy.mockRestore()
+        copySpy.mockRestore()
+      }
+    })()
+
+    expect(fs.readFileSync(trackedFile, 'utf8')).toBe('after')
+    expect(result.restoredFiles).toEqual([])
+    expect(result.skippedFiles).toEqual([
+      {
+        path: 'src/context.ts',
+        reason:
+          'El archivo está bloqueado por Windows u otro programa. Cierra el editor, watcher o antivirus que lo esté usando y vuelve a intentarlo.',
+      },
+    ])
   })
 
   test('does not overwrite a file changed outside Codewolf after the last edit', async () => {

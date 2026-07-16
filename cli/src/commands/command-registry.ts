@@ -397,6 +397,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.sendMessage({
         content: compactPrompt,
         agentMode: params.agentMode,
+        // Keep any pending attachments for the user's next normal message.
+        attachments: [],
       })
       setTimeout(() => {
         params.scrollToLatest()

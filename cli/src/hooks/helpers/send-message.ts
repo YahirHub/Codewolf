@@ -124,6 +124,7 @@ export const prepareUserMessage = async (params: {
   agentMode: AgentMode
   postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
   attachments?: PendingAttachment[]
+  preservePendingContext?: boolean
   deps: PrepareUserMessageDeps
 }): Promise<{
   userMessageId: string
@@ -131,24 +132,40 @@ export const prepareUserMessage = async (params: {
   bashContextForPrompt: string
   finalContent: string
 }> => {
-  const { content, agentMode, postUserMessage, attachments, deps } = params
+  const {
+    content,
+    agentMode,
+    postUserMessage,
+    attachments,
+    preservePendingContext = false,
+    deps,
+  } = params
   const { setMessages, lastMessageMode, setLastMessageMode, scrollToLatest } =
     deps
 
   const { pendingBashMessages, clearPendingBashMessages } =
     useChatStore.getState()
-  const { bashMessages, bashContextForPrompt } =
-    processBashContext(pendingBashMessages)
+  const { bashMessages, bashContextForPrompt } = preservePendingContext
+    ? { bashMessages: [], bashContextForPrompt: '' }
+    : processBashContext(pendingBashMessages)
 
-  if (bashMessages.length > 0) {
-    setMessages((prev) => [...prev, ...bashMessages])
+  if (!preservePendingContext) {
+    if (bashMessages.length > 0) {
+      setMessages((prev) => [...prev, ...bashMessages])
+    }
+    clearPendingBashMessages()
   }
-  clearPendingBashMessages()
 
-  // Split attachments by kind
+  // Split attachments by kind. Internal control prompts such as /compact must
+  // not consume attachments intended for the next ordinary user message.
   const allAttachments =
-    attachments ?? useChatStore.getState().pendingAttachments
-  if (!attachments && allAttachments.length > 0) {
+    attachments ??
+    (preservePendingContext ? [] : useChatStore.getState().pendingAttachments)
+  if (
+    !preservePendingContext &&
+    !attachments &&
+    allAttachments.length > 0
+  ) {
     useChatStore.getState().clearPendingAttachments()
   }
 

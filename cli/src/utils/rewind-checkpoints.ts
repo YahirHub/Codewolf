@@ -4,7 +4,11 @@ import { createHash, randomUUID } from 'node:crypto'
 
 import { stringifyJsonValue } from '@codebuff/common/util/json'
 
-import { writeFileAtomic } from './write-file-atomic'
+import {
+  isTransientFileLockError,
+  writeFileAtomic,
+  writeFileAtomicAsync,
+} from './write-file-atomic'
 
 import type { ChatMessage } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -549,21 +553,31 @@ export async function restoreRewindCheckpoint(
           continue
         }
 
-        if (!targetSnapshot.exists) {
-          fs.rmSync(fullPath, { force: true })
-        } else if (targetSnapshot.objectId) {
-          fs.mkdirSync(path.dirname(fullPath), { recursive: true })
-          writeFileAtomic(
-            fullPath,
-            readFileObject(params.chatDir, targetSnapshot.objectId),
-          )
-          if (targetSnapshot.mode !== undefined) {
-            try {
-              fs.chmodSync(fullPath, targetSnapshot.mode)
-            } catch {
-              // Some platforms/filesystems do not support chmod.
+        try {
+          if (!targetSnapshot.exists) {
+            fs.rmSync(fullPath, { force: true, maxRetries: 5, retryDelay: 100 })
+          } else if (targetSnapshot.objectId) {
+            fs.mkdirSync(path.dirname(fullPath), { recursive: true })
+            await writeFileAtomicAsync(
+              fullPath,
+              readFileObject(params.chatDir, targetSnapshot.objectId),
+            )
+            if (targetSnapshot.mode !== undefined) {
+              try {
+                fs.chmodSync(fullPath, targetSnapshot.mode)
+              } catch {
+                // Some platforms/filesystems do not support chmod.
+              }
             }
           }
+        } catch (error) {
+          if (!isTransientFileLockError(error)) throw error
+          result.skippedFiles.push({
+            path: relativePath,
+            reason:
+              'El archivo está bloqueado por Windows u otro programa. Cierra el editor, watcher o antivirus que lo esté usando y vuelve a intentarlo.',
+          })
+          continue
         }
         index.lastKnownFiles[relativePath] = targetSnapshot
         result.restoredFiles.push(relativePath)

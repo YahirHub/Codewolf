@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -40,6 +40,33 @@ describe('writeFileAtomic', () => {
     writeFileAtomic(target, 'new content')
 
     expect(fs.readFileSync(target, 'utf8')).toBe('new content')
+  })
+
+  test('falls back to copying the complete temp file when Windows rejects rename', () => {
+    const target = path.join(tempDir, 'locked-by-watcher.ts')
+    fs.writeFileSync(target, 'old content')
+    const originalRenameSync = fs.renameSync
+    const renameSpy = spyOn(fs, 'renameSync').mockImplementation(
+      (source, destination) => {
+        if (path.resolve(String(destination)) === path.resolve(target)) {
+          const error = new Error(
+            'EPERM: operation not permitted, rename',
+          ) as NodeJS.ErrnoException
+          error.code = 'EPERM'
+          throw error
+        }
+        return originalRenameSync(source, destination)
+      },
+    )
+
+    try {
+      writeFileAtomic(target, 'restored content')
+    } finally {
+      renameSpy.mockRestore()
+    }
+
+    expect(fs.readFileSync(target, 'utf8')).toBe('restored content')
+    expect(fs.readdirSync(tempDir)).toEqual(['locked-by-watcher.ts'])
   })
 
   test('leaves no temp file behind on success', () => {
@@ -98,6 +125,33 @@ describe('writeFileAtomicAsync', () => {
     await writeFileAtomicAsync(target, 'new content')
 
     expect(fs.readFileSync(target, 'utf8')).toBe('new content')
+  })
+
+  test('falls back asynchronously when replacing an existing file returns EPERM', async () => {
+    const target = path.join(tempDir, 'locked-by-antivirus.ts')
+    fs.writeFileSync(target, 'old content')
+    const originalRename = fs.promises.rename.bind(fs.promises)
+    const renameSpy = spyOn(fs.promises, 'rename').mockImplementation(
+      async (source, destination) => {
+        if (path.resolve(String(destination)) === path.resolve(target)) {
+          const error = new Error(
+            'EPERM: operation not permitted, rename',
+          ) as NodeJS.ErrnoException
+          error.code = 'EPERM'
+          throw error
+        }
+        await originalRename(source, destination)
+      },
+    )
+
+    try {
+      await writeFileAtomicAsync(target, 'restored content')
+    } finally {
+      renameSpy.mockRestore()
+    }
+
+    expect(fs.readFileSync(target, 'utf8')).toBe('restored content')
+    expect(fs.readdirSync(tempDir)).toEqual(['locked-by-antivirus.ts'])
   })
 
   test('leaves no temp file behind on success', async () => {

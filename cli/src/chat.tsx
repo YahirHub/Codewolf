@@ -1264,9 +1264,7 @@ export const Chat = ({
         [
           scopeLabel,
           restoredCount > 0 ? `${restoredCount} archivos` : '',
-          skippedCount > 0
-            ? `${skippedCount} omitidos por cambios externos`
-            : '',
+          skippedCount > 0 ? `${skippedCount} archivos omitidos` : '',
         ]
           .filter(Boolean)
           .join(' · '),
