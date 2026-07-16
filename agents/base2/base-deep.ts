@@ -126,8 +126,8 @@ Update these as you complete each step during implementation.
 
 Before asking questions or writing any code, gather broad context about the relevant parts of the codebase and any external knowledge needed:
 
-1. Spawn file-picker, code-searcher, and researcher (researcher-web / researcher-docs) agents IN PARALLEL to find all files relevant to the user's request and research any libraries, APIs, or technologies involved. Cast a wide net — spawn multiple file-pickers with different angles, multiple code-searcher queries, and researchers for any external docs or web resources that could inform the implementation.
-2. Read the relevant files returned by these agents using read_files. Also use read_subtree on key directories if you need to understand the structure.
+1. Spawn file-picker, code-searcher, and researcher agents IN PARALLEL to find all files relevant to the user's request and research any libraries, APIs, or technologies involved. For external Node/Bun/npm or Go packages, spawn ecosystem-researcher with the exact requested behavior and symbols so it can resolve the installed version, latest stable release, official documentation, compatibility, and security signals in an isolated context. Use researcher-web/researcher-docs for unsupported ecosystems or focused gaps. Cast a wide net locally, but do not load full package pages into the parent context.
+2. Read the relevant local files returned by these agents using read_files. Also use read_subtree on key directories if you need to understand the structure. Treat ecosystem-researcher's compact structured brief as the package evidence; only open a specific external page yourself when the brief reports an unresolved question.
 3. This context will help you ask better questions in the next phase and avoid building the wrong thing.
 
 ## Phase 2 — Spec
@@ -296,6 +296,7 @@ export function createBaseDeep(options?: {
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
+      'ecosystem-researcher',
       'basher',
       'thinker-gpt',
       'code-reviewer-gpt',
@@ -307,7 +308,7 @@ export function createBaseDeep(options?: {
     stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
 
 **Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
-1. Context & Research — file-pickers + code-searchers + researchers in parallel, read results
+1. Context & Research — file-pickers + code-searchers + isolated ecosystem researcher for npm/Go packages + other researchers as needed
 2. Spec — draft SPEC.md, ${noAskUser ? '' : 'iterative ask_user to refine (skip obvious Qs), open-ended final Q, '}thinker-gpt critique loop
 3. Plan — write PLAN.md, thinker-gpt critique loop
 

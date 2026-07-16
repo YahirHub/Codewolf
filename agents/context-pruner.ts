@@ -52,6 +52,7 @@ const definition: AgentDefinition = {
       'file-picker',
       'researcher-web',
       'researcher-docs',
+      'ecosystem-researcher',
       'basher',
       'code-reviewer',
       'code-reviewer-opus',
@@ -386,6 +387,17 @@ const definition: AgentDefinition = {
           return libraryTitle
             ? `consulted docs: ${libraryTitle}`
             : 'consulted docs'
+        }
+        case 'ecosystem_research': {
+          const ecosystem = input.ecosystem as string | undefined
+          const operation = input.operation as string | undefined
+          const packageName = input.package as string | undefined
+          const query = input.query as string | undefined
+          const target = packageName ?? query
+          if (ecosystem && operation && target) {
+            return `queried ${ecosystem} ${operation} data for ${target}`
+          }
+          return 'queried compact ecosystem package data'
         }
         case 'set_output':
           return 'set structured output'

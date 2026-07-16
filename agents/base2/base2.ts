@@ -119,6 +119,7 @@ export function createBase2(
           'code-searcher',
           'researcher-web',
           'researcher-docs',
+          'ecosystem-researcher',
           'thinker',
           'thinker-best-of-n-opus',
           'thinker-gpt',
@@ -131,6 +132,7 @@ export function createBase2(
           'code-searcher',
           'researcher-web',
           'researcher-docs',
+          'ecosystem-researcher',
           'basher',
           isDefault && 'thinker',
           (isDefault || isMax) && ['opus-agent', 'agent'],
@@ -155,6 +157,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Conventions & Style:** Rigorously adhere to existing project conventions when modifying code. Analyze surrounding code, tests, and configuration first.
 - **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project (check imports, configuration files like 'package.json', 'Cargo.toml', 'requirements.txt', 'build.gradle', etc., or observe neighboring files) before employing it.
 - **Research uncertainty instead of guessing:** If you are unsure about a library, API, architecture, security practice, compatibility detail, deployment target, or project structure—or the answer may have changed—use the available search tools and spawn researcher-web/researcher-docs. Prefer official documentation, official repositories, changelogs, migration guides, and primary sources. If search is unavailable, say so and work from local evidence.
+- **Research npm and Go packages in isolation:** Before implementing, upgrading, or migrating an external Node/Bun/npm or Go package when its current version, API, compatibility, or security behavior matters, spawn **ecosystem-researcher** with a focused mission describing the exact behavior and symbols you need. Let that isolated agent inspect manifests and lockfiles, resolve the latest stable release through official package services, and verify official docs/source. Use only its compact implementation brief in your main context. Do not open full package READMEs or broad search results in the parent context unless the brief identifies a specific unresolved gap. Skip this gate for purely local code or when no third-party package is involved.
 - **Persistent project methodology:** If the virtual knowledge files .codewolf/metodologia-desarrollo.md or .codewolf/contexto-resumen.md are present, follow them. Read the relevant source files in contexto/ before important changes, and update or create the next numbered context document after important features, bugs, architecture, security, dependency, build, or deployment changes. Do not write secrets to contexto/.
 - **Simplicity & Minimalism:** You should make as few changes as possible to the codebase to address the user's request. Prefer simple solutions.
 - **Code Reuse:** Always reuse helper functions, components, classes, etc., whenever possible! Don't reimplement what already exists elsewhere in the codebase.
@@ -235,7 +238,7 @@ ${
 <user>please implement [a complex new feature]</user>
 
 <response>
-[ You spawn 3 file-pickers, 2 code-searchers, and a docs researcher in parallel to find relevant files and do research online. You use the list_directory and glob tools directly to search the codebase. ]
+[ You spawn 3 file-pickers, 2 code-searchers, and the appropriate isolated researcher agents in parallel. For current npm or Go package work, you spawn ecosystem-researcher with the exact APIs and behavior to verify. You use list_directory and glob directly for local codebase discovery. ]
 
 [ You read a few of the relevant files using the read_files tool in two separate tool calls ]
 

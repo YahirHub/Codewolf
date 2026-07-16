@@ -7,6 +7,7 @@ export type ToolName =
   | 'ask_user'
   | 'code_search'
   | 'end_turn'
+  | 'ecosystem_research'
   | 'find_files'
   | 'glob'
   | 'gravity_index'
@@ -42,6 +43,7 @@ export interface ToolParamsMap {
   ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
+  ecosystem_research: EcosystemResearchParams
   find_files: FindFilesParams
   glob: GlobParams
   gravity_index: GravityIndexParams
@@ -143,6 +145,27 @@ export interface CodeSearchParams {
  * End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.
  */
 export interface EndTurnParams {}
+
+/**
+ * Query official npm Registry or pkg.go.dev APIs with compact cached output.
+ */
+export interface EcosystemResearchParams {
+  ecosystem: 'npm' | 'go'
+  operation:
+    | 'search'
+    | 'package'
+    | 'documentation'
+    | 'symbols'
+    | 'versions'
+    | 'vulnerabilities'
+  query?: string
+  package?: string
+  module?: string
+  version?: string
+  topic?: string
+  limit?: number
+  refresh?: boolean
+}
 
 /**
  * Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.

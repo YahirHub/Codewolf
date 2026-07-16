@@ -31,6 +31,7 @@ export const toolNames = [
   'code_search',
   'create_plan',
   'end_turn',
+  'ecosystem_research',
   'find_files',
   'glob',
   'gravity_index',

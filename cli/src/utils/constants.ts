@@ -35,6 +35,7 @@ export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
   'glob-matcher',
   'researcher-web',
   'researcher-docs',
+  'ecosystem-researcher',
 ] as const
 
 /**

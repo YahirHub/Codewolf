@@ -10,6 +10,7 @@ import { codeSearchParams } from './params/tool/code-search'
 import { composioMetaToolParams } from './params/tool/composio'
 import { createPlanParams } from './params/tool/create-plan'
 import { endTurnParams } from './params/tool/end-turn'
+import { ecosystemResearchParams } from './params/tool/ecosystem-research'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
 import { gravityIndexParams } from './params/tool/gravity-index'
@@ -51,6 +52,7 @@ export const toolParams = {
   code_search: codeSearchParams,
   create_plan: createPlanParams,
   end_turn: endTurnParams,
+  ecosystem_research: ecosystemResearchParams,
   find_files: findFilesParams,
   glob: globParams,
   gravity_index: gravityIndexParams,

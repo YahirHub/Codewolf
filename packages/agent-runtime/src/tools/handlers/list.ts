@@ -12,6 +12,7 @@ import {
 } from './tool/composio'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
+import { handleEcosystemResearch } from './tool/ecosystem-research'
 import { handleFindFiles } from './tool/find-files'
 import { handleGlob } from './tool/glob'
 import { handleGravityIndex } from './tool/gravity-index'
@@ -67,6 +68,7 @@ export const codebuffToolHandlers: {
   composio_get_tool_schemas: handleComposioGetToolSchemas,
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
+  ecosystem_research: handleEcosystemResearch,
   find_files: handleFindFiles,
   glob: handleGlob,
   gravity_index: handleGravityIndex,

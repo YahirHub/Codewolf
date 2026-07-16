@@ -336,6 +336,7 @@ export function logAgentSpawn(params: {
 }
 
 const RESEARCHER_WEB_TIMEOUT_MS = 120_000
+const ECOSYSTEM_RESEARCHER_TIMEOUT_MS = 180_000
 const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60_000
 
 export class SubagentTimeoutError extends Error {
@@ -351,9 +352,11 @@ export class SubagentTimeoutError extends Error {
 }
 
 export function getSubagentTimeoutMs(agentTemplate: AgentTemplate): number {
-  return agentTemplate.id === 'researcher-web'
-    ? RESEARCHER_WEB_TIMEOUT_MS
-    : DEFAULT_SUBAGENT_TIMEOUT_MS
+  if (agentTemplate.id === 'researcher-web') return RESEARCHER_WEB_TIMEOUT_MS
+  if (agentTemplate.id === 'ecosystem-researcher') {
+    return ECOSYSTEM_RESEARCHER_TIMEOUT_MS
+  }
+  return DEFAULT_SUBAGENT_TIMEOUT_MS
 }
 
 /**
