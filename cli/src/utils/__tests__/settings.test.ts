@@ -7,10 +7,16 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import {
   DEFAULT_RESEARCH_TIMEOUT_MINUTES,
   getCodeReviewerModel,
+  getCodeSearcherModel,
+  getFileListerModel,
+  getFilePickerModel,
   getOpusModel,
   loadSettings,
   saveSettings,
   setCodeReviewerModel,
+  setCodeSearcherModel,
+  setFileListerModel,
+  setFilePickerModel,
   setOpusModel,
 } from '../settings'
 
@@ -49,7 +55,7 @@ describe('research timeout settings', () => {
   })
 })
 
-describe('research, OPUS, and code-reviewer model settings', () => {
+describe('research and subagent model settings', () => {
   test('uses automatic economical routing by default', () => {
     const configDir = temporaryConfig()
     expect(loadSettings(configDir).researchModelMode).toBe(
@@ -73,6 +79,18 @@ describe('research, OPUS, and code-reviewer model settings', () => {
         codeReviewerModel: {
           providerId: 'review-provider',
           modelId: 'review-large',
+        },
+        codeSearcherModel: {
+          providerId: 'search-provider',
+          modelId: 'search-fast',
+        },
+        filePickerModel: {
+          providerId: 'picker-provider',
+          modelId: 'picker-fast',
+        },
+        fileListerModel: {
+          providerId: 'lister-provider',
+          modelId: 'lister-fast',
         },
         researchAgentModels: {
           ecosystem: {
@@ -101,6 +119,18 @@ describe('research, OPUS, and code-reviewer model settings', () => {
       codeReviewerModel: {
         providerId: 'review-provider',
         modelId: 'review-large',
+      },
+      codeSearcherModel: {
+        providerId: 'search-provider',
+        modelId: 'search-fast',
+      },
+      filePickerModel: {
+        providerId: 'picker-provider',
+        modelId: 'picker-fast',
+      },
+      fileListerModel: {
+        providerId: 'lister-provider',
+        modelId: 'lister-fast',
       },
       researchAgentModels: {
         ecosystem: {
@@ -139,6 +169,25 @@ describe('research, OPUS, and code-reviewer model settings', () => {
     expect(getCodeReviewerModel(configDir)).toBeUndefined()
   })
 
+  test('clears exploration preferences so agents inherit /models again', () => {
+    const configDir = temporaryConfig()
+    const reference = { providerId: 'cheap-provider', modelId: 'cheap-model' }
+
+    setCodeSearcherModel(reference, configDir)
+    setFilePickerModel(reference, configDir)
+    setFileListerModel(reference, configDir)
+    expect(getCodeSearcherModel(configDir)).toEqual(reference)
+    expect(getFilePickerModel(configDir)).toEqual(reference)
+    expect(getFileListerModel(configDir)).toEqual(reference)
+
+    setCodeSearcherModel(undefined, configDir)
+    setFilePickerModel(undefined, configDir)
+    setFileListerModel(undefined, configDir)
+    expect(getCodeSearcherModel(configDir)).toBeUndefined()
+    expect(getFilePickerModel(configDir)).toBeUndefined()
+    expect(getFileListerModel(configDir)).toBeUndefined()
+  })
+
   test('drops invalid model references instead of loading partial values', () => {
     const configDir = temporaryConfig()
     fs.writeFileSync(
@@ -148,6 +197,9 @@ describe('research, OPUS, and code-reviewer model settings', () => {
         researchGeneralModel: { providerId: 'provider-only' },
         opusModel: { providerId: 'opus-only' },
         codeReviewerModel: { modelId: 'review-only' },
+        codeSearcherModel: { providerId: 'search-only' },
+        filePickerModel: { modelId: 'picker-only' },
+        fileListerModel: null,
         researchAgentModels: {
           ecosystem: { providerId: '', modelId: 'model' },
           documentation: { providerId: 'docs', modelId: 'small' },

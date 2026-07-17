@@ -27,6 +27,7 @@ import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   CustomProviderRuntimeConfig,
+  ExplorationProviderOverrides,
   ResearchProviderOverrides,
 } from '@codebuff/common/types/custom-provider'
 import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
@@ -60,8 +61,10 @@ export function getAgentRuntimeImpl(
     usageProjectPath?: string
     apiKey: string
     customProvider?: CustomProviderRuntimeConfig
+    sessionProvider?: CustomProviderRuntimeConfig
     opusProvider?: CustomProviderRuntimeConfig
     codeReviewerProvider?: CustomProviderRuntimeConfig
+    explorationProviders?: ExplorationProviderOverrides
     researchProviders?: ResearchProviderOverrides
     clientEnv?: ClientEnv
   } & Pick<
@@ -83,8 +86,10 @@ export function getAgentRuntimeImpl(
     usageProjectPath,
     apiKey,
     customProvider,
+    sessionProvider,
     opusProvider,
     codeReviewerProvider,
+    explorationProviders,
     researchProviders,
     clientEnv: clientEnvInput,
     handleStepsLogChunk,
@@ -193,8 +198,10 @@ export function getAgentRuntimeImpl(
 
     apiKey,
     customProvider,
+    sessionProvider,
     opusProvider,
     codeReviewerProvider,
+    explorationProviders,
     researchProviders,
   }
 }

@@ -89,6 +89,8 @@ TypeScript con Bun, React y OpenTUI.
 - NVIDIA NIM integrado mediante API key, catálogo dinámico de `/v1/models` y transporte JSON completo para evitar streams sin `finish_reason`.
 - Selector agrupado mediante `/models`.
 - Proveedor y modelo personalizados propagados a agente principal y subagentes.
+- Cada tarea congela el proveedor y modelo con los que comenzó; cambiar `/models` durante una ejecución solo afecta la siguiente tarea y la barra distingue el modelo en uso del siguiente seleccionado.
+- `/config` permite asignar modelos independientes a agentes OPUS, revisión de código, investigación, `code-searcher`, `file-picker` y `file-lister`. Las preferencias vacías heredan el modelo de sesión seleccionado en `/models`, incluso en subagentes anidados.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -360,3 +362,5 @@ al terminar.
 - `034`: onboarding, instalador con respaldo y releases multiplataforma.
 - `035`: corrección del orden de detección del onboarding y opción `--onboarding`.
 - `036`: rediseño visual del onboarding y componente reutilizable de branding animado.
+- `037`: consistencia del cambio de modelo entre la tarea activa y la siguiente.
+- `038`: modelos configurables para búsqueda de código y exploración de archivos.

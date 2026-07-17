@@ -7,3 +7,6 @@ debug/
 
 # Generated files
 src/agents/bundled-agents.generated.ts
+
+# Bun temporary build artifacts
+*.bun-build

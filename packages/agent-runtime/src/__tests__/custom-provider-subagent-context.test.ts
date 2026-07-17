@@ -7,7 +7,10 @@ import {
   resolveSubagentProviderContext,
 } from '../tools/handlers/tool/spawn-agent-utils'
 
-import type { CustomProviderRuntimeConfig } from '@codebuff/common/types/custom-provider'
+import type {
+  CustomProviderRuntimeConfig,
+  ExplorationProviderOverrides,
+} from '@codebuff/common/types/custom-provider'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 
 describe('custom provider subagent context', () => {
@@ -148,6 +151,127 @@ describe('custom provider subagent context', () => {
     ).toEqual({
       apiKey: 'local-custom-provider:power-provider',
       customProvider: opusProvider,
+      usesDedicatedProvider: true,
+    })
+  })
+
+  it('routes code-searcher, file-picker, and file-lister through their configured models', () => {
+    const sessionProvider: CustomProviderRuntimeConfig = {
+      id: 'session-provider',
+      name: 'Session Provider',
+      baseUrl: 'https://session.example/v1',
+      apiKey: 'session-secret',
+      modelId: 'session-model',
+    }
+    const searchProvider: CustomProviderRuntimeConfig = {
+      id: 'search-provider',
+      name: 'Search Provider',
+      baseUrl: 'https://search.example/v1',
+      apiKey: 'search-secret',
+      modelId: 'search-model',
+    }
+    const pickerProvider: CustomProviderRuntimeConfig = {
+      id: 'picker-provider',
+      name: 'Picker Provider',
+      baseUrl: 'https://picker.example/v1',
+      apiKey: 'picker-secret',
+      modelId: 'picker-model',
+    }
+    const listerProvider: CustomProviderRuntimeConfig = {
+      id: 'lister-provider',
+      name: 'Lister Provider',
+      baseUrl: 'https://lister.example/v1',
+      apiKey: 'lister-secret',
+      modelId: 'lister-model',
+    }
+    const explorationProviders: ExplorationProviderOverrides = {
+      'code-searcher': searchProvider,
+      'file-picker': pickerProvider,
+      'file-lister': listerProvider,
+    }
+
+    for (const [agentId, expected] of [
+      ['code-searcher', searchProvider],
+      ['file-picker', pickerProvider],
+      ['file-picker-max', pickerProvider],
+      ['file-lister', listerProvider],
+      ['file-lister-max', listerProvider],
+    ] as const) {
+      expect(
+        resolveSubagentProviderContext({
+          agentId,
+          apiKey: 'parent-api-key',
+          customProvider: sessionProvider,
+          sessionProvider,
+          explorationProviders,
+        }),
+      ).toEqual({
+        apiKey: `local-custom-provider:${expected.id}`,
+        customProvider: expected,
+        usesDedicatedProvider: true,
+      })
+    }
+  })
+
+  it('lets exploration agents inherit /models instead of the OPUS preference', () => {
+    const sessionProvider: CustomProviderRuntimeConfig = {
+      id: 'session-provider',
+      name: 'Session Provider',
+      baseUrl: 'https://session.example/v1',
+      apiKey: 'session-secret',
+      modelId: 'session-model',
+    }
+    const opusProvider: CustomProviderRuntimeConfig = {
+      id: 'opus-provider',
+      name: 'OPUS Provider',
+      baseUrl: 'https://opus.example/v1',
+      apiKey: 'opus-secret',
+      modelId: 'opus-model',
+    }
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'file-picker-max',
+        agentModel: 'anthropic/claude-opus-4.8',
+        apiKey: 'parent-api-key',
+        customProvider: sessionProvider,
+        sessionProvider,
+        opusProvider,
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:session-provider',
+      customProvider: sessionProvider,
+      usesDedicatedProvider: false,
+    })
+  })
+
+  it('restores the session model for an unconfigured nested exploration agent', () => {
+    const sessionProvider: CustomProviderRuntimeConfig = {
+      id: 'session-provider',
+      name: 'Session Provider',
+      baseUrl: 'https://session.example/v1',
+      apiKey: 'session-secret',
+      modelId: 'session-model',
+    }
+    const pickerProvider: CustomProviderRuntimeConfig = {
+      id: 'picker-provider',
+      name: 'Picker Provider',
+      baseUrl: 'https://picker.example/v1',
+      apiKey: 'picker-secret',
+      modelId: 'picker-model',
+    }
+
+    expect(
+      resolveSubagentProviderContext({
+        agentId: 'file-lister',
+        apiKey: 'parent-api-key',
+        customProvider: pickerProvider,
+        sessionProvider,
+        explorationProviders: { 'file-picker': pickerProvider },
+      }),
+    ).toEqual({
+      apiKey: 'local-custom-provider:session-provider',
+      customProvider: sessionProvider,
       usesDedicatedProvider: true,
     })
   })

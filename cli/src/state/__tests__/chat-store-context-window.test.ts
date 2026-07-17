@@ -36,4 +36,26 @@ describe('chat context window state', () => {
     useChatStore.getState().setRunState(null)
     expect(useChatStore.getState().contextTokenCount).toBe(0)
   })
+
+  test('keeps a frozen model snapshot for the active turn', () => {
+    useChatStore.getState().setActiveRunModel({
+      runId: 'run-a',
+      providerId: 'provider-a',
+      providerName: 'Provider A',
+      modelId: 'model-a',
+      modelName: 'Model A',
+      maxContextTokens: 128_000,
+    })
+
+    expect(useChatStore.getState().activeRunModel).toMatchObject({
+      runId: 'run-a',
+      modelId: 'model-a',
+    })
+
+    useChatStore.getState().clearActiveRunModel('older-run')
+    expect(useChatStore.getState().activeRunModel?.runId).toBe('run-a')
+
+    useChatStore.getState().clearActiveRunModel('run-a')
+    expect(useChatStore.getState().activeRunModel).toBeNull()
+  })
 })

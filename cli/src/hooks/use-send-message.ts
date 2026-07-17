@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { getProjectRoot, setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
-import { getCodebuffClient } from '../utils/codebuff-client'
+import { getCodebuffClientContext } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_COST_MODE, AGENT_MODE_TO_ID } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
@@ -159,6 +159,8 @@ export const useSendMessage = ({
     setLastMessageMode,
     setRunState,
     setContextTokenCount,
+    setActiveRunModel,
+    clearActiveRunModel,
     setIsRetrying,
   } = useChatStore.getState()
   const previousRunStateRef = useRef<RunState | null>(
@@ -250,6 +252,7 @@ export const useSendMessage = ({
       agentMode: AgentMode
       postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
       attachments?: PendingAttachment[]
+      preservePendingContext?: boolean
     }) => {
       // Access lastMessageMode fresh each call to get current value
       const { lastMessageMode } = useChatStore.getState()
@@ -286,6 +289,15 @@ export const useSendMessage = ({
       // Yield one frame so OpenTUI paints the working indicator before any
       // filesystem or provider preflight work begins.
       await yieldToEventLoop()
+
+      // Freeze provider/model routing for this whole turn. The async function
+      // reads the active configuration synchronously before its first await, so
+      // changing /models while this task is running only affects the next task.
+      const runRoutingId = randomUUID()
+      const clientContextPromise = getCodebuffClientContext().catch((error) => {
+        logger.error(error, '[send-message] Failed to capture model routing')
+        return null
+      })
 
       const rewindChatDir = resolveCurrentChatDir()
       const rewindProjectRoot = getProjectRoot()
@@ -460,10 +472,10 @@ export const useSendMessage = ({
       setInputFocused(true)
       inputRef.current?.focus()
 
-      // Get SDK client
-      const client = await getCodebuffClient()
+      // Resolve the client snapshot captured at the start of this turn.
+      const clientContext = await clientContextPromise
 
-      if (!client) {
+      if (!clientContext) {
         logger.error(
           {},
           '[send-message] No hay un cliente de Codewolf disponible. Configura un proveedor con /login y selecciona un modelo con /models.',
@@ -486,6 +498,9 @@ export const useSendMessage = ({
         })
         return
       }
+
+      const { client, model: runModelSnapshot } = clientContext
+      setActiveRunModel({ runId: runRoutingId, ...runModelSnapshot })
 
       if (isInitRequest) {
         try {
@@ -929,6 +944,7 @@ export const useSendMessage = ({
           logger.debug({ error }, '[send-message] Ignoring error after abort')
         }
       } finally {
+        clearActiveRunModel(runRoutingId)
         // Stop exit-flushing this run's checkpoint; the final state (or last
         // checkpoint, on error) has been saved above. Owner-guarded so an
         // aborted run resolving late can't clear a newer run's provider.
@@ -961,6 +977,7 @@ export const useSendMessage = ({
     [
       addActiveSubagent,
       agentId,
+      clearActiveRunModel,
       inputRef,
       isChainInProgressRef,
       isProcessingQueueRef,
@@ -974,6 +991,7 @@ export const useSendMessage = ({
       resumeQueue,
       scrollToLatest,
       setCanProcessQueue,
+      setActiveRunModel,
       setFocusedAgentId,
       setHasReceivedPlanResponse,
       setInputFocused,

@@ -6,6 +6,9 @@ import {
 } from './custom-providers'
 import {
   getCodeReviewerModel,
+  getCodeSearcherModel,
+  getFileListerModel,
+  getFilePickerModel,
   getOpusModel,
   getResearchAgentModels,
   getResearchGeneralModel,
@@ -13,6 +16,7 @@ import {
 } from './settings'
 
 import type {
+  ExplorationProviderOverrides,
   ResearchAgentId,
   ResearchProviderOverrides,
 } from '@codebuff/common/types/custom-provider'
@@ -132,4 +136,27 @@ export function resolveOpusProviderOverride(configDir?: string) {
 /** Resolve the optional dedicated provider/model used by code-reviewer agents. */
 export function resolveCodeReviewerProviderOverride(configDir?: string) {
   return resolveModelReference(getCodeReviewerModel(configDir), configDir)
+}
+
+/** Resolve optional provider/model overrides for codebase exploration agents. */
+export function resolveExplorationProviderOverrides(
+  configDir?: string,
+): ExplorationProviderOverrides {
+  const overrides: ExplorationProviderOverrides = {}
+  const codeSearcher = resolveModelReference(
+    getCodeSearcherModel(configDir),
+    configDir,
+  )
+  const filePicker = resolveModelReference(
+    getFilePickerModel(configDir),
+    configDir,
+  )
+  const fileLister = resolveModelReference(
+    getFileListerModel(configDir),
+    configDir,
+  )
+  if (codeSearcher) overrides['code-searcher'] = codeSearcher
+  if (filePicker) overrides['file-picker'] = filePicker
+  if (fileLister) overrides['file-lister'] = fileLister
+  return overrides
 }

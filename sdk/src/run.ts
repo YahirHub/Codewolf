@@ -52,6 +52,7 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import type { CustomToolDefinition } from './custom-tool'
 import type {
   CustomProviderRuntimeConfig,
+  ExplorationProviderOverrides,
   ResearchProviderOverrides,
 } from '@codebuff/common/types/custom-provider'
 import type { RunState } from './run-state'
@@ -137,6 +138,8 @@ export type CodebuffClientOptions = {
   opusProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model override used by code-reviewer subagents. */
   codeReviewerProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model overrides used by code exploration subagents. */
+  explorationProviders?: ExplorationProviderOverrides
   /** Optional provider/model overrides used only by research subagents. */
   researchProviders?: ResearchProviderOverrides
 
@@ -324,6 +327,7 @@ async function runOnce({
   customProvider,
   opusProvider,
   codeReviewerProvider,
+  explorationProviders,
   researchProviders,
 
   cwd,
@@ -571,8 +575,10 @@ async function runOnce({
     usageProjectPath: cwd,
     apiKey,
     customProvider,
+    sessionProvider: customProvider,
     opusProvider,
     codeReviewerProvider,
+    explorationProviders,
     researchProviders,
     handleStepsLogChunk: () => {
       // Does nothing for now
@@ -778,8 +784,10 @@ async function runOnce({
       trace_session_id: traceSessionId,
     },
     researchTimeoutMs,
+    sessionProvider: customProvider,
     opusProvider,
     codeReviewerProvider,
+    explorationProviders,
     researchProviders,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {

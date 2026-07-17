@@ -49,6 +49,19 @@ export type ResearchProviderOverrides = Partial<
   Record<ResearchAgentId, CustomProviderRuntimeConfig>
 >
 
+export const EXPLORATION_AGENT_KINDS = [
+  'code-searcher',
+  'file-picker',
+  'file-lister',
+] as const
+
+export type ExplorationAgentKind = (typeof EXPLORATION_AGENT_KINDS)[number]
+
+/** Provider/model overrides for codebase exploration agents. */
+export type ExplorationProviderOverrides = Partial<
+  Record<ExplorationAgentKind, CustomProviderRuntimeConfig>
+>
+
 export const CONTEXT_COMPACTION_RATIO = 0.9
 
 /** Returns the automatic compaction threshold for a model context window. */

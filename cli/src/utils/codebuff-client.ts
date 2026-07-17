@@ -3,7 +3,10 @@ import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
-import { getActiveCustomProviderRuntimeConfig } from './custom-providers'
+import {
+  getActiveCustomProviderRuntimeConfig,
+  getActiveProviderModelSnapshot,
+} from './custom-providers'
 import { getCliEnv, getSystemProcessEnv } from './env'
 import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
@@ -12,14 +15,22 @@ import { createTraceWriter } from './trace-writer'
 import { getRgPath } from '../native/ripgrep'
 import {
   resolveCodeReviewerProviderOverride,
+  resolveExplorationProviderOverrides,
   resolveOpusProviderOverride,
   resolveResearchProviderOverrides,
 } from './research-models'
 import { getProjectRoot } from '../project-files'
 
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { ActiveProviderModelSnapshot } from './custom-providers'
 
-let clientInstance: CodebuffClient | null = null
+interface CodebuffClientContext {
+  client: CodebuffClient
+  model: ActiveProviderModelSnapshot
+}
+
+let clientContext: CodebuffClientContext | null = null
+let clientGeneration = 0
 
 /**
  * Recursively removes undefined values from an object to ensure clean JSON serialization.
@@ -49,11 +60,16 @@ function removeUndefinedValues<T>(obj: T): T {
  * This should be called after login to ensure the client is re-initialized with new credentials.
  */
 export function resetCodebuffClient(): void {
-  clientInstance = null
+  clientGeneration += 1
+  clientContext = null
 }
 
-export async function getCodebuffClient(): Promise<CodebuffClient | null> {
-  if (!clientInstance) {
+export async function getCodebuffClientContext(): Promise<
+  CodebuffClientContext | null
+> {
+  if (!clientContext) {
+    const generationAtStart = clientGeneration
+    const modelSnapshot = getActiveProviderModelSnapshot()
     let customProvider
     try {
       customProvider = getActiveCustomProviderRuntimeConfig()
@@ -95,11 +111,12 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
 
     try {
       const agentDefinitions = loadAgentDefinitions()
-      clientInstance = new CodebuffClient({
+      const createdClient = new CodebuffClient({
         apiKey,
         customProvider,
         opusProvider: resolveOpusProviderOverride(),
         codeReviewerProvider: resolveCodeReviewerProviderOverride(),
+        explorationProviders: resolveExplorationProviderOverrides(),
         researchProviders: resolveResearchProviderOverrides(),
         cwd: projectRoot,
         agentDefinitions,
@@ -125,13 +142,22 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
           },
         },
       })
+      const createdContext = { client: createdClient, model: modelSnapshot }
+      if (generationAtStart === clientGeneration) {
+        clientContext = createdContext
+      }
+      return createdContext
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')
       return null
     }
   }
 
-  return clientInstance
+  return clientContext
+}
+
+export async function getCodebuffClient(): Promise<CodebuffClient | null> {
+  return (await getCodebuffClientContext())?.client ?? null
 }
 
 export function getToolDisplayInfo(toolName: string): {

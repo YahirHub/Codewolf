@@ -18,6 +18,9 @@ import {
   RESEARCH_AGENT_KINDS,
   RESEARCH_MODEL_MODES,
   getCodeReviewerModel,
+  getCodeSearcherModel,
+  getFileListerModel,
+  getFilePickerModel,
   getOpusModel,
   getResearchAgentModels,
   getResearchGeneralModel,
@@ -26,6 +29,9 @@ import {
   isProjectContextEnabled,
   isVerifiedCommitsEnabled,
   setCodeReviewerModel,
+  setCodeSearcherModel,
+  setFileListerModel,
+  setFilePickerModel,
   setOpusModel,
   setProjectContextEnabled,
   setResearchAgentModel,
@@ -79,7 +85,14 @@ type ChoiceConfigItem = ConfigItemBase & {
   kind: 'choice'
 }
 
-type ModelTarget = 'opus' | 'code-reviewer' | 'general' | ResearchAgentKind
+type ModelTarget =
+  | 'opus'
+  | 'code-reviewer'
+  | 'code-searcher'
+  | 'file-picker'
+  | 'file-lister'
+  | 'general'
+  | ResearchAgentKind
 
 type ModelConfigItem = ConfigItemBase & {
   id: `research-model-${ModelTarget}`
@@ -126,6 +139,33 @@ const BASE_CONFIG_ITEMS: ConfigItem[] = [
       'Modelo para code-reviewer y sus variantes. Vacío: hereda OPUS o /models.',
   },
   {
+    id: 'research-model-code-searcher',
+    kind: 'model',
+    target: 'code-searcher',
+    section: 'agents',
+    title: 'Búsqueda de código',
+    description:
+      'Modelo para code-searcher. Vacío: usa el modelo seleccionado en /models para la tarea.',
+  },
+  {
+    id: 'research-model-file-picker',
+    kind: 'model',
+    target: 'file-picker',
+    section: 'agents',
+    title: 'Selección de archivos',
+    description:
+      'Modelo para file-picker y file-picker-max. Vacío: usa el modelo seleccionado en /models.',
+  },
+  {
+    id: 'research-model-file-lister',
+    kind: 'model',
+    target: 'file-lister',
+    section: 'agents',
+    title: 'Listado de archivos',
+    description:
+      'Modelo para file-lister y file-lister-max. Vacío: usa el modelo seleccionado en /models.',
+  },
+  {
     id: 'research-timeout',
     kind: 'number',
     section: 'research',
@@ -163,6 +203,25 @@ function modelReferenceFromChoice(
   return { providerId: choice.providerId, modelId: choice.modelId }
 }
 
+function getModelPickerTitle(target: ModelTarget): string {
+  switch (target) {
+    case 'opus':
+      return 'Seleccionar modelo para agentes OPUS'
+    case 'code-reviewer':
+      return 'Seleccionar modelo para revisión de código'
+    case 'code-searcher':
+      return 'Seleccionar modelo para búsqueda de código'
+    case 'file-picker':
+      return 'Seleccionar modelo para selección de archivos'
+    case 'file-lister':
+      return 'Seleccionar modelo para listado de archivos'
+    case 'general':
+      return 'Seleccionar modelo de investigación'
+    default:
+      return `Modelo para ${RESEARCH_AGENT_LABELS[target]}`
+  }
+}
+
 export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   onClose,
   onProjectContextChanged,
@@ -187,6 +246,15 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   const [opusModel, setOpusModelState] = useState(() => getOpusModel())
   const [codeReviewerModel, setCodeReviewerModelState] = useState(() =>
     getCodeReviewerModel(),
+  )
+  const [codeSearcherModel, setCodeSearcherModelState] = useState(() =>
+    getCodeSearcherModel(),
+  )
+  const [filePickerModel, setFilePickerModelState] = useState(() =>
+    getFilePickerModel(),
+  )
+  const [fileListerModel, setFileListerModelState] = useState(() =>
+    getFileListerModel(),
   )
   const [researchGeneralModel, setResearchGeneralModelState] = useState(() =>
     getResearchGeneralModel(),
@@ -330,10 +398,21 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     (target: ModelTarget): ResearchModelReference | undefined => {
       if (target === 'opus') return opusModel
       if (target === 'code-reviewer') return codeReviewerModel
+      if (target === 'code-searcher') return codeSearcherModel
+      if (target === 'file-picker') return filePickerModel
+      if (target === 'file-lister') return fileListerModel
       if (target === 'general') return researchGeneralModel
       return researchAgentModels[target]
     },
-    [codeReviewerModel, opusModel, researchAgentModels, researchGeneralModel],
+    [
+      codeReviewerModel,
+      codeSearcherModel,
+      fileListerModel,
+      filePickerModel,
+      opusModel,
+      researchAgentModels,
+      researchGeneralModel,
+    ],
   )
 
   const setModelReference = useCallback(
@@ -344,6 +423,15 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
       } else if (target === 'code-reviewer') {
         setCodeReviewerModel(reference)
         setCodeReviewerModelState(reference)
+      } else if (target === 'code-searcher') {
+        setCodeSearcherModel(reference)
+        setCodeSearcherModelState(reference)
+      } else if (target === 'file-picker') {
+        setFilePickerModel(reference)
+        setFilePickerModelState(reference)
+      } else if (target === 'file-lister') {
+        setFileListerModel(reference)
+        setFileListerModelState(reference)
       } else if (target === 'general') {
         setResearchGeneralModel(reference)
         setResearchGeneralModelState(reference)
@@ -450,15 +538,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     const selectedReference = getModelReference(modelPickerTarget)
     return (
       <ModelSelectorScreen
-        title={
-          modelPickerTarget === 'opus'
-            ? 'Seleccionar modelo para agentes OPUS'
-            : modelPickerTarget === 'code-reviewer'
-              ? 'Seleccionar modelo para revisión de código'
-              : modelPickerTarget === 'general'
-              ? 'Seleccionar modelo de investigación'
-              : `Modelo para ${RESEARCH_AGENT_LABELS[modelPickerTarget]}`
-        }
+        title={getModelPickerTitle(modelPickerTarget)}
         selectionMode="pick"
         includeCodewolf={false}
         selectedChoice={
@@ -493,6 +573,14 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     if (item.target === 'opus' && !reference) return 'Hereda /models'
     if (item.target === 'code-reviewer' && !reference) {
       return 'Hereda OPUS o /models'
+    }
+    if (
+      !reference &&
+      (item.target === 'code-searcher' ||
+        item.target === 'file-picker' ||
+        item.target === 'file-lister')
+    ) {
+      return 'Hereda /models'
     }
     if (item.target === 'general' && !reference) return 'Selección automática'
     if (!reference) return 'Hereda el modelo base'

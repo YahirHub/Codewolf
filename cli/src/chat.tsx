@@ -313,6 +313,7 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const isChainInProgress = useChatStore((state) => state.isChainInProgress)
   const hasActiveContextWindow = useCustomProviderStore((state) => {
     const provider = state.config.providers.find(
       (candidate) => candidate.id === state.config.activeProviderId,
@@ -1180,13 +1181,26 @@ export const Chat = ({
   const handleModelSelected = useCallback(
     (choice: ModelChoice) => {
       setModelSelectorOpen(false)
+      const { isChainInProgress, activeRunModel } = useChatStore.getState()
+      const selectedLabel = choice.isCodebuff
+        ? 'Codewolf / Backend predeterminado'
+        : `${choice.providerName} / ${choice.modelName}`
+      const activeRunLabel = activeRunModel
+        ? `${activeRunModel.providerName} / ${activeRunModel.modelName}`
+        : 'el modelo con el que comenzó'
+      const routingNote =
+        'Las preferencias específicas de /config para OPUS, revisión e ' +
+        'investigación tienen prioridad.'
+      const message = isChainInProgress
+        ? `Modelo seleccionado para la próxima tarea: ${selectedLabel}. ` +
+          `La tarea actual continuará con ${activeRunLabel}, incluidos los ` +
+          `subagentes sin una asignación propia. ${routingNote}`
+        : `Modelo activo: ${selectedLabel}. Se aplicará al agente principal ` +
+          `y a los subagentes sin una asignación propia. ${routingNote}`
+
       setMessages((previous) => [
         ...previous,
-        getSystemMessage(
-          choice.isCodebuff
-            ? 'Proveedor personalizado desactivado. Se usará el backend heredado configurado.'
-            : `Modelo activo: ${choice.providerName} / ${choice.modelName}. Se aplicará al agente principal y a sus subagentes.`,
-        ),
+        getSystemMessage(message),
       ])
       setInputFocused(true)
       setTimeout(() => inputRef.current?.focus(), 0)
@@ -1901,6 +1915,11 @@ export const Chat = ({
           <ModelSelectorScreen
             onSelect={handleModelSelected}
             onCancel={closeModelSelector}
+            title={
+              isChainInProgress
+                ? 'Modelo para la próxima tarea'
+                : 'Modelos por proveedor'
+            }
           />
         ) : searchSetupOpen ? (
           <SearchSetupScreen onClose={closeSearchSetup} />

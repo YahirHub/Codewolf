@@ -73,13 +73,28 @@ export const StatusBar = ({
     activeCustomProvider?.models.find(
       (model) => model.id === customProviderConfig.activeModelId,
     ) ?? activeCustomProvider?.models[0]
-  const customProviderLabel = activeCustomProvider
-    ? `${activeCustomProvider.name}/${activeCustomModel?.name ?? activeCustomModel?.id ?? 'sin-modelo'}`
+  const selectedModelName =
+    activeCustomModel?.name ?? activeCustomModel?.id ?? 'sin-modelo'
+  const selectedModelLabel = activeCustomProvider
+    ? `${activeCustomProvider.name}/${selectedModelName}`
+    : 'Codewolf/Backend predeterminado'
+  const activeRunModel = useChatStore((state) => state.activeRunModel)
+  const activeRunModelLabel = activeRunModel
+    ? `${activeRunModel.providerName}/${activeRunModel.modelName}`
     : null
+  const selectionDiffersFromRun = Boolean(
+    activeRunModel &&
+      (activeRunModel.providerId !== (activeCustomProvider?.id ?? null) ||
+        activeRunModel.modelId !== (activeCustomModel?.id ?? 'default')),
+  )
+  const currentModelLabel = activeRunModelLabel ?? selectedModelLabel
+  const nextModelLabel = selectionDiffersFromRun ? selectedModelLabel : null
   const contextTokenCount = useChatStore((state) => state.contextTokenCount)
-  const maxContextTokens = activeCustomModel
-    ? resolveCustomModelMaxContextTokens(activeCustomModel)
-    : null
+  const maxContextTokens =
+    activeRunModel?.maxContextTokens ??
+    (activeCustomModel
+      ? resolveCustomModelMaxContextTokens(activeCustomModel)
+      : null)
   const contextProgress = maxContextTokens
     ? getContextWindowProgress(contextTokenCount, maxContextTokens)
     : null
@@ -160,7 +175,8 @@ export const StatusBar = ({
   const hasContent = Boolean(
     statusIndicatorContent ||
       elapsedTimeContent ||
-      customProviderLabel ||
+      currentModelLabel ||
+      nextModelLabel ||
       contextLabel,
   )
   const contextColor =
@@ -218,9 +234,18 @@ export const StatusBar = ({
           gap: 1,
         }}
       >
-        {customProviderLabel && (
+        {currentModelLabel && (
           <text style={{ wrapMode: 'none' }}>
-            <span fg={theme.secondary}>{customProviderLabel}</span>
+            <span fg={theme.secondary}>
+              {activeRunModel
+                ? `En uso: ${currentModelLabel}`
+                : currentModelLabel}
+            </span>
+          </text>
+        )}
+        {nextModelLabel && (
+          <text style={{ wrapMode: 'none' }}>
+            <span fg={theme.warning}>{`Siguiente: ${nextModelLabel}`}</span>
           </text>
         )}
         {contextLabel && (

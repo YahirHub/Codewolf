@@ -18,6 +18,7 @@ import {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
   CustomProviderRuntimeConfig,
+  ExplorationProviderOverrides,
   ResearchAgentId,
   ResearchProviderOverrides,
 } from '@codebuff/common/types/custom-provider'
@@ -67,8 +68,10 @@ export function resolveSubagentProviderContext(params: {
   agentId: string
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  sessionProvider?: CustomProviderRuntimeConfig
   opusProvider?: CustomProviderRuntimeConfig
   codeReviewerProvider?: CustomProviderRuntimeConfig
+  explorationProviders?: ExplorationProviderOverrides
   researchProviders?: ResearchProviderOverrides
   agentModel?: string
 }): {
@@ -90,27 +93,56 @@ export function resolveSubagentProviderContext(params: {
     !researchProvider && isCodeReviewerAgent
       ? params.codeReviewerProvider
       : undefined
+  const explorationKind =
+    params.agentId === 'code-searcher'
+      ? 'code-searcher'
+      : params.agentId === 'file-picker' ||
+          params.agentId.startsWith('file-picker-')
+        ? 'file-picker'
+        : params.agentId === 'file-lister' ||
+            params.agentId.startsWith('file-lister-')
+          ? 'file-lister'
+          : undefined
+  const explorationProvider =
+    !researchProvider && !codeReviewerProvider && explorationKind
+      ? params.explorationProviders?.[explorationKind]
+      : undefined
   const isOpusClassAgent =
     params.agentId.includes('opus') ||
     params.agentModel?.includes('claude-opus') === true
   const opusProvider =
-    !researchProvider && !codeReviewerProvider && isOpusClassAgent
+    !researchProvider &&
+    !codeReviewerProvider &&
+    !explorationKind &&
+    isOpusClassAgent
       ? params.opusProvider
       : undefined
+  const sessionProvider = params.sessionProvider ?? params.customProvider
   const customProvider =
     researchProvider ??
     codeReviewerProvider ??
+    explorationProvider ??
     opusProvider ??
-    params.customProvider
+    sessionProvider
+  const switchesProviderOrModel = Boolean(
+    customProvider &&
+      (customProvider.id !== params.customProvider?.id ||
+        customProvider.modelId !== params.customProvider?.modelId),
+  )
+  const usesDedicatedProvider = Boolean(
+    researchProvider ??
+      codeReviewerProvider ??
+      explorationProvider ??
+      opusProvider ??
+      switchesProviderOrModel,
+  )
 
   return {
     apiKey: customProvider
       ? `local-custom-provider:${customProvider.id}`
       : params.apiKey,
     customProvider,
-    usesDedicatedProvider: Boolean(
-      researchProvider ?? codeReviewerProvider ?? opusProvider,
-    ),
+    usesDedicatedProvider,
   }
 }
 
@@ -152,8 +184,10 @@ export function extractSubagentContextParams(
     sendSubagentChunk: params.sendSubagentChunk,
     apiKey: params.apiKey,
     customProvider: params.customProvider,
+    sessionProvider: params.sessionProvider,
     opusProvider: params.opusProvider,
     codeReviewerProvider: params.codeReviewerProvider,
+    explorationProviders: params.explorationProviders,
     researchProviders: params.researchProviders,
     researchTimeoutMs: params.researchTimeoutMs,
 
@@ -479,8 +513,10 @@ export async function executeSubagent(
     agentId: agentTemplate.id,
     apiKey: withDefaults.apiKey,
     customProvider: withDefaults.customProvider,
+    sessionProvider: withDefaults.sessionProvider,
     opusProvider: withDefaults.opusProvider,
     codeReviewerProvider: withDefaults.codeReviewerProvider,
+    explorationProviders: withDefaults.explorationProviders,
     researchProviders: withDefaults.researchProviders,
     agentModel: agentTemplate.model,
   })

@@ -27,6 +27,7 @@ import type { Logger } from './logger'
 import type { TraceWriter } from './trace'
 import type {
   CustomProviderRuntimeConfig,
+  ExplorationProviderOverrides,
   ResearchProviderOverrides,
 } from '../custom-provider'
 
@@ -77,10 +78,14 @@ export type AgentRuntimeScopedDeps = {
 
   apiKey: string
   customProvider?: CustomProviderRuntimeConfig
+  /** Provider/model selected by /models at the start of the current task. */
+  sessionProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model override used by OPUS/high-capability subagents. */
   opusProvider?: CustomProviderRuntimeConfig
   /** Optional provider/model override used by code-reviewer subagents. */
   codeReviewerProvider?: CustomProviderRuntimeConfig
+  /** Optional provider/model overrides used by code exploration subagents. */
+  explorationProviders?: ExplorationProviderOverrides
   /** Optional provider/model overrides used only by research subagents. */
   researchProviders?: ResearchProviderOverrides
   /** Per-run maximum duration for research subagents. */

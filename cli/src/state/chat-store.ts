@@ -11,6 +11,7 @@ import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
+import type { ActiveProviderModelSnapshot } from '../utils/custom-providers'
 
 // Import types from the types/store module to avoid circular dependencies
 import type {
@@ -50,6 +51,10 @@ export type {
   ClickedFollowupsMap,
 }
 
+export interface ActiveRunModel extends ActiveProviderModelSnapshot {
+  runId: string
+}
+
 export type ChatStoreState = {
   /** Unique ID for this chat session, regenerated on /new */
   chatSessionId: string
@@ -72,6 +77,8 @@ export type ChatStoreState = {
   runState: RunState | null
   /** Current main-agent context size for the persistent status meter. */
   contextTokenCount: number
+  /** Provider/model snapshot frozen for the currently executing user turn. */
+  activeRunModel: ActiveRunModel | null
   /** The currently active top banner, or null if none */
   activeTopBanner: TopBannerType
   inputMode: InputMode
@@ -141,6 +148,8 @@ type ChatStoreActions = {
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
   setContextTokenCount: (tokens: number) => void
+  setActiveRunModel: (model: ActiveRunModel) => void
+  clearActiveRunModel: (runId: string) => void
   setActiveTopBanner: (banner: TopBannerType) => void
   closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
@@ -195,6 +204,7 @@ const initialState: ChatStoreState = {
   sessionCreditsUsed: 0,
   runState: null,
   contextTokenCount: 0,
+  activeRunModel: null,
   activeTopBanner: null,
   inputMode: 'default' as InputMode,
   isRetrying: false,
@@ -316,6 +326,18 @@ export const useChatStore = create<ChatStore>()(
           typeof tokens === 'number' && Number.isFinite(tokens)
             ? Math.max(0, Math.round(tokens))
             : 0
+      }),
+
+    setActiveRunModel: (model) =>
+      set((state) => {
+        state.activeRunModel = castDraft(model)
+      }),
+
+    clearActiveRunModel: (runId) =>
+      set((state) => {
+        if (state.activeRunModel?.runId === runId) {
+          state.activeRunModel = null
+        }
       }),
 
     setActiveTopBanner: (banner) =>
@@ -521,6 +543,7 @@ export const useChatStore = create<ChatStore>()(
           ? castDraft(initialState.runState)
           : null
         state.contextTokenCount = initialState.contextTokenCount
+        state.activeRunModel = initialState.activeRunModel
         state.activeTopBanner = initialState.activeTopBanner
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying

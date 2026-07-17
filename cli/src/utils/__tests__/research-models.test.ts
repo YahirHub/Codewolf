@@ -8,6 +8,7 @@ import { upsertCustomProvider } from '../custom-providers'
 import {
   getAutomaticEconomicalResearchModelReference,
   resolveCodeReviewerProviderOverride,
+  resolveExplorationProviderOverrides,
   resolveOpusProviderOverride,
   resolveResearchProviderOverrides,
 } from '../research-models'
@@ -86,6 +87,33 @@ describe('research model routing', () => {
 
     saveSettings({ codeReviewerModel: undefined }, configDir)
     expect(resolveCodeReviewerProviderOverride(configDir)).toBeUndefined()
+  })
+
+  test('resolves independent exploration models and leaves missing ones unset', () => {
+    const configDir = temporaryConfig()
+    addProvider(configDir, 'search-provider', 'search-model')
+    addProvider(configDir, 'picker-provider', 'picker-model')
+    saveSettings(
+      {
+        codeSearcherModel: {
+          providerId: 'search-provider',
+          modelId: 'search-model',
+        },
+        filePickerModel: {
+          providerId: 'picker-provider',
+          modelId: 'picker-model',
+        },
+      },
+      configDir,
+    )
+
+    expect(resolveExplorationProviderOverrides(configDir)).toMatchObject({
+      'code-searcher': { id: 'search-provider', modelId: 'search-model' },
+      'file-picker': { id: 'picker-provider', modelId: 'picker-model' },
+    })
+    expect(
+      resolveExplorationProviderOverrides(configDir)['file-lister'],
+    ).toBeUndefined()
   })
 
   test('prefers an available OpenCode Free model in automatic mode', () => {

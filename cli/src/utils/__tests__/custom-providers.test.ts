@@ -13,6 +13,7 @@ import {
   discoverCustomProviderModels,
   formatCustomProviderModelsInput,
   getActiveCustomProviderCompactionThreshold,
+  getActiveProviderModelSnapshot,
   getActiveCustomProviderRuntimeConfig,
   getContextCompactionThreshold,
   getCustomProviderApiKey,
@@ -352,9 +353,19 @@ describe('custom providers', () => {
       id: 'second',
       modelId: 'other',
     })
+    expect(getActiveProviderModelSnapshot(configDir)).toMatchObject({
+      providerId: 'second',
+      providerName: 'Second',
+      modelId: 'other',
+      modelName: 'other',
+    })
 
     disableCustomProvider(configDir)
     expect(getActiveCustomProviderRuntimeConfig(configDir)).toBeUndefined()
+    expect(getActiveProviderModelSnapshot(configDir)).toMatchObject({
+      providerId: null,
+      modelId: 'default',
+    })
   })
 
   test('edits provider metadata and models without exposing or replacing its key', () => {

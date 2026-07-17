@@ -67,6 +67,12 @@ export interface Settings {
   opusModel?: ResearchModelReference
   /** Optional model used by code-reviewer subagents. */
   codeReviewerModel?: ResearchModelReference
+  /** Optional model used by code-searcher. */
+  codeSearcherModel?: ResearchModelReference
+  /** Optional model used by file-picker and its variants. */
+  filePickerModel?: ResearchModelReference
+  /** Optional model used by file-lister and its variants. */
+  fileListerModel?: ResearchModelReference
   /** Last first-run onboarding version completed by this installation. */
   onboardingVersion?: number
 }
@@ -202,6 +208,15 @@ const validateSettings = (parsed: unknown): Settings => {
 
   const codeReviewerModel = parseModelReference(obj.codeReviewerModel)
   if (codeReviewerModel) settings.codeReviewerModel = codeReviewerModel
+
+  const codeSearcherModel = parseModelReference(obj.codeSearcherModel)
+  if (codeSearcherModel) settings.codeSearcherModel = codeSearcherModel
+
+  const filePickerModel = parseModelReference(obj.filePickerModel)
+  if (filePickerModel) settings.filePickerModel = filePickerModel
+
+  const fileListerModel = parseModelReference(obj.fileListerModel)
+  if (fileListerModel) settings.fileListerModel = fileListerModel
 
   if (
     obj.researchAgentModels &&
@@ -363,4 +378,38 @@ export const setCodeReviewerModel = (
   configDir?: string,
 ): void => {
   saveSettings({ codeReviewerModel: reference }, configDir)
+}
+
+export const getCodeSearcherModel = (
+  configDir?: string,
+): ResearchModelReference | undefined =>
+  loadSettings(configDir).codeSearcherModel
+
+export const setCodeSearcherModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ codeSearcherModel: reference }, configDir)
+}
+
+export const getFilePickerModel = (
+  configDir?: string,
+): ResearchModelReference | undefined => loadSettings(configDir).filePickerModel
+
+export const setFilePickerModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ filePickerModel: reference }, configDir)
+}
+
+export const getFileListerModel = (
+  configDir?: string,
+): ResearchModelReference | undefined => loadSettings(configDir).fileListerModel
+
+export const setFileListerModel = (
+  reference: ResearchModelReference | undefined,
+  configDir?: string,
+): void => {
+  saveSettings({ fileListerModel: reference }, configDir)
 }

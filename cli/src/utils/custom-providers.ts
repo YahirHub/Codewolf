@@ -69,6 +69,14 @@ export type CustomProviderModel = z.infer<typeof modelSchema>
 export type CustomProviderDefinition = z.infer<typeof providerSchema>
 export type CustomProvidersConfig = z.infer<typeof providersFileSchema>
 
+export interface ActiveProviderModelSnapshot {
+  providerId: string | null
+  providerName: string
+  modelId: string
+  modelName: string
+  maxContextTokens?: number
+}
+
 type ProviderAuthConfig = z.infer<typeof authFileSchema>
 
 const EMPTY_CONFIG: CustomProvidersConfig = {
@@ -691,6 +699,43 @@ export function getCustomProviderRuntimeConfig(
     supportsStructuredOutputs: provider.supportsStructuredOutputs,
     useNonStreaming: provider.useNonStreaming,
     maxOutputTokens: model.maxOutputTokens,
+    maxContextTokens: resolveCustomModelMaxContextTokens(model),
+  }
+}
+
+export function getActiveProviderModelSnapshot(
+  configDir = getConfigDir(),
+): ActiveProviderModelSnapshot {
+  const config = loadAvailableProvidersConfig(configDir)
+  const provider = config.providers.find(
+    (item) => item.id === config.activeProviderId,
+  )
+  if (!provider) {
+    return {
+      providerId: null,
+      providerName: 'Codewolf',
+      modelId: 'default',
+      modelName: 'Backend predeterminado',
+    }
+  }
+
+  const model =
+    provider.models.find((item) => item.id === config.activeModelId) ??
+    provider.models[0]
+  if (!model) {
+    return {
+      providerId: provider.id,
+      providerName: provider.name,
+      modelId: 'sin-modelo',
+      modelName: 'Sin modelo',
+    }
+  }
+
+  return {
+    providerId: provider.id,
+    providerName: provider.name,
+    modelId: model.id,
+    modelName: model.name ?? model.id,
     maxContextTokens: resolveCustomModelMaxContextTokens(model),
   }
 }
