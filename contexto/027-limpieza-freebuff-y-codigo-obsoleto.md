@@ -1,4 +1,4 @@
-# 027 — Limpieza de Freebuff y código obsoleto
+﻿# 027 — Limpieza de Freebuff y código obsoleto
 
 # Fecha
 

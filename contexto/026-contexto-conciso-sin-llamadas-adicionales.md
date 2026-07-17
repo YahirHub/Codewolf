@@ -1,4 +1,4 @@
-# 026 — Generar contexto conciso sin llamadas adicionales
+﻿# 026 — Generar contexto conciso sin llamadas adicionales
 
 # Fecha
 

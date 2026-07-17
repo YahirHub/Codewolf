@@ -1,12 +1,19 @@
 import z from 'zod/v4'
 
-import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 import { jsonObjectSchema } from '../../../types/json'
+import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
 export const SSH_REMOTE_ACTIONS = [
   'connect',
+  'connect_server',
+  'list_servers',
+  'get_server',
+  'add_server',
+  'update_server',
+  'rename_server',
+  'delete_server',
   'list_connections',
   'status',
   'pwd',
@@ -41,9 +48,38 @@ const inputSchema = z
       .min(1)
       .optional()
       .describe(
-        'Identifier returned by connect, or its ssh:// reference. Required for connection actions.',
+        'Active connection identifier returned by connect/connect_server, or its ssh:// reference.',
       ),
-    label: z.string().min(1).max(80).optional(),
+    server_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Configured server ID/ref, unique configured name, host, host:port, or username@host.',
+      ),
+    name: z
+      .string()
+      .min(1)
+      .max(80)
+      .optional()
+      .describe('Human-friendly persistent server name.'),
+    label: z
+      .string()
+      .min(1)
+      .max(80)
+      .optional()
+      .describe('Legacy alias for name. Prefer name for new calls.'),
+    new_name: z.string().min(1).max(80).optional(),
+    clear_name: z.boolean().default(false).optional(),
+    clear_authentication: z.boolean().default(false).optional(),
+    close_connections: z.boolean().default(false).optional(),
+    save_server: z
+      .boolean()
+      .default(true)
+      .optional()
+      .describe(
+        'For direct connect, remember the non-secret server configuration globally. Defaults to true.',
+      ),
     host: z.string().min(1).optional(),
     port: z.number().int().min(1).max(65535).default(22).optional(),
     username: z.string().min(1).optional(),
@@ -51,30 +87,35 @@ const inputSchema = z
       .string()
       .optional()
       .describe(
-        'SSH password. Prefer password_env so the secret is not written into chat history.',
+        'Ephemeral SSH password. Never persisted. Prefer password_env.',
       ),
     password_env: z
       .string()
       .min(1)
       .optional()
-      .describe('Local environment variable containing the SSH password.'),
+      .describe('Environment variable containing the SSH password.'),
     private_key_path: z
       .string()
       .min(1)
       .optional()
       .describe(
-        'Local path to an OpenSSH private key. Relative paths use the project root.',
+        'Path to an OpenSSH private key. Relative paths are made absolute before a server is saved.',
       ),
     private_key: z
       .string()
       .optional()
-      .describe('Private key contents. Prefer private_key_path.'),
-    passphrase: z.string().optional(),
-    passphrase_env: z.string().min(1).optional(),
-    agent: z
+      .describe('Ephemeral private key contents. Never persisted.'),
+    passphrase: z
       .string()
       .optional()
-      .describe('SSH agent socket. Usually SSH_AUTH_SOCK.'),
+      .describe('Ephemeral private-key passphrase. Never persisted.'),
+    passphrase_env: z.string().min(1).optional(),
+    agent: z.string().optional().describe('SSH agent socket path.'),
+    agent_env: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Environment variable containing the SSH agent socket path.'),
     host_fingerprint_sha256: z
       .string()
       .optional()
@@ -126,17 +167,127 @@ const inputSchema = z
         input.private_key_path,
         input.private_key,
         input.agent,
+        input.agent_env,
       ].filter(Boolean).length
       if (authCount === 0) {
         ctx.addIssue({
           code: 'custom',
           message:
-            'connect requires password/password_env, private_key/private_key_path, or agent authentication',
+            'connect requires password/password_env, private_key/private_key_path, agent/agent_env authentication',
         })
       }
     }
 
-    const noConnection = new Set(['connect', 'list_connections', 'close_all'])
+    if (
+      input.action === 'connect_server' &&
+      [input.name, input.label, input.host, input.port, input.username].some(
+        (value) => value !== undefined,
+      )
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'connect_server uses the saved name, host, port, and username. Use update_server to change them.',
+      })
+    }
+
+    if (input.action === 'add_server') {
+      if (!input.host) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['host'],
+          message: 'host is required for add_server',
+        })
+      }
+      if (!input.username) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['username'],
+          message: 'username is required for add_server',
+        })
+      }
+    }
+
+    const serverReferenceActions = new Set([
+      'connect_server',
+      'get_server',
+      'update_server',
+      'rename_server',
+      'delete_server',
+    ])
+    if (serverReferenceActions.has(input.action) && !input.server_id) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['server_id'],
+        message: `server_id is required for ${input.action}`,
+      })
+    }
+
+    if (
+      ['add_server', 'update_server', 'rename_server'].includes(input.action) &&
+      (input.password !== undefined ||
+        input.private_key !== undefined ||
+        input.passphrase !== undefined)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Literal passwords, private keys, and passphrases cannot be persisted. Use password_env, private_key_path, passphrase_env, or agent_env.',
+      })
+    }
+
+    if (
+      input.action === 'rename_server' &&
+      !input.new_name &&
+      !input.name &&
+      !input.label &&
+      !input.clear_name
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['new_name'],
+        message: 'new_name or clear_name is required for rename_server',
+      })
+    }
+
+    if (input.action === 'update_server') {
+      const hasUpdate = [
+        input.name,
+        input.label,
+        input.host,
+        input.port,
+        input.username,
+        input.password_env,
+        input.private_key_path,
+        input.passphrase_env,
+        input.agent,
+        input.agent_env,
+        input.host_fingerprint_sha256,
+        input.ready_timeout_ms,
+        input.keepalive_interval_ms,
+        input.clear_name,
+        input.clear_authentication,
+      ].some((value) => value !== undefined && value !== false)
+      if (!hasUpdate) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'update_server requires at least one field to update',
+        })
+      }
+    }
+
+    const noConnection = new Set([
+      'connect',
+      'connect_server',
+      'list_servers',
+      'get_server',
+      'add_server',
+      'update_server',
+      'rename_server',
+      'delete_server',
+      'list_connections',
+      'close_all',
+    ])
     if (!noConnection.has(input.action) && !input.connection_id) {
       ctx.addIssue({
         code: 'custom',
@@ -205,33 +356,47 @@ const inputSchema = z
   })
 
 const description = `
-Persistent SSH connections for Codewolf itself. Connections live for the current CLI process and can coexist across different servers.
+Professional persistent SSH manager for Codewolf itself. It has two separate concepts:
 
-Use this tool instead of local terminal commands for remote systems. The returned \`connection_id\`/\`connection_ref\` is the stable link for later calls.
+1. Configured servers, persisted globally in \`~/.codewolf/ssh-servers.json\` and reusable from every project and after restarting Codewolf.
+2. Active SSH connections, kept alive for the current CLI process and referenced as \`ssh://<connection_id>\`.
 
-Read/navigation actions: \`list_connections\`, \`status\`, \`pwd\`, \`cd\`, \`list\`, \`stat\`, \`read_file\`.
-Sensitive actions controlled by /config: \`connect\`, \`exec\`, \`shell_open\`, \`shell_write\`, \`upload\`, \`download\`, \`write_file\`, \`mkdir\`, \`rename\`, and \`delete\`.
-Lifecycle actions: \`close\` and \`close_all\`.
+Configured-server actions:
+- \`list_servers\`: list saved servers. Always use this when asked which SSH servers are configured; never inspect Codewolf folders manually.
+- \`get_server\`: inspect one saved server by ID/ref, unique name, host, host:port, or username@host.
+- \`add_server\`: save a new server configuration.
+- \`update_server\`: edit host, port, username, name, authentication references, fingerprint, or timeouts.
+- \`rename_server\`: change only its human-friendly name; use \`clear_name\` to return to the host fallback.
+- \`delete_server\`: remove the saved configuration. Active connections stay open unless \`close_connections\` is true.
+- \`connect_server\`: connect using a saved server and optional ephemeral credential overrides.
 
-For commands that must retain shell state (exports, activated environments, long-running programs), call \`shell_open\`, then \`shell_write\`, and poll with \`shell_read\`. For isolated commands use \`exec\`; it executes in the connection's current directory. \`cd\` changes that persistent directory for later exec/file actions.
+Connection actions:
+- \`connect\`: connect directly. By default \`save_server=true\`, so the non-secret configuration is remembered globally.
+- \`list_connections\`, \`status\`, \`pwd\`, \`cd\`, \`list\`, \`stat\`, \`read_file\`.
+- \`exec\`, persistent shell actions, SFTP transfers, remote mutations, \`close\`, and \`close_all\`.
+
+Naming and compatibility:
+- Use \`name\` for new configurations; \`label\` remains accepted for older calls.
+- A server without a configured name is displayed only by its host.
+- Literal passwords, private keys, and passphrases are never persisted. Save only environment-variable names, key paths, or agent references.
 
 Security:
-- Prefer \`password_env\`, \`passphrase_env\`, \`private_key_path\`, or \`agent\` over embedding secrets.
-- Credentials are kept only in memory and are never returned.
-- Reading protected .env files can require a separate permission configured in /config.
-- Never upload, download, edit, delete, or execute remotely without describing why in \`reason\`.
+- Reading/listing configured servers and remote navigation are read-only.
+- Connecting, changing server configurations, executing commands, transferring data, or mutating remote files are controlled by SSH Safe Mode in /config.
+- Reading protected .env files can require a separate permission.
+- Always explain remote changes in \`reason\`.
 
 Example:
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    action: 'connect',
-    label: 'staging',
+    action: 'add_server',
+    name: 'produccion',
     host: 'server.example.com',
     username: 'deploy',
     private_key_path: '~/.ssh/id_ed25519',
-    reason: 'Connect to the staging server requested by the user.',
+    reason: 'Save the production SSH server requested by the user.',
   },
   endsAgentStep,
 })}

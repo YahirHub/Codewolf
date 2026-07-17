@@ -114,6 +114,34 @@ const SSH_ACTION_DETAILS: Record<
   { category: ToolPermissionCategory; title: string }
 > = {
   connect: { category: 'remote-connect', title: 'Abrir conexión SSH' },
+  connect_server: {
+    category: 'remote-connect',
+    title: 'Conectar servidor SSH guardado',
+  },
+  list_servers: {
+    category: 'remote-config',
+    title: 'Listar servidores SSH guardados',
+  },
+  get_server: {
+    category: 'remote-config',
+    title: 'Consultar servidor SSH guardado',
+  },
+  add_server: {
+    category: 'remote-config',
+    title: 'Guardar servidor SSH',
+  },
+  update_server: {
+    category: 'remote-config',
+    title: 'Editar servidor SSH guardado',
+  },
+  rename_server: {
+    category: 'remote-config',
+    title: 'Renombrar servidor SSH guardado',
+  },
+  delete_server: {
+    category: 'remote-config',
+    title: 'Eliminar servidor SSH guardado',
+  },
   list_connections: { category: 'remote-file', title: 'Listar conexiones SSH' },
   status: { category: 'remote-file', title: 'Consultar conexión SSH' },
   pwd: { category: 'remote-file', title: 'Consultar directorio remoto' },
@@ -192,8 +220,13 @@ export function createToolPermissionRequest(params: {
     const details = action ? SSH_ACTION_DETAILS[action] : undefined
     category = details?.category ?? 'remote-file'
     title = details?.title ?? 'Operación SSH remota'
+    if (action === 'connect' && input.save_server !== false) {
+      title = 'Abrir y guardar conexión SSH'
+    }
     const connectionTarget =
       text(input.connection_id) ||
+      text(input.server_id) ||
+      text(input.name) ||
       [text(input.username), text(input.host)].filter(Boolean).join('@')
     target = connectionTarget || toolName
     reason =

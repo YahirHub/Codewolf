@@ -1,4 +1,4 @@
-# 009 — Propagación del proveedor personalizado a subagentes
+﻿# 009 — Propagación del proveedor personalizado a subagentes
 
 ## Problema observado
 

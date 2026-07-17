@@ -9,6 +9,18 @@ import { Client } from 'ssh2'
 import type { SshRemoteAction } from '@codebuff/common/tools/params/tool/ssh-remote'
 import { normalizeJsonValue } from '@codebuff/common/util/json'
 
+import {
+  SshServerStore,
+  compactSshServerProfile,
+  getSshServerDisplayName,
+} from './ssh-server-store'
+
+import type {
+  SshServerProfile,
+  SshServerProfileInput,
+  SshServerProfilePatch,
+} from './ssh-server-store'
+
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type {
   ClientChannel,
@@ -21,7 +33,14 @@ import type {
 export type SshRemoteInput = {
   action: SshRemoteAction
   connection_id?: string
+  server_id?: string
+  name?: string
   label?: string
+  new_name?: string
+  clear_name?: boolean
+  clear_authentication?: boolean
+  close_connections?: boolean
+  save_server?: boolean
   host?: string
   port?: number
   username?: string
@@ -32,6 +51,7 @@ export type SshRemoteInput = {
   passphrase?: string
   passphrase_env?: string
   agent?: string
+  agent_env?: string
   host_fingerprint_sha256?: string
   ready_timeout_ms?: number
   keepalive_interval_ms?: number
@@ -62,7 +82,8 @@ type ShellState = {
 
 type ConnectionState = {
   id: string
-  label: string
+  name: string
+  serverId?: string
   host: string
   port: number
   username: string
@@ -79,6 +100,7 @@ type ConnectionState = {
 
 export type SshRemoteManagerOptions = {
   clientFactory?: () => Client
+  configDir?: string
 }
 
 export type SshRemoteExecutionContext = {
@@ -101,6 +123,8 @@ function entryType(mode: number): 'directory' | 'symlink' | 'file' {
   return 'file'
 }
 const READ_ONLY_ACTIONS = new Set<SshRemoteAction>([
+  'list_servers',
+  'get_server',
   'list_connections',
   'status',
   'pwd',
@@ -159,7 +183,14 @@ function compactConnection(
   return {
     connection_id: connection.id,
     connection_ref: `ssh://${connection.id}`,
-    label: connection.label,
+    name: connection.name,
+    label: connection.name,
+    ...(connection.serverId
+      ? {
+          server_id: connection.serverId,
+          server_ref: `ssh-server://${connection.serverId}`,
+        }
+      : {}),
     host: connection.host,
     port: connection.port,
     username: connection.username,
@@ -218,9 +249,12 @@ async function wait(ms: number): Promise<void> {
 
 export class PersistentSshManager {
   private readonly connections = new Map<string, ConnectionState>()
+  private readonly serverStore: SshServerStore
   private sequence = 0
 
-  constructor(private readonly options: SshRemoteManagerOptions = {}) {}
+  constructor(private readonly options: SshRemoteManagerOptions = {}) {
+    this.serverStore = new SshServerStore(options.configDir)
+  }
 
   async execute(
     input: SshRemoteInput,
@@ -235,6 +269,20 @@ export class PersistentSshManager {
       switch (input.action) {
         case 'connect':
           return json(await this.connect(input, signal, context))
+        case 'connect_server':
+          return json(await this.connectServer(input, signal, context))
+        case 'list_servers':
+          return json(await this.listServers())
+        case 'get_server':
+          return json(await this.getServer(input.server_id!))
+        case 'add_server':
+          return json(await this.addServer(input, context))
+        case 'update_server':
+          return json(await this.updateServer(input, context))
+        case 'rename_server':
+          return json(await this.renameServer(input))
+        case 'delete_server':
+          return json(await this.deleteServer(input))
         case 'list_connections':
           return json({
             connections: [...this.connections.values()].map(compactConnection),
@@ -261,6 +309,7 @@ export class PersistentSshManager {
       return json({
         action: input.action,
         connection_id: input.connection_id,
+        server_id: input.server_id,
         errorMessage: error instanceof Error ? error.message : String(error),
       })
     }
@@ -298,10 +347,319 @@ export class PersistentSshManager {
     }
   }
 
+  private activeConnectionsForServer(serverId: string): ConnectionState[] {
+    return [...this.connections.values()].filter(
+      (connection) => !connection.closed && connection.serverId === serverId,
+    )
+  }
+
+  private compactConfiguredServer(
+    profile: SshServerProfile,
+  ): Record<string, unknown> {
+    const activeConnections = this.activeConnectionsForServer(profile.id)
+    return {
+      ...compactSshServerProfile(profile),
+      persistent: true,
+      connected: activeConnections.length > 0,
+      active_connection_count: activeConnections.length,
+      active_connections: activeConnections.map((connection) => ({
+        connection_id: connection.id,
+        connection_ref: `ssh://${connection.id}`,
+        cwd: connection.cwd,
+        shell_open: Boolean(connection.shell && !connection.shell.closed),
+      })),
+    }
+  }
+
+  private async listServers(): Promise<Record<string, unknown>> {
+    const configured = await this.serverStore.list()
+    const unconfiguredActive = [...this.connections.values()]
+      .filter((connection) => !connection.closed && !connection.serverId)
+      .map((connection) => ({
+        name: connection.name || connection.host,
+        host: connection.host,
+        port: connection.port,
+        username: connection.username,
+        persistent: false,
+        connected: true,
+        connection_id: connection.id,
+        connection_ref: `ssh://${connection.id}`,
+      }))
+
+    return {
+      action: 'list_servers',
+      registry_path: this.serverStore.filePath,
+      servers: configured.map((profile) =>
+        this.compactConfiguredServer(profile),
+      ),
+      configured_count: configured.length,
+      active_unconfigured_servers: unconfiguredActive,
+      active_unconfigured_count: unconfiguredActive.length,
+      message:
+        configured.length > 0
+          ? 'Configured SSH servers loaded from the global Codewolf registry.'
+          : 'No configured SSH servers were found. Use add_server or connect with save_server=true.',
+    }
+  }
+
+  private async getServer(reference: string): Promise<Record<string, unknown>> {
+    const profile = await this.serverStore.get(reference)
+    return {
+      action: 'get_server',
+      ...this.compactConfiguredServer(profile),
+    }
+  }
+
+  private persistentPrivateKeyPath(
+    projectRoot: string | undefined,
+    value: string | undefined,
+  ): string | undefined {
+    if (!value) return undefined
+    if (value === '~' || value.startsWith('~/') || value.startsWith('~\\')) {
+      return value
+    }
+    return localPath(projectRoot, value)
+  }
+
+  private profileInputFromTool(
+    input: SshRemoteInput,
+    context: SshRemoteExecutionContext,
+  ): SshServerProfileInput {
+    return {
+      ...(input.name?.trim() || input.label?.trim()
+        ? { name: input.name?.trim() || input.label?.trim() }
+        : {}),
+      host: input.host!,
+      port: input.port ?? 22,
+      username: input.username!,
+      ...(input.password_env ? { password_env: input.password_env } : {}),
+      ...(input.private_key_path
+        ? {
+            private_key_path: this.persistentPrivateKeyPath(
+              context.projectRoot,
+              input.private_key_path,
+            ),
+          }
+        : {}),
+      ...(input.passphrase_env
+        ? { passphrase_env: input.passphrase_env }
+        : {}),
+      ...(input.agent ? { agent: input.agent } : {}),
+      ...(input.agent_env ? { agent_env: input.agent_env } : {}),
+      ...(input.host_fingerprint_sha256
+        ? { host_fingerprint_sha256: input.host_fingerprint_sha256 }
+        : {}),
+      ...(input.ready_timeout_ms
+        ? { ready_timeout_ms: input.ready_timeout_ms }
+        : {}),
+      ...(input.keepalive_interval_ms
+        ? { keepalive_interval_ms: input.keepalive_interval_ms }
+        : {}),
+    }
+  }
+
+  private profilePatchFromTool(
+    input: SshRemoteInput,
+    context: SshRemoteExecutionContext,
+  ): SshServerProfilePatch {
+    return {
+      ...(input.name !== undefined || input.label !== undefined
+        ? { name: input.name?.trim() || input.label?.trim() }
+        : {}),
+      ...(input.host !== undefined ? { host: input.host } : {}),
+      ...(input.port !== undefined ? { port: input.port } : {}),
+      ...(input.username !== undefined ? { username: input.username } : {}),
+      ...(input.password_env !== undefined
+        ? { password_env: input.password_env }
+        : {}),
+      ...(input.private_key_path !== undefined
+        ? {
+            private_key_path: this.persistentPrivateKeyPath(
+              context.projectRoot,
+              input.private_key_path,
+            ),
+          }
+        : {}),
+      ...(input.passphrase_env !== undefined
+        ? { passphrase_env: input.passphrase_env }
+        : {}),
+      ...(input.agent !== undefined ? { agent: input.agent } : {}),
+      ...(input.agent_env !== undefined
+        ? { agent_env: input.agent_env }
+        : {}),
+      ...(input.host_fingerprint_sha256 !== undefined
+        ? { host_fingerprint_sha256: input.host_fingerprint_sha256 }
+        : {}),
+      ...(input.ready_timeout_ms !== undefined
+        ? { ready_timeout_ms: input.ready_timeout_ms }
+        : {}),
+      ...(input.keepalive_interval_ms !== undefined
+        ? { keepalive_interval_ms: input.keepalive_interval_ms }
+        : {}),
+      ...(input.clear_name ? { clear_name: true } : {}),
+      ...(input.clear_authentication ? { clear_authentication: true } : {}),
+    }
+  }
+
+  private assertNoPersistentLiteralSecrets(input: SshRemoteInput): void {
+    if (
+      input.password !== undefined ||
+      input.private_key !== undefined ||
+      input.passphrase !== undefined
+    ) {
+      throw new Error(
+        'Literal passwords, private keys, and passphrases cannot be saved. Use password_env, private_key_path, passphrase_env, or agent_env.',
+      )
+    }
+  }
+
+  private async addServer(
+    input: SshRemoteInput,
+    context: SshRemoteExecutionContext,
+  ): Promise<Record<string, unknown>> {
+    this.assertNoPersistentLiteralSecrets(input)
+    const profile = await this.serverStore.add(
+      this.profileInputFromTool(input, context),
+    )
+    return {
+      ok: true,
+      action: 'add_server',
+      ...this.compactConfiguredServer(profile),
+      message: 'SSH server saved globally and is now reusable from every project.',
+    }
+  }
+
+  private async updateServer(
+    input: SshRemoteInput,
+    context: SshRemoteExecutionContext,
+  ): Promise<Record<string, unknown>> {
+    this.assertNoPersistentLiteralSecrets(input)
+    const profile = await this.serverStore.update(
+      input.server_id!,
+      this.profilePatchFromTool(input, context),
+    )
+    for (const connection of this.activeConnectionsForServer(profile.id)) {
+      connection.name = getSshServerDisplayName(profile)
+    }
+    return {
+      ok: true,
+      action: 'update_server',
+      ...this.compactConfiguredServer(profile),
+      message: 'SSH server configuration updated.',
+    }
+  }
+
+  private async renameServer(
+    input: SshRemoteInput,
+  ): Promise<Record<string, unknown>> {
+    const requestedName =
+      input.new_name?.trim() || input.name?.trim() || input.label?.trim()
+    const profile = await this.serverStore.rename(
+      input.server_id!,
+      input.clear_name ? undefined : requestedName,
+    )
+    for (const connection of this.activeConnectionsForServer(profile.id)) {
+      connection.name = getSshServerDisplayName(profile)
+    }
+    return {
+      ok: true,
+      action: 'rename_server',
+      ...this.compactConfiguredServer(profile),
+      message: profile.name
+        ? 'SSH server renamed.'
+        : 'Custom SSH server name removed; the host is now used as its display name.',
+    }
+  }
+
+  private async deleteServer(
+    input: SshRemoteInput,
+  ): Promise<Record<string, unknown>> {
+    const profile = await this.serverStore.delete(input.server_id!)
+    const activeConnections = this.activeConnectionsForServer(profile.id)
+    const closedConnectionIds: string[] = []
+    for (const connection of activeConnections) {
+      if (input.close_connections) {
+        closedConnectionIds.push(connection.id)
+        this.close(connection)
+      } else {
+        connection.serverId = undefined
+      }
+    }
+    return {
+      ok: true,
+      action: 'delete_server',
+      deleted_server: compactSshServerProfile(profile),
+      closed_connection_ids: closedConnectionIds,
+      active_connections_kept: input.close_connections
+        ? 0
+        : activeConnections.length,
+      message: input.close_connections
+        ? 'Saved SSH server and its active connections were closed.'
+        : 'Saved SSH server removed. Existing active connections remain open until explicitly closed.',
+    }
+  }
+
+  private async connectServer(
+    input: SshRemoteInput,
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
+  ): Promise<Record<string, unknown>> {
+    const profile = await this.serverStore.get(input.server_id!)
+    const hasAuthenticationOverride = Boolean(
+      input.password !== undefined ||
+        input.password_env !== undefined ||
+        input.private_key !== undefined ||
+        input.private_key_path !== undefined ||
+        input.agent !== undefined ||
+        input.agent_env !== undefined,
+    )
+    const result = await this.connect(
+      {
+        ...input,
+        action: 'connect',
+        server_id: profile.id,
+        save_server: false,
+        name: getSshServerDisplayName(profile),
+        host: profile.host,
+        port: profile.port,
+        username: profile.username,
+        password_env: hasAuthenticationOverride
+          ? input.password_env
+          : profile.password_env,
+        private_key_path: hasAuthenticationOverride
+          ? input.private_key_path
+          : profile.private_key_path,
+        passphrase_env:
+          input.passphrase !== undefined
+            ? undefined
+            : input.passphrase_env ?? profile.passphrase_env,
+        agent: hasAuthenticationOverride ? input.agent : profile.agent,
+        agent_env: hasAuthenticationOverride
+          ? input.agent_env
+          : profile.agent_env,
+        host_fingerprint_sha256:
+          input.host_fingerprint_sha256 ?? profile.host_fingerprint_sha256,
+        ready_timeout_ms:
+          input.ready_timeout_ms ?? profile.ready_timeout_ms,
+        keepalive_interval_ms:
+          input.keepalive_interval_ms ?? profile.keepalive_interval_ms,
+      },
+      signal,
+      context,
+      profile.id,
+    )
+    return {
+      ...result,
+      action: 'connect_server',
+      server: compactSshServerProfile(profile),
+    }
+  }
+
   private async connect(
     input: SshRemoteInput,
     signal: AbortSignal | undefined,
     context: SshRemoteExecutionContext,
+    linkedServerId?: string,
   ): Promise<Record<string, unknown>> {
     const host = input.host!
     const port = input.port ?? 22
@@ -313,6 +671,7 @@ export class PersistentSshManager {
     const passphrase = input.passphrase_env
       ? env[input.passphrase_env]
       : input.passphrase
+    const agent = input.agent_env ? env[input.agent_env] : input.agent
 
     if (input.password_env && !password) {
       throw new Error(
@@ -324,12 +683,23 @@ export class PersistentSshManager {
         `Environment variable ${input.passphrase_env} is empty or unavailable.`,
       )
     }
+    if (input.agent_env && !agent) {
+      throw new Error(
+        `Environment variable ${input.agent_env} is empty or unavailable.`,
+      )
+    }
 
     let privateKey = input.private_key
     if (input.private_key_path) {
       privateKey = await fs.readFile(
         localPath(context.projectRoot, input.private_key_path),
         'utf8',
+      )
+    }
+
+    if (!password && !privateKey && !agent) {
+      throw new Error(
+        'No SSH authentication is available. Provide password/password_env, private_key/private_key_path, or agent/agent_env.',
       )
     }
 
@@ -350,7 +720,7 @@ export class PersistentSshManager {
       ...(privateKey
         ? { privateKey, ...(passphrase ? { passphrase } : {}) }
         : {}),
-      ...(input.agent ? { agent: input.agent } : {}),
+      ...(agent ? { agent } : {}),
     }
 
     if (input.host_fingerprint_sha256) {
@@ -406,7 +776,8 @@ export class PersistentSshManager {
     const connectedAt = now()
     const connection: ConnectionState = {
       id,
-      label: input.label?.trim() || `${username}@${host}`,
+      name: input.name?.trim() || input.label?.trim() || host,
+      ...(linkedServerId ? { serverId: linkedServerId } : {}),
       host,
       port,
       username,
@@ -448,12 +819,40 @@ export class PersistentSshManager {
       throw new Error('SSH connection cancelled by the user.')
     }
 
+    let savedServer: SshServerProfile | undefined
+    let serverCreated = false
+    let serverSaveError: string | undefined
+    if (!linkedServerId && input.save_server !== false) {
+      try {
+        const saved = await this.serverStore.upsertByEndpoint(
+          this.profileInputFromTool(input, context),
+        )
+        savedServer = saved.profile
+        serverCreated = saved.created
+        connection.serverId = saved.profile.id
+        connection.name = getSshServerDisplayName(saved.profile)
+      } catch (error) {
+        serverSaveError = error instanceof Error ? error.message : String(error)
+      }
+    }
+
     return {
       ok: true,
       action: 'connect',
       ...compactConnection(connection),
-      message:
-        'Persistent SSH connection opened. Reuse connection_id in later ssh_remote calls.',
+      server_saved: Boolean(linkedServerId || savedServer),
+      ...(savedServer
+        ? {
+            server_created: serverCreated,
+            server: compactSshServerProfile(savedServer),
+          }
+        : {}),
+      ...(serverSaveError ? { server_save_error: serverSaveError } : {}),
+      message: serverSaveError
+        ? 'Persistent SSH connection opened, but its server profile could not be saved. The connection remains usable.'
+        : linkedServerId || savedServer
+          ? 'Persistent SSH connection opened and linked to the global server registry.'
+          : 'Persistent SSH connection opened without saving a server profile.',
     }
   }
 

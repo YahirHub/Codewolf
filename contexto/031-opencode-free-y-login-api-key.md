@@ -1,4 +1,4 @@
-# 031 — Integrar OpenCode Free y autenticación por API key
+﻿# 031 — Integrar OpenCode Free y autenticación por API key
 
 # Fecha
 

@@ -1,4 +1,4 @@
-# 000 — Leer primero: contexto maestro de Codewolf
+﻿# 000 — Leer primero: contexto maestro de Codewolf
 
 # Fecha
 
@@ -92,7 +92,7 @@ TypeScript con Bun, React y OpenTUI.
 - Cada tarea congela el proveedor y modelo con los que comenzó; cambiar `/models` durante una ejecución solo afecta la siguiente tarea y la barra distingue el modelo en uso del siguiente seleccionado.
 - `/config` permite asignar modelos independientes a agentes OPUS, revisión de código, investigación, `code-searcher`, `file-picker` y `file-lister`. Las preferencias vacías heredan el modelo de sesión seleccionado en `/models`, incluso en subagentes anidados.
 - `/config` también separa Modo seguro local, Modo seguro SSH y protección de `.env`; SSH y `.env` quedan protegidos por defecto, mientras el modo local conserva su valor desactivado.
-- `ssh_remote` mantiene varias conexiones SSH simultáneas durante el proceso actual, entrega referencias `ssh://<id>`, conserva directorio y shell PTY aunque cambie el proyecto activo, usa SFTP y permite cerrar una conexión o todas globalmente. PLAN no recibe esta herramienta.
+- `ssh_remote` administra un registro global de servidores en `~/.codewolf/ssh-servers.json` con nombres, edición, referencias `ssh-server://<id>` y reconexión desde cualquier proyecto. Las conexiones activas siguen siendo múltiples y persistentes durante el proceso, entregan `ssh://<id>`, conservan directorio/shell PTY, usan SFTP y pueden cerrarse individualmente o en conjunto. PLAN no recibe esta herramienta.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -140,6 +140,7 @@ TypeScript con Bun, React y OpenTUI.
 ├── search.json
 ├── search-auth.json
 ├── settings.json
+├── ssh-servers.json
 ├── message-history.json
 ├── recent-projects.json
 ├── usage.jsonl
@@ -232,6 +233,7 @@ lista exacta y versiones bloqueadas.
 - `common/src/util/protected-env.ts`
 - `common/src/util/tool-permission.ts`
 - `sdk/src/tools/ssh-remote.ts`
+- `sdk/src/tools/ssh-server-store.ts`
 - `sdk/src/tools/read-files.ts`
 - `sdk/src/tools/code-search.ts`
 - `cli/src/components/config-screen.tsx`
@@ -385,3 +387,12 @@ al terminar.
 - `037`: consistencia del cambio de modelo entre la tarea activa y la siguiente.
 - `038`: modelos configurables para búsqueda de código y exploración de archivos.
 - `039`: conexiones SSH persistentes, permisos remotos y protección independiente de `.env`.
+
+<!-- codewolf:auto-context:start -->
+# Estado automático más reciente
+
+- Última actualización: 2026-07-17T18:07:14.696Z
+- Último registro: contexto/043-actualizar-informe-md.md
+- Resumen: Actualizar informe.md.
+- Archivos del cambio: informe.md
+<!-- codewolf:auto-context:end -->

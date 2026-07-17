@@ -1,4 +1,4 @@
-# Corrección de referencias JSON cíclicas en proveedores personalizados
+﻿# Corrección de referencias JSON cíclicas en proveedores personalizados
 
 ## Problema
 

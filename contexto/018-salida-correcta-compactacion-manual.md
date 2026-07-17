@@ -1,4 +1,4 @@
-# 018 — Salida correcta después de la compactación manual
+﻿# 018 — Salida correcta después de la compactación manual
 
 # Fecha
 

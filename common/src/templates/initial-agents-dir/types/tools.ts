@@ -364,6 +364,13 @@ export interface SkillParams {
 export interface SshRemoteParams {
   action:
     | 'connect'
+    | 'connect_server'
+    | 'list_servers'
+    | 'get_server'
+    | 'add_server'
+    | 'update_server'
+    | 'rename_server'
+    | 'delete_server'
     | 'list_connections'
     | 'status'
     | 'pwd'
@@ -383,24 +390,38 @@ export interface SshRemoteParams {
     | 'delete'
     | 'close'
     | 'close_all'
-  /** Identifier returned by connect, or its ssh:// reference. Required for connection actions. */
+  /** Active connection identifier returned by connect/connect_server, or its ssh:// reference. */
   connection_id?: string
+  /** Configured server ID/ref, unique configured name, host, host:port, or username@host. */
+  server_id?: string
+  /** Human-friendly persistent server name. */
+  name?: string
+  /** Legacy alias for name. Prefer name for new calls. */
   label?: string
+  new_name?: string
+  clear_name?: boolean
+  clear_authentication?: boolean
+  close_connections?: boolean
+  /** For direct connect, remember the non-secret server configuration globally. Defaults to true. */
+  save_server?: boolean
   host?: string
   port?: number
   username?: string
-  /** SSH password. Prefer password_env so the secret is not written into chat history. */
+  /** Ephemeral SSH password. Never persisted. Prefer password_env. */
   password?: string
-  /** Local environment variable containing the SSH password. */
+  /** Environment variable containing the SSH password. */
   password_env?: string
-  /** Local path to an OpenSSH private key. Relative paths use the project root. */
+  /** Path to an OpenSSH private key. Relative paths are made absolute before a server is saved. */
   private_key_path?: string
-  /** Private key contents. Prefer private_key_path. */
+  /** Ephemeral private key contents. Never persisted. */
   private_key?: string
+  /** Ephemeral private-key passphrase. Never persisted. */
   passphrase?: string
   passphrase_env?: string
-  /** SSH agent socket. Usually SSH_AUTH_SOCK. */
+  /** SSH agent socket path. */
   agent?: string
+  /** Environment variable containing the SSH agent socket path. */
+  agent_env?: string
   /** Optional expected SHA-256 host-key fingerprint. */
   host_fingerprint_sha256?: string
   ready_timeout_ms?: number

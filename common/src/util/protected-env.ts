@@ -68,7 +68,7 @@ export function toolMayReadProtectedEnv(params: {
 
   if (toolName === 'ssh_remote') {
     const action = typeof record.action === 'string' ? record.action : ''
-    if (action === 'connect') {
+    if (action === 'connect' || action === 'connect_server') {
       return (
         typeof record.private_key_path === 'string' &&
         isProtectedEnvFilePath(record.private_key_path)

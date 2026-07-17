@@ -6,6 +6,7 @@ export type ToolPermissionCategory =
   | 'file-delete'
   | 'external-tool'
   | 'remote-connect'
+  | 'remote-config'
   | 'remote-command'
   | 'remote-transfer'
   | 'remote-file'

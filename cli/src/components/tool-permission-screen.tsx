@@ -37,6 +37,7 @@ const categoryLabel: Record<ToolPermissionRequest['category'], string> = {
   'file-delete': 'Eliminación de archivo',
   'external-tool': 'Herramienta externa o MCP',
   'remote-connect': 'Conexión SSH',
+  'remote-config': 'Configuración de servidor SSH',
   'remote-command': 'Comando o shell remoto',
   'remote-transfer': 'Transferencia SSH',
   'remote-file': 'Cambio de archivos remoto',

@@ -1,4 +1,4 @@
-# 038 — Modelos configurables para exploración de código
+﻿# 038 — Modelos configurables para exploración de código
 
 # Fecha
 

@@ -1,4 +1,4 @@
-# Cambio: CLI sin archivo `.env`
+﻿# Cambio: CLI sin archivo `.env`
 
 ## Objetivo
 

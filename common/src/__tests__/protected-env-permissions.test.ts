@@ -40,6 +40,16 @@ describe('protected environment files', () => {
     expect(
       toolMayReadProtectedEnv({
         toolName: 'ssh_remote',
+        input: {
+          action: 'connect_server',
+          server_id: 'production',
+          private_key_path: '.env.local',
+        },
+      }),
+    ).toBe(true)
+    expect(
+      toolMayReadProtectedEnv({
+        toolName: 'ssh_remote',
         input: { action: 'read_file', path: '.env.production' },
       }),
     ).toBe(true)
@@ -132,6 +142,37 @@ describe('tool permission requests', () => {
     expect(request.preview).toContain('[oculto]')
     expect(request.preview).not.toContain('super-secret')
     expect(JSON.stringify(request.input)).not.toContain('super-secret')
+  })
+
+  test('describes saved-server mutations and direct connection persistence', () => {
+    const addRequest = createToolPermissionRequest({
+      toolCallId: 'call-add-server',
+      toolName: 'ssh_remote',
+      input: {
+        action: 'add_server',
+        name: 'production',
+        host: 'server.example.com',
+        username: 'deploy',
+        password_env: 'PRODUCTION_SSH_PASSWORD',
+      },
+      agentId: 'base',
+    })
+    expect(addRequest.category).toBe('remote-config')
+    expect(addRequest.title).toBe('Guardar servidor SSH')
+    expect(addRequest.target).toBe('production')
+
+    const connectRequest = createToolPermissionRequest({
+      toolCallId: 'call-connect-save',
+      toolName: 'ssh_remote',
+      input: {
+        action: 'connect',
+        host: 'server.example.com',
+        username: 'deploy',
+        password_env: 'PRODUCTION_SSH_PASSWORD',
+      },
+      agentId: 'base',
+    })
+    expect(connectRequest.title).toBe('Abrir y guardar conexión SSH')
   })
 
   test('redacts secret assignments embedded in command previews', () => {

@@ -1,4 +1,4 @@
-# 021 — Medidor permanente de la ventana de contexto
+﻿# 021 — Medidor permanente de la ventana de contexto
 
 # Fecha
 

@@ -1,4 +1,4 @@
-# 006 - Compilación del binario en Windows
+﻿# 006 - Compilación del binario en Windows
 
 ## Problema
 
