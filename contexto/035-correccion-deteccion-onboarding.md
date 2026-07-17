@@ -1,4 +1,4 @@
-﻿# 035 — Corrección de detección del onboarding inicial
+# 035 — Corrección de detección del onboarding inicial
 
 # Fecha
 

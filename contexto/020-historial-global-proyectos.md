@@ -1,4 +1,4 @@
-﻿# 020 — Historial global de proyectos en `/history`
+# 020 — Historial global de proyectos en `/history`
 
 # Fecha
 

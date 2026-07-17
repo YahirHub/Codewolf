@@ -1,4 +1,4 @@
-﻿# 019 — Agente genérico con el modelo activo
+# 019 — Agente genérico con el modelo activo
 
 # Fecha
 

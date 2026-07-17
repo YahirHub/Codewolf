@@ -1,4 +1,4 @@
-﻿# 010 - Corrección de investigadores web bloqueados
+# 010 - Corrección de investigadores web bloqueados
 
 ## Problema observado
 

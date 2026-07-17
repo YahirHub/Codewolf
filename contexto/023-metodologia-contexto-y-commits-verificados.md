@@ -1,4 +1,4 @@
-﻿# 023 — Metodología opcional, contexto persistente y commits verificados
+# 023 — Metodología opcional, contexto persistente y commits verificados
 
 # Fecha
 

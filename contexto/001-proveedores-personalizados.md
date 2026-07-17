@@ -1,4 +1,4 @@
-﻿# Proveedores personalizados
+# Proveedores personalizados
 
 ## Estado actual
 

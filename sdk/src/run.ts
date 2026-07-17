@@ -96,6 +96,7 @@ import type {
   ToolPermissionRequest,
 } from '@codebuff/common/types/tool-permission'
 import type { SshRemoteInput } from './tools/ssh-remote'
+import type { RequestSecretFn } from '@codebuff/common/types/secret-prompt'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -203,6 +204,8 @@ export type CodebuffClientOptions = {
 
   /** Optional host callback used by safe mode to authorize sensitive operations. */
   requestToolPermission?: RequestToolPermissionFn
+  /** Local-only secret input callback. Values are never added to model messages or tool results. */
+  requestSecret?: RequestSecretFn
   /** Permission policy applied by the SDK before tools execute. */
   toolPermissionPolicy?: ToolPermissionPolicy
 
@@ -373,6 +376,7 @@ async function runOnce({
   overrideTools,
   customToolDefinitions,
   requestToolPermission,
+  requestSecret,
   toolPermissionPolicy,
 
   fsSource = () => require('fs').promises,
@@ -644,6 +648,7 @@ async function runOnce({
         onBeforeFileMutation,
         onAfterFileMutation,
         requestToolPermission,
+        requestSecret,
         toolPermissionPolicy,
         toolCallId,
         agentId: requestingAgentId,
@@ -1021,6 +1026,7 @@ async function handleToolCall({
   onBeforeFileMutation,
   onAfterFileMutation,
   requestToolPermission,
+  requestSecret,
   toolPermissionPolicy,
   toolCallId,
   agentId,
@@ -1037,6 +1043,7 @@ async function handleToolCall({
   onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
   onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
   requestToolPermission?: RequestToolPermissionFn
+  requestSecret?: RequestSecretFn
   toolPermissionPolicy?: ToolPermissionPolicy
   toolCallId?: string
   agentId?: string
@@ -1230,7 +1237,7 @@ async function handleToolCall({
       result = await getPersistentSshManager().execute(
         input as SshRemoteInput,
         signal,
-        { projectRoot: cwd, env },
+        { projectRoot: cwd, env, requestSecret },
       )
     } else if (toolName === 'run_terminal_command') {
       const resolvedCwd = requireCwd(cwd, 'run_terminal_command')

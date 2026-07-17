@@ -1,4 +1,4 @@
-﻿# 039 — SSH persistente y protección de archivos `.env`
+# 039 — SSH persistente y protección de archivos `.env`
 
 # Fecha
 

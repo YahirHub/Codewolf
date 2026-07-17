@@ -3,6 +3,7 @@ import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { ToolPermissionBridge } from './tool-permission-bridge'
+import { SecretPromptBridge } from './secret-prompt-bridge'
 
 import { getAuthTokenDetails } from './auth'
 import {
@@ -130,6 +131,8 @@ export async function getCodebuffClientContext(): Promise<CodebuffClientContext 
         onTokenUsage: (event) => recordTokenUsage(event),
         requestToolPermission: (request) =>
           ToolPermissionBridge.request(request),
+        requestSecret: (request, signal) =>
+          SecretPromptBridge.request(request, signal),
         toolPermissionPolicy: {
           safeModeEnabled: isSafeModeEnabled(),
           sshSafeModeEnabled: isSshSafeModeEnabled(),

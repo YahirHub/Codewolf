@@ -1,4 +1,4 @@
-﻿# 032 — NVIDIA NIM con catálogo dinámico y transporte estable
+# 032 — NVIDIA NIM con catálogo dinámico y transporte estable
 
 # Fecha
 

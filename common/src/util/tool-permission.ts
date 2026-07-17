@@ -142,6 +142,38 @@ const SSH_ACTION_DETAILS: Record<
     category: 'remote-config',
     title: 'Eliminar servidor SSH guardado',
   },
+  vault_status: {
+    category: 'remote-config',
+    title: 'Consultar bóveda SSH cifrada',
+  },
+  unlock_vault: {
+    category: 'remote-config',
+    title: 'Desbloquear bóveda SSH cifrada',
+  },
+  lock_vault: {
+    category: 'remote-config',
+    title: 'Bloquear bóveda SSH cifrada',
+  },
+  change_vault_password: {
+    category: 'remote-config',
+    title: 'Cambiar contraseña maestra SSH',
+  },
+  set_server_password: {
+    category: 'remote-config',
+    title: 'Guardar contraseña SSH cifrada',
+  },
+  clear_server_password: {
+    category: 'remote-config',
+    title: 'Eliminar contraseña SSH cifrada',
+  },
+  set_server_passphrase: {
+    category: 'remote-config',
+    title: 'Guardar passphrase SSH cifrada',
+  },
+  clear_server_passphrase: {
+    category: 'remote-config',
+    title: 'Eliminar passphrase SSH cifrada',
+  },
   list_connections: { category: 'remote-file', title: 'Listar conexiones SSH' },
   status: { category: 'remote-file', title: 'Consultar conexión SSH' },
   pwd: { category: 'remote-file', title: 'Consultar directorio remoto' },

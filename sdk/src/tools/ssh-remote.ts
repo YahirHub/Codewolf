@@ -7,6 +7,7 @@ import posixPath from 'node:path/posix'
 import { Client } from 'ssh2'
 
 import type { SshRemoteAction } from '@codebuff/common/tools/params/tool/ssh-remote'
+import type { RequestSecretFn } from '@codebuff/common/types/secret-prompt'
 import { normalizeJsonValue } from '@codebuff/common/util/json'
 
 import {
@@ -14,6 +15,7 @@ import {
   compactSshServerProfile,
   getSshServerDisplayName,
 } from './ssh-server-store'
+import { SshCredentialVault } from './ssh-credential-vault'
 
 import type {
   SshServerProfile,
@@ -40,6 +42,8 @@ export type SshRemoteInput = {
   clear_name?: boolean
   clear_authentication?: boolean
   close_connections?: boolean
+  prompt_password?: boolean
+  prompt_passphrase?: boolean
   save_server?: boolean
   host?: string
   port?: number
@@ -101,11 +105,13 @@ type ConnectionState = {
 export type SshRemoteManagerOptions = {
   clientFactory?: () => Client
   configDir?: string
+  credentialVault?: SshCredentialVault
 }
 
 export type SshRemoteExecutionContext = {
   projectRoot?: string
   env?: Record<string, string>
+  requestSecret?: RequestSecretFn
 }
 
 const MAX_SHELL_BUFFER = 2_000_000
@@ -125,6 +131,8 @@ function entryType(mode: number): 'directory' | 'symlink' | 'file' {
 const READ_ONLY_ACTIONS = new Set<SshRemoteAction>([
   'list_servers',
   'get_server',
+  'vault_status',
+  'lock_vault',
   'list_connections',
   'status',
   'pwd',
@@ -250,10 +258,13 @@ async function wait(ms: number): Promise<void> {
 export class PersistentSshManager {
   private readonly connections = new Map<string, ConnectionState>()
   private readonly serverStore: SshServerStore
+  private readonly credentialVault: SshCredentialVault
   private sequence = 0
 
   constructor(private readonly options: SshRemoteManagerOptions = {}) {
     this.serverStore = new SshServerStore(options.configDir)
+    this.credentialVault =
+      options.credentialVault ?? new SshCredentialVault(options.configDir)
   }
 
   async execute(
@@ -276,13 +287,53 @@ export class PersistentSshManager {
         case 'get_server':
           return json(await this.getServer(input.server_id!))
         case 'add_server':
-          return json(await this.addServer(input, context))
+          return json(await this.addServer(input, signal, context))
         case 'update_server':
-          return json(await this.updateServer(input, context))
+          return json(await this.updateServer(input, signal, context))
         case 'rename_server':
           return json(await this.renameServer(input))
         case 'delete_server':
-          return json(await this.deleteServer(input))
+          return json(await this.deleteServer(input, signal, context))
+        case 'vault_status':
+          return json({ action: 'vault_status', ...(await this.credentialVault.status()) })
+        case 'unlock_vault':
+          await this.credentialVault.unlock({
+            requestSecret: context.requestSecret,
+            signal,
+          })
+          return json({
+            ok: true,
+            action: 'unlock_vault',
+            ...(await this.credentialVault.status()),
+            message: 'La bóveda SSH quedó desbloqueada solo para esta ejecución de Codewolf.',
+          })
+        case 'lock_vault':
+          await this.credentialVault.lock()
+          return json({
+            ok: true,
+            action: 'lock_vault',
+            ...(await this.credentialVault.status()),
+            message: 'La clave de la bóveda SSH fue eliminada de la memoria del proceso.',
+          })
+        case 'change_vault_password':
+          await this.credentialVault.changeMasterPassword({
+            requestSecret: context.requestSecret,
+            signal,
+          })
+          return json({
+            ok: true,
+            action: 'change_vault_password',
+            ...(await this.credentialVault.status()),
+            message: 'La bóveda SSH fue cifrada nuevamente con la nueva contraseña maestra.',
+          })
+        case 'set_server_password':
+          return json(await this.setServerSecret(input.server_id!, 'password', signal, context))
+        case 'clear_server_password':
+          return json(await this.clearServerSecret(input.server_id!, 'password', signal, context))
+        case 'set_server_passphrase':
+          return json(await this.setServerSecret(input.server_id!, 'passphrase', signal, context))
+        case 'clear_server_passphrase':
+          return json(await this.clearServerSecret(input.server_id!, 'passphrase', signal, context))
         case 'list_connections':
           return json({
             connections: [...this.connections.values()].map(compactConnection),
@@ -371,6 +422,127 @@ export class PersistentSshManager {
     }
   }
 
+  private vaultContext(
+    profile: Pick<SshServerProfile, 'name' | 'host'> | undefined,
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
+  ) {
+    return {
+      requestSecret: context.requestSecret,
+      signal,
+      ...(profile ? { serverName: getSshServerDisplayName(profile) } : {}),
+    }
+  }
+
+  private async requestSshSecret(
+    field: 'password' | 'passphrase',
+    profile: Pick<SshServerProfile, 'name' | 'host'>,
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
+  ): Promise<string> {
+    if (!context.requestSecret) {
+      throw new Error(
+        'Codewolf necesita un controlador local de entrada secreta para solicitar credenciales SSH sin mostrarlas al agente.',
+      )
+    }
+    const serverName = getSshServerDisplayName(profile)
+    const response = await context.requestSecret(
+      {
+        requestId: randomUUID(),
+        kind: field === 'password' ? 'ssh-password' : 'ssh-passphrase',
+        title:
+          field === 'password'
+            ? 'Contraseña del servidor SSH'
+            : 'Passphrase de la clave SSH',
+        message:
+          field === 'password'
+            ? 'Introduce la contraseña SSH que se guardará cifrada. El agente no recibirá este valor.'
+            : 'Introduce la passphrase de la clave privada. Se guardará cifrada y el agente no recibirá este valor.',
+        serverName,
+        minLength: 1,
+      },
+      signal,
+    )
+    if (response.cancelled || response.value === undefined) {
+      throw new Error('El usuario canceló la entrada de la credencial SSH.')
+    }
+    if (!response.value) throw new Error('La credencial SSH no puede estar vacía.')
+    return response.value
+  }
+
+  private async setServerSecret(
+    reference: string,
+    field: 'password' | 'passphrase',
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
+  ): Promise<Record<string, unknown>> {
+    const profile = await this.serverStore.get(reference)
+    const secret = await this.requestSshSecret(field, profile, signal, context)
+    try {
+      await this.credentialVault.setServerSecrets(
+        profile.id,
+        field === 'password' ? { password: secret } : { passphrase: secret },
+        this.vaultContext(profile, signal, context),
+      )
+    } finally {
+      // JavaScript strings cannot be zeroed reliably; keep their lifetime scoped
+      // to this call and never include them in tool output or persistent logs.
+    }
+    const updated = await this.serverStore.update(
+      profile.id,
+      field === 'password'
+        ? { password_vault: true }
+        : { passphrase_vault: true },
+    )
+    return {
+      ok: true,
+      action:
+        field === 'password' ? 'set_server_password' : 'set_server_passphrase',
+      ...this.compactConfiguredServer(updated),
+      vault: await this.credentialVault.status(),
+      message:
+        field === 'password'
+          ? 'La contraseña SSH fue guardada en la bóveda cifrada.'
+          : 'La passphrase SSH fue guardada en la bóveda cifrada.',
+    }
+  }
+
+  private async clearServerSecret(
+    reference: string,
+    field: 'password' | 'passphrase',
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
+  ): Promise<Record<string, unknown>> {
+    const profile = await this.serverStore.get(reference)
+    const configured =
+      field === 'password' ? profile.password_vault : profile.passphrase_vault
+    if (configured) {
+      await this.credentialVault.clearServerSecret(
+        profile.id,
+        field,
+        this.vaultContext(profile, signal, context),
+      )
+    }
+    const updated = await this.serverStore.update(
+      profile.id,
+      field === 'password'
+        ? { password_vault: false }
+        : { passphrase_vault: false },
+    )
+    return {
+      ok: true,
+      action:
+        field === 'password'
+          ? 'clear_server_password'
+          : 'clear_server_passphrase',
+      ...this.compactConfiguredServer(updated),
+      message:
+        field === 'password'
+          ? 'La contraseña cifrada del servidor fue eliminada.'
+          : 'La passphrase cifrada del servidor fue eliminada.',
+    }
+  }
+
   private async listServers(): Promise<Record<string, unknown>> {
     const configured = await this.serverStore.list()
     const unconfiguredActive = [...this.connections.values()]
@@ -389,6 +561,7 @@ export class PersistentSshManager {
     return {
       action: 'list_servers',
       registry_path: this.serverStore.filePath,
+      credential_vault: await this.credentialVault.status(),
       servers: configured.map((profile) =>
         this.compactConfiguredServer(profile),
       ),
@@ -407,6 +580,7 @@ export class PersistentSshManager {
     return {
       action: 'get_server',
       ...this.compactConfiguredServer(profile),
+      credential_vault: await this.credentialVault.status(),
     }
   }
 
@@ -515,29 +689,64 @@ export class PersistentSshManager {
 
   private async addServer(
     input: SshRemoteInput,
+    signal: AbortSignal | undefined,
     context: SshRemoteExecutionContext,
   ): Promise<Record<string, unknown>> {
     this.assertNoPersistentLiteralSecrets(input)
     const profile = await this.serverStore.add(
       this.profileInputFromTool(input, context),
     )
+    try {
+      if (input.prompt_password) {
+        await this.setServerSecret(profile.id, 'password', signal, context)
+      }
+      if (input.prompt_passphrase) {
+        await this.setServerSecret(profile.id, 'passphrase', signal, context)
+      }
+    } catch (error) {
+      await this.credentialVault
+        .deleteServerSecrets(
+          profile.id,
+          this.vaultContext(profile, signal, context),
+        )
+        .catch(() => undefined)
+      await this.serverStore.delete(profile.id).catch(() => undefined)
+      throw error
+    }
+    const saved = await this.serverStore.get(profile.id)
     return {
       ok: true,
       action: 'add_server',
-      ...this.compactConfiguredServer(profile),
+      ...this.compactConfiguredServer(saved),
       message: 'SSH server saved globally and is now reusable from every project.',
     }
   }
 
   private async updateServer(
     input: SshRemoteInput,
+    signal: AbortSignal | undefined,
     context: SshRemoteExecutionContext,
   ): Promise<Record<string, unknown>> {
     this.assertNoPersistentLiteralSecrets(input)
-    const profile = await this.serverStore.update(
-      input.server_id!,
+    const current = await this.serverStore.get(input.server_id!)
+    if (input.clear_authentication && (current.password_vault || current.passphrase_vault)) {
+      await this.credentialVault.deleteServerSecrets(
+        current.id,
+        this.vaultContext(current, signal, context),
+      )
+    }
+    let profile = await this.serverStore.update(
+      current.id,
       this.profilePatchFromTool(input, context),
     )
+    if (input.prompt_password) {
+      await this.setServerSecret(profile.id, 'password', signal, context)
+      profile = await this.serverStore.get(profile.id)
+    }
+    if (input.prompt_passphrase) {
+      await this.setServerSecret(profile.id, 'passphrase', signal, context)
+      profile = await this.serverStore.get(profile.id)
+    }
     for (const connection of this.activeConnectionsForServer(profile.id)) {
       connection.name = getSshServerDisplayName(profile)
     }
@@ -573,8 +782,17 @@ export class PersistentSshManager {
 
   private async deleteServer(
     input: SshRemoteInput,
+    signal: AbortSignal | undefined,
+    context: SshRemoteExecutionContext,
   ): Promise<Record<string, unknown>> {
-    const profile = await this.serverStore.delete(input.server_id!)
+    const existing = await this.serverStore.get(input.server_id!)
+    if (existing.password_vault || existing.passphrase_vault) {
+      await this.credentialVault.deleteServerSecrets(
+        existing.id,
+        this.vaultContext(existing, signal, context),
+      )
+    }
+    const profile = await this.serverStore.delete(existing.id)
     const activeConnections = this.activeConnectionsForServer(profile.id)
     const closedConnectionIds: string[] = []
     for (const connection of activeConnections) {
@@ -589,13 +807,16 @@ export class PersistentSshManager {
       ok: true,
       action: 'delete_server',
       deleted_server: compactSshServerProfile(profile),
+      encrypted_credentials_deleted: Boolean(
+        existing.password_vault || existing.passphrase_vault,
+      ),
       closed_connection_ids: closedConnectionIds,
       active_connections_kept: input.close_connections
         ? 0
         : activeConnections.length,
       message: input.close_connections
-        ? 'Saved SSH server and its active connections were closed.'
-        : 'Saved SSH server removed. Existing active connections remain open until explicitly closed.',
+        ? 'Saved SSH server, encrypted credentials, and active connections were closed.'
+        : 'Saved SSH server and encrypted credentials removed. Existing active connections remain open until explicitly closed.',
     }
   }
 
@@ -604,33 +825,87 @@ export class PersistentSshManager {
     signal: AbortSignal | undefined,
     context: SshRemoteExecutionContext,
   ): Promise<Record<string, unknown>> {
-    const profile = await this.serverStore.get(input.server_id!)
+    let profile = await this.serverStore.get(input.server_id!)
     const hasAuthenticationOverride = Boolean(
       input.password !== undefined ||
         input.password_env !== undefined ||
         input.private_key !== undefined ||
         input.private_key_path !== undefined ||
         input.agent !== undefined ||
-        input.agent_env !== undefined,
+        input.agent_env !== undefined ||
+        input.prompt_password,
     )
+
+    let vaultPassword: string | undefined
+    let vaultPassphrase: string | undefined
+    if (!hasAuthenticationOverride && (profile.password_vault || profile.passphrase_vault)) {
+      const secrets = await this.credentialVault.getServerSecrets(
+        profile.id,
+        this.vaultContext(profile, signal, context),
+      )
+      if (profile.password_vault && !secrets?.password) {
+        throw new Error(
+          `El perfil ${getSshServerDisplayName(profile)} indica una contraseña cifrada, pero la bóveda no contiene esa credencial.`,
+        )
+      }
+      if (profile.passphrase_vault && !secrets?.passphrase) {
+        throw new Error(
+          `El perfil ${getSshServerDisplayName(profile)} indica una passphrase cifrada, pero la bóveda no contiene esa credencial.`,
+        )
+      }
+      vaultPassword = secrets?.password
+      vaultPassphrase = secrets?.passphrase
+    }
+
+    const profileHasAuthentication = Boolean(
+      profile.password_env ||
+        profile.password_vault ||
+        profile.private_key_path ||
+        profile.agent ||
+        profile.agent_env,
+    )
+    let promptedPassword: string | undefined
+    let promptedPassphrase: string | undefined
+    if (input.prompt_password || (!hasAuthenticationOverride && !profileHasAuthentication)) {
+      promptedPassword = await this.requestSshSecret(
+        'password',
+        profile,
+        signal,
+        context,
+      )
+    }
+    if (input.prompt_passphrase) {
+      promptedPassphrase = await this.requestSshSecret(
+        'passphrase',
+        profile,
+        signal,
+        context,
+      )
+    }
+
     const result = await this.connect(
       {
         ...input,
         action: 'connect',
         server_id: profile.id,
         save_server: false,
+        prompt_password: false,
+        prompt_passphrase: false,
         name: getSshServerDisplayName(profile),
         host: profile.host,
         port: profile.port,
         username: profile.username,
+        password: input.password ?? promptedPassword ?? vaultPassword,
         password_env: hasAuthenticationOverride
           ? input.password_env
           : profile.password_env,
         private_key_path: hasAuthenticationOverride
           ? input.private_key_path
           : profile.private_key_path,
+        passphrase:
+          input.passphrase ?? promptedPassphrase ?? vaultPassphrase,
         passphrase_env:
-          input.passphrase !== undefined
+          input.passphrase !== undefined || promptedPassphrase || vaultPassphrase
             ? undefined
             : input.passphrase_env ?? profile.passphrase_env,
         agent: hasAuthenticationOverride ? input.agent : profile.agent,
@@ -648,10 +923,43 @@ export class PersistentSshManager {
       context,
       profile.id,
     )
+
+    let credentialSaveError: string | undefined
+    let promptedCredentialsSaved = false
+    if (promptedPassword || promptedPassphrase) {
+      try {
+        await this.credentialVault.setServerSecrets(
+          profile.id,
+          {
+            ...(promptedPassword ? { password: promptedPassword } : {}),
+            ...(promptedPassphrase ? { passphrase: promptedPassphrase } : {}),
+          },
+          this.vaultContext(profile, signal, context),
+        )
+        profile = await this.serverStore.update(profile.id, {
+          ...(promptedPassword ? { password_vault: true } : {}),
+          ...(promptedPassphrase ? { passphrase_vault: true } : {}),
+        })
+        promptedCredentialsSaved = true
+      } catch (error) {
+        credentialSaveError = error instanceof Error ? error.message : String(error)
+      }
+    }
+
     return {
       ...result,
       action: 'connect_server',
       server: compactSshServerProfile(profile),
+      ...(promptedPassword || promptedPassphrase
+        ? { prompted_credentials_saved: promptedCredentialsSaved }
+        : {}),
+      ...(credentialSaveError
+        ? {
+            credential_save_error: credentialSaveError,
+            message:
+              'La conexión SSH quedó abierta, pero la credencial solicitada no pudo guardarse en la bóveda cifrada.',
+          }
+        : {}),
     }
   }
 
@@ -665,12 +973,36 @@ export class PersistentSshManager {
     const port = input.port ?? 22
     const username = input.username!
     const env = { ...process.env, ...(context.env ?? {}) }
+    const displayProfile = {
+      ...(input.name?.trim() || input.label?.trim()
+        ? { name: input.name?.trim() || input.label?.trim() }
+        : {}),
+      host,
+    }
+    const promptedPassword =
+      input.prompt_password && input.password === undefined
+        ? await this.requestSshSecret(
+            'password',
+            displayProfile,
+            signal,
+            context,
+          )
+        : undefined
+    const promptedPassphrase =
+      input.prompt_passphrase && input.passphrase === undefined
+        ? await this.requestSshSecret(
+            'passphrase',
+            displayProfile,
+            signal,
+            context,
+          )
+        : undefined
     const password = input.password_env
       ? env[input.password_env]
-      : input.password
+      : input.password ?? promptedPassword
     const passphrase = input.passphrase_env
       ? env[input.passphrase_env]
-      : input.passphrase
+      : input.passphrase ?? promptedPassphrase
     const agent = input.agent_env ? env[input.agent_env] : input.agent
 
     if (input.password_env && !password) {
@@ -699,7 +1031,7 @@ export class PersistentSshManager {
 
     if (!password && !privateKey && !agent) {
       throw new Error(
-        'No SSH authentication is available. Provide password/password_env, private_key/private_key_path, or agent/agent_env.',
+        'No SSH authentication is available. Use prompt_password, password/password_env, private_key/private_key_path, or agent/agent_env.',
       )
     }
 
@@ -822,6 +1154,7 @@ export class PersistentSshManager {
     let savedServer: SshServerProfile | undefined
     let serverCreated = false
     let serverSaveError: string | undefined
+    let credentialSaveError: string | undefined
     if (!linkedServerId && input.save_server !== false) {
       try {
         const saved = await this.serverStore.upsertByEndpoint(
@@ -833,6 +1166,26 @@ export class PersistentSshManager {
         connection.name = getSshServerDisplayName(saved.profile)
       } catch (error) {
         serverSaveError = error instanceof Error ? error.message : String(error)
+      }
+
+      if (savedServer && (promptedPassword || promptedPassphrase)) {
+        try {
+          await this.credentialVault.setServerSecrets(
+            savedServer.id,
+            {
+              ...(promptedPassword ? { password: promptedPassword } : {}),
+              ...(promptedPassphrase ? { passphrase: promptedPassphrase } : {}),
+            },
+            this.vaultContext(savedServer, signal, context),
+          )
+          savedServer = await this.serverStore.update(savedServer.id, {
+            ...(promptedPassword ? { password_vault: true } : {}),
+            ...(promptedPassphrase ? { passphrase_vault: true } : {}),
+          })
+          connection.name = getSshServerDisplayName(savedServer)
+        } catch (error) {
+          credentialSaveError = error instanceof Error ? error.message : String(error)
+        }
       }
     }
 
@@ -848,11 +1201,16 @@ export class PersistentSshManager {
           }
         : {}),
       ...(serverSaveError ? { server_save_error: serverSaveError } : {}),
+      ...(credentialSaveError
+        ? { credential_save_error: credentialSaveError }
+        : {}),
       message: serverSaveError
         ? 'Persistent SSH connection opened, but its server profile could not be saved. The connection remains usable.'
-        : linkedServerId || savedServer
-          ? 'Persistent SSH connection opened and linked to the global server registry.'
-          : 'Persistent SSH connection opened without saving a server profile.',
+        : credentialSaveError
+          ? 'Persistent SSH connection opened and the server profile was saved, but its prompted credential could not be encrypted.'
+          : linkedServerId || savedServer
+            ? 'Persistent SSH connection opened and linked to the global server registry.'
+            : 'Persistent SSH connection opened without saving a server profile.',
     }
   }
 

@@ -1,4 +1,4 @@
-﻿# 000 — Leer primero: contexto maestro de Codewolf
+# 000 — Leer primero: contexto maestro de Codewolf
 
 # Fecha
 
@@ -48,6 +48,7 @@ esta estructura mínima:
 # Archivos importantes modificados
 # Soluciones implementadas
 
+- Se añadió una bóveda SSH portable cifrada con scrypt y AES-256-GCM. La contraseña maestra y las credenciales se solicitan mediante una pantalla enmascarada del CLI fuera del agente; la clave derivada solo vive durante el proceso actual y los perfiles se reconectan por nombre/ID sin reenviar host, usuario ni contraseña.
 - Se eliminó el workspace Freebuff, 163 archivos obsoletos, dependencias directas sin uso y ramas comerciales; se conservaron los namespaces activos del SDK y las atribuciones legales.
 Secciones opcionales cuando exista información confirmada:
 # Decisiones tomadas
@@ -55,6 +56,7 @@ Secciones opcionales cuando exista información confirmada:
 # Librerías usadas
 # Problemas encontrados
 
+- Los perfiles SSH no podían conservar contraseñas de forma portable: dependían de variables de entorno, claves externas o volver a enviar la credencial en cada ejecución.
 - OpenCode Free se integra temporalmente como catálogo de solo lectura sin API key: consulta modelos terminados en `-free`, usa caché/fallback y aparece en `/models`. `/login` separa el método de autenticación y permite configurar OpenCode Go con su endpoint y clave propios.
 - El onboarding de primera ejecución registra su versión, ofrece suscripción/proveedor/OpenCode Free, muestra branding animado adaptable y evita mostrarse retroactivamente a usuarios con estado previo. Su decisión se captura antes de que el arranque cree `recent-projects.json`; `--onboarding` permite reabrirlo sin borrar datos. La presentación usa `AnimatedCodewolfLogo`, tarjetas seleccionables y un modo compacto compatible con terminales de 80x24.
 - El instalador y workflow comparten nombres deterministas de assets para actualizar de forma verificable en Linux, macOS y Windows.
@@ -92,7 +94,7 @@ TypeScript con Bun, React y OpenTUI.
 - Cada tarea congela el proveedor y modelo con los que comenzó; cambiar `/models` durante una ejecución solo afecta la siguiente tarea y la barra distingue el modelo en uso del siguiente seleccionado.
 - `/config` permite asignar modelos independientes a agentes OPUS, revisión de código, investigación, `code-searcher`, `file-picker` y `file-lister`. Las preferencias vacías heredan el modelo de sesión seleccionado en `/models`, incluso en subagentes anidados.
 - `/config` también separa Modo seguro local, Modo seguro SSH y protección de `.env`; SSH y `.env` quedan protegidos por defecto, mientras el modo local conserva su valor desactivado.
-- `ssh_remote` administra un registro global de servidores en `~/.codewolf/ssh-servers.json` con nombres, edición, referencias `ssh-server://<id>` y reconexión desde cualquier proyecto. Las conexiones activas siguen siendo múltiples y persistentes durante el proceso, entregan `ssh://<id>`, conservan directorio/shell PTY, usan SFTP y pueden cerrarse individualmente o en conjunto. PLAN no recibe esta herramienta.
+- `ssh_remote` administra perfiles globales en `~/.codewolf/ssh-servers.json` y contraseñas/passphrases en la bóveda portable cifrada `~/.codewolf/ssh-secrets.enc`. La entrada maestra y SSH se realiza directamente en el CLI, nunca llega al agente, y la bóveda queda desbloqueada solo durante el proceso actual. Las conexiones activas son múltiples, entregan `ssh://<id>`, conservan directorio/shell PTY, usan SFTP y pueden cerrarse individualmente o en conjunto. PLAN no recibe esta herramienta.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -141,6 +143,7 @@ TypeScript con Bun, React y OpenTUI.
 ├── search-auth.json
 ├── settings.json
 ├── ssh-servers.json
+├── ssh-secrets.enc
 ├── message-history.json
 ├── recent-projects.json
 ├── usage.jsonl
@@ -234,6 +237,10 @@ lista exacta y versiones bloqueadas.
 - `common/src/util/tool-permission.ts`
 - `sdk/src/tools/ssh-remote.ts`
 - `sdk/src/tools/ssh-server-store.ts`
+- `sdk/src/tools/ssh-credential-vault.ts`
+- `common/src/types/secret-prompt.ts`
+- `cli/src/utils/secret-prompt-bridge.ts`
+- `cli/src/components/secret-prompt-screen.tsx`
 - `sdk/src/tools/read-files.ts`
 - `sdk/src/tools/code-search.ts`
 - `cli/src/components/config-screen.tsx`
@@ -243,6 +250,7 @@ lista exacta y versiones bloqueadas.
 
 # Problemas encontrados
 
+- Los perfiles SSH no podían conservar contraseñas de forma portable: dependían de variables de entorno, claves externas o volver a enviar la credencial en cada ejecución.
 - Codewolf no tenía una herramienta SSH persistente: repetir procesos locales `ssh` no conservaba de forma segura varias conexiones, SFTP, directorio ni shell entre llamadas del agente.
 - La cola y pantalla de permisos existentes no estaban conectadas de extremo a extremo al SDK para operaciones SSH ni para proteger contenido `.env` en modo normal.
 - Una detección de secretos basada solo en menciones podía confundir navegación o metadatos con lectura real de contenido.
@@ -282,6 +290,7 @@ lista exacta y versiones bloqueadas.
 
 # Soluciones implementadas
 
+- Se añadió una bóveda SSH portable cifrada con scrypt y AES-256-GCM. La contraseña maestra y las credenciales se solicitan mediante una pantalla enmascarada del CLI fuera del agente; la clave derivada solo vive durante el proceso actual y los perfiles se reconectan por nombre/ID sin reenviar host, usuario ni contraseña.
 - Se añadió `ssh_remote` como herramienta interna con múltiples conexiones en memoria, referencias reutilizables, navegación, lectura, comandos, PTY persistente, SFTP y cierre individual/global.
 - El SDK aplica permisos antes de ejecutar herramientas locales, externas o SSH, conserva la identidad del agente/subagente y exige autorizaciones separadas cuando una operación remota también puede exponer un `.env`.
 - `/config` expone políticas independientes; la protección `.env` analiza si la operación puede exponer contenido y excluye búsquedas amplias sin bloquear simples metadatos.
@@ -387,12 +396,8 @@ al terminar.
 - `037`: consistencia del cambio de modelo entre la tarea activa y la siguiente.
 - `038`: modelos configurables para búsqueda de código y exploración de archivos.
 - `039`: conexiones SSH persistentes, permisos remotos y protección independiente de `.env`.
-
-<!-- codewolf:auto-context:start -->
-# Estado automático más reciente
-
-- Última actualización: 2026-07-17T18:07:14.696Z
-- Último registro: contexto/043-actualizar-informe-md.md
-- Resumen: Actualizar informe.md.
-- Archivos del cambio: informe.md
-<!-- codewolf:auto-context:end -->
+- `040`: resultados SSH normalizados al contrato JSONValue.
+- `041`: tipos públicos de agentes y prueba de `write_file` sincronizados.
+- `042`: registro global profesional de servidores SSH.
+- `043`: bóveda cifrada portable y entrada de secretos fuera del agente.
+- `044`: confirmación de contraseña de la bóveda sin estados atrasados de React.

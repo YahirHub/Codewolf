@@ -1,4 +1,4 @@
-﻿# 029 — Corregir rutas virtuales y suite portable
+# 029 — Corregir rutas virtuales y suite portable
 
 # Fecha
 

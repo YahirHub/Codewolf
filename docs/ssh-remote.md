@@ -1,117 +1,173 @@
-# Servidores y conexiones SSH persistentes
+# Servidores, credenciales cifradas y conexiones SSH
 
-Codewolf incluye la herramienta interna `ssh_remote` para trabajar profesionalmente con servidores sin convertir SSH en una pantalla o función directa para el usuario. La herramienta distingue entre **servidores configurados**, que se guardan globalmente, y **conexiones activas**, que mantienen sockets, SFTP y shells durante el proceso actual.
+Codewolf incluye la herramienta interna `ssh_remote` para trabajar profesionalmente con servidores. La arquitectura separa tres elementos:
 
-## Servidores configurados
+1. **Perfiles de servidor**, persistentes y globales.
+2. **Credenciales cifradas**, portables dentro de `.codewolf`.
+3. **Conexiones activas**, vivas únicamente durante el proceso actual.
 
-Los perfiles se guardan en `~/.codewolf/ssh-servers.json`. Son globales: están disponibles desde cualquier proyecto y después de reiniciar Codewolf.
+El agente administra perfiles y solicita operaciones mediante `ssh_remote`, pero nunca recibe la contraseña maestra ni las contraseñas SSH introducidas por el usuario. La entrada secreta se resuelve directamente entre la interfaz local del CLI y el SDK.
 
-Acciones de administración:
+## Archivos globales
 
-- `list_servers`: enumera el registro global. Es la fuente autoritativa cuando se pregunta qué servidores SSH están configurados; el agente no debe buscar ni leer carpetas de Codewolf manualmente.
-- `get_server`: consulta un perfil por `server_id`, referencia `ssh-server://<id>`, nombre único, host, `host:port` o `username@host`.
-- `add_server`: agrega un perfil.
-- `update_server`: edita nombre, host, puerto, usuario, referencias de autenticación, huella y tiempos de espera.
-- `rename_server`: modifica únicamente el nombre visible. `clear_name=true` elimina el nombre personalizado.
-- `delete_server`: elimina el perfil. Por defecto conserva las conexiones activas; `close_connections=true` también las cierra.
-- `connect_server`: abre una conexión usando un perfil guardado.
+Los datos se guardan en el directorio global de Codewolf:
 
-Cada perfil recibe `server_id` y `server_ref`. `name` es el nombre visible. Cuando un perfil no tiene nombre personalizado, `name` devuelve únicamente el host. Los perfiles antiguos que usaban `label` se leen de forma compatible y se normalizan como nombre.
+- `~/.codewolf/ssh-servers.json`: perfiles, nombres, hosts y referencias no secretas.
+- `~/.codewolf/ssh-secrets.enc`: bóveda cifrada de contraseñas SSH y passphrases.
 
-El registro se escribe de manera atómica con permisos `0600` cuando el sistema los admite. Un archivo dañado o con una versión desconocida se rechaza en lugar de sobrescribirse silenciosamente.
+Ambos archivos pueden copiarse junto con el resto de `.codewolf` a otro equipo o servidor. En el nuevo entorno se conserva la configuración, pero la bóveda vuelve a pedir su contraseña maestra.
 
-## Datos que pueden persistirse
+`ssh-servers.json` nunca contiene contraseñas. Los perfiles solo indican si existe una credencial cifrada mediante metadatos como `password_saved` o `passphrase_saved`.
 
-Solo se guardan metadatos no secretos:
+## Bóveda de credenciales
 
-- nombre, host, puerto y usuario;
+La bóveda usa:
+
+- derivación de clave mediante `scrypt`;
+- cifrado autenticado `AES-256-GCM`;
+- salt e IV aleatorios;
+- versión de formato y parámetros criptográficos validados;
+- escritura atómica y permisos `0600` cuando el sistema los admite.
+
+La contraseña maestra **no se guarda**. Al necesitar una credencial cifrada, el CLI muestra una entrada enmascarada fuera del chat. El valor:
+
+- no se agrega al prompt;
+- no se entrega al agente;
+- no se incluye en resultados de herramientas;
+- no se escribe en logs ni perfiles;
+- se utiliza localmente para derivar la clave de descifrado.
+
+La bóveda permanece desbloqueada solo durante la ejecución actual de Codewolf. Al ejecutar `lock_vault`, cerrar el CLI o terminar el proceso, la clave derivada se elimina de memoria. Abrir otra instancia requiere la contraseña maestra nuevamente.
+
+> Si se pierde la contraseña maestra, las credenciales cifradas no pueden recuperarse. Los perfiles de `ssh-servers.json` seguirán disponibles, pero habrá que reemplazar las credenciales de la bóveda.
+
+## Administración de servidores
+
+Acciones disponibles:
+
+- `list_servers`: enumera el registro global y el estado de la bóveda. Es la fuente autoritativa; el agente no debe recorrer carpetas para descubrir servidores.
+- `get_server`: consulta por ID, `ssh-server://<id>`, nombre único, host, `host:port` o `username@host`.
+- `add_server`: agrega un perfil. `prompt_password=true` o `prompt_passphrase=true` pide y cifra la credencial mediante el CLI.
+- `update_server`: edita nombre, host, puerto, usuario, autenticación, huella y tiempos de espera; también puede reemplazar credenciales con los campos `prompt_*`.
+- `rename_server`: cambia el nombre visible. `clear_name=true` vuelve a mostrar el host.
+- `delete_server`: elimina el perfil y sus credenciales cifradas. `close_connections=true` también cierra conexiones activas.
+- `connect_server`: conecta usando solamente el nombre, ID o referencia del perfil.
+
+Cada perfil recibe `server_id` y `server_ref`. Si no tiene nombre personalizado, el nombre visible es el host. Los perfiles antiguos con `label` se migran de forma compatible.
+
+Ejemplo conceptual para guardar un servidor con contraseña, sin enviar la contraseña al agente:
+
+```json
+{
+  "action": "add_server",
+  "name": "Producción",
+  "host": "192.168.1.50",
+  "username": "deploy",
+  "prompt_password": true
+}
+```
+
+Después puede conectarse únicamente con:
+
+```json
+{
+  "action": "connect_server",
+  "server_id": "Producción"
+}
+```
+
+Si la bóveda está bloqueada, el CLI solicita la contraseña maestra localmente y continúa la conexión sin exponerla al agente.
+
+## Acciones de la bóveda
+
+- `vault_status`: indica ruta, existencia y estado bloqueado/desbloqueado, sin devolver secretos.
+- `unlock_vault`: desbloquea o crea la bóveda mediante la entrada segura del CLI.
+- `lock_vault`: elimina de memoria la clave y el contenido descifrado.
+- `change_vault_password`: descifra con la contraseña actual y vuelve a cifrar toda la bóveda con una nueva.
+- `set_server_password`: solicita una contraseña SSH y la guarda cifrada para el perfil.
+- `clear_server_password`: elimina únicamente la contraseña cifrada.
+- `set_server_passphrase`: solicita y guarda cifrada la passphrase de la clave privada.
+- `clear_server_passphrase`: elimina únicamente la passphrase cifrada.
+
+Las contraseñas y passphrases nunca pueden enviarse como respuesta de estas acciones; solo se informa si existen y si la operación terminó correctamente.
+
+## Compatibilidad de autenticación
+
+Además de la bóveda, `connect` y `connect_server` conservan compatibilidad con:
+
 - `password_env` y `passphrase_env`;
 - `private_key_path`;
-- `agent` o `agent_env`;
-- huella SHA-256 del host;
-- tiempos de conexión y keepalive.
+- contenido efímero `password`, `passphrase` o `private_key` para llamadas internas compatibles;
+- agente SSH mediante `agent` o `agent_env`;
+- verificación opcional `host_fingerprint_sha256`.
 
-Nunca se guardan contraseñas, passphrases, contenido de claves privadas, sockets activos, shells ni salida remota. Un `.env` protegido tampoco puede registrarse como ruta de clave privada.
+Para uso normal persistente se recomienda la bóveda o una clave privada protegida. Los secretos literales nunca se guardan automáticamente en `ssh-servers.json`.
 
-`connect` abre directamente un host y, por defecto, guarda o actualiza su perfil no secreto (`save_server=true`). Puede usarse `save_server=false` para una conexión efímera. Si se conecta mediante una contraseña literal, el host puede recordarse, pero una reconexión posterior requerirá proporcionar nuevamente la credencial o configurar una referencia segura.
+Si un perfil antiguo no tiene autenticación persistida, `connect_server` puede pedir la contraseña SSH mediante el CLI y, tras conectarse correctamente, guardarla en la bóveda cifrada.
 
 ## Conexiones activas
 
-- `connect` abre directamente una conexión.
-- `connect_server` conecta un perfil guardado.
-- Ambas devuelven `connection_id` y `connection_ref` con formato `ssh://<id>`.
-- `list_connections` enumera las conexiones vivas.
-- `status` consulta una conexión concreta.
-- `close` cierra una conexión.
-- `close_all` cierra todas las conexiones activas.
+- `connect` abre directamente un host y puede guardar su perfil.
+- `connect_server` usa un perfil guardado.
+- Ambas devuelven `connection_id` y `connection_ref` (`ssh://<id>`).
+- `list_connections` enumera conexiones vivas.
+- `status` consulta una conexión.
+- `close` y `close_all` cierran una o todas.
 
-Se pueden mantener conexiones simultáneas a servidores diferentes y reutilizarlas aunque Codewolf cambie el directorio o proyecto activo. Las acciones destinadas a una misma conexión se serializan para que el agente principal y los subagentes no alteren simultáneamente su directorio, shell o canal SFTP.
+Se pueden mantener conexiones simultáneas y reutilizarlas al cambiar de proyecto. Las operaciones de una misma conexión se serializan para evitar carreras entre el agente principal y subagentes.
 
-Los perfiles sobreviven al reinicio; las conexiones vivas no. Al cerrar Codewolf terminan los sockets, shells y canales SFTP. Después puede abrirse una nueva conexión con `connect_server` usando el perfil global.
+Los perfiles y la bóveda sobreviven reinicios. Los sockets, shells PTY, SFTP y procesos remotos asociados a la conexión no sobreviven al cierre de Codewolf.
 
-## Navegación y lectura
+## Navegación, comandos y archivos
 
-Estas acciones no requieren autorización del **Modo seguro SSH**:
+Navegación y lectura:
 
-- `list_servers` y `get_server` para consultar perfiles sin secretos;
-- `list_connections` y `status`;
-- `pwd`, `cd`, `list` y `stat`;
-- `read_file`;
+- `pwd`, `cd`, `list`, `stat`, `read_file`;
 - `shell_read`;
-- `close` y `close_all`.
+- `list_connections` y `status`.
 
-La protección independiente de `.env` sigue aplicándose: leer o descargar un `.env` real, buscar explícitamente su contenido o ejecutar un comando que pueda mostrarlo solicita permiso aunque el Modo seguro local o SSH esté desactivado. Archivos plantilla como `.env.example`, `.env.sample` y `.env.template` no se consideran secretos.
+Ejecución y shell persistente:
 
-## Comandos persistentes
+- `exec` para una orden aislada;
+- `shell_open`, `shell_write` y `shell_read` para una PTY persistente.
 
-Para una orden aislada se usa `exec`. Codewolf antepone el directorio guardado de la conexión y devuelve salida, error, código de terminación y señal.
+Transferencias y mutaciones SFTP:
 
-Para conservar estado de shell entre llamadas:
+- `upload`, `download`, `write_file`;
+- `mkdir`, `rename`, `delete`.
 
-1. `shell_open` crea una PTY persistente.
-2. `shell_write` envía comandos, activaciones de entornos, exportaciones o entrada interactiva.
-3. `shell_read` recupera salida adicional sin cerrar la shell.
-
-La shell permite continuar procesos remotos o conservar variables y cambios de sesión. `cd` mantiene además un directorio estable para operaciones SFTP y llamadas posteriores a `exec`.
-
-## Archivos remotos
-
-La herramienta usa SFTP sobre la misma conexión:
-
-- `upload`: archivo local a remoto.
-- `download`: archivo remoto a local.
-- `write_file`: crea o reemplaza contenido remoto UTF-8/Base64.
-- `mkdir`: crea directorios, opcionalmente de forma recursiva.
-- `rename`: mueve o renombra.
-- `delete`: elimina archivos o directorios; la eliminación recursiva debe solicitarse explícitamente.
-
-`overwrite` es `false` por defecto para impedir reemplazos accidentales. Las rutas locales relativas se resuelven desde la raíz del proyecto; al guardar un perfil, una ruta relativa de clave privada se convierte en absoluta para que siga funcionando desde otros proyectos. Las rutas remotas relativas se resuelven desde el `cwd` persistente de la conexión.
+`overwrite` es `false` por defecto. Las rutas locales relativas se resuelven desde el proyecto y las remotas desde el `cwd` de la conexión.
 
 ## Seguridad desde `/config`
 
-La sección **SEGURIDAD** contiene tres controles independientes:
+La sección **SEGURIDAD** mantiene tres controles independientes:
 
-- **Modo seguro local:** solicita permiso para comandos locales, mutaciones de archivos, hooks, MCP y herramientas externas. Está desactivado por defecto.
-- **Modo seguro SSH:** solicita permiso para conectar, agregar/editar/renombrar/eliminar perfiles, ejecutar, abrir/escribir una shell, subir, descargar, escribir, crear, renombrar o eliminar en remoto. Está activado por defecto.
-- **Proteger archivos .env:** solicita permiso antes de exponer contenido de `.env` o `.env.*` local o remoto. Está activado por defecto y también funciona en modo normal.
+- **Modo seguro local:** protege comandos y mutaciones locales.
+- **Modo seguro SSH:** protege conexiones, cambios de perfiles/bóveda, ejecución, transferencias y mutaciones remotas. Está activado por defecto.
+- **Proteger archivos `.env`:** exige autorización antes de exponer secretos locales o remotos, incluso en modo normal.
 
-Listar o consultar perfiles no solicita permiso SSH porque no devuelve secretos. Cada permiso autoriza solo la operación mostrada. Una transferencia o comando SSH que además pueda exponer un `.env` solicita dos autorizaciones consecutivas: la operación remota y el acceso al secreto. Si no existe una interfaz capaz de resolver un permiso obligatorio, el SDK deniega la operación.
+Listar perfiles, consultar metadatos y navegar normalmente no requiere permiso SSH. Guardar, cambiar o eliminar credenciales sí lo requiere. La autorización de la operación y la entrada del secreto son pasos separados: aprobar una operación no revela ni autoriza automáticamente el contenido de la bóveda.
 
-## Autenticación
+Una operación SSH que también pueda exponer un `.env` solicita dos autorizaciones independientes: operación remota y acceso al secreto.
 
-`connect` y `connect_server` admiten:
+## Portabilidad y copias de seguridad
 
-- `password_env` o una contraseña efímera mediante `password`;
-- `private_key_path` o contenido efímero mediante `private_key`, con `passphrase_env`/`passphrase`;
-- socket de agente mediante `agent` o `agent_env`;
-- verificación opcional mediante `host_fingerprint_sha256`.
+Para mover la configuración entre equipos, copia el directorio `.codewolf` completo, especialmente:
 
-Para perfiles guardados se aceptan únicamente referencias no secretas. La vista previa del permiso oculta contraseñas, claves privadas, tokens y campos de credenciales.
+```text
+ssh-servers.json
+ssh-secrets.enc
+```
 
-## Límites actuales
+No copies uno sin el otro si quieres conservar tanto perfiles como credenciales. La bóveda es portable y no depende de Windows Credential Manager, macOS Keychain ni una clave ligada al hardware. Esa portabilidad implica que la protección depende de una contraseña maestra fuerte.
 
-- Los perfiles sobreviven reinicios; las conexiones, shells y transferencias activas duran únicamente el proceso actual.
+Evita sincronizar `.codewolf` en repositorios públicos. Conserva una copia de seguridad del archivo cifrado y recuerda la contraseña maestra en un gestor de contraseñas independiente.
+
+## Límites
+
+- La bóveda se desbloquea por proceso, no por sesión de Windows.
 - Las transferencias interrumpidas no se reanudan automáticamente.
-- La huella del host es opcional; debe configurarse cuando la identidad del servidor necesite validación estricta.
-- La aceleración nativa opcional `cpu-features` se excluye del binario Bun; `ssh2` utiliza su ruta JavaScript portable.
-- La herramienta no eleva privilegios ni sustituye usuarios restringidos, copias de seguridad, firewall o políticas del servidor.
+- La huella del host es opcional; configúrala para validación estricta del servidor.
+- La aceleración nativa opcional `cpu-features` se excluye del binario Bun; `ssh2` usa su implementación portable.
+- JavaScript no permite garantizar el borrado físico inmediato de todas las copias temporales de una cadena, aunque Codewolf evita persistirlas y limpia explícitamente los buffers criptográficos controlados.
+- La herramienta no sustituye usuarios restringidos, rotación de credenciales, copias de seguridad, firewall ni políticas del servidor.

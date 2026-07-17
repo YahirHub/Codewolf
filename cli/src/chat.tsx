@@ -25,6 +25,7 @@ import { ChatTransferScreen } from './components/chat-transfer-screen'
 import { RewindScreen } from './components/rewind-screen'
 import { ConfigScreen } from './components/config-screen'
 import { ToolPermissionScreen } from './components/tool-permission-screen'
+import { SecretPromptScreen } from './components/secret-prompt-screen'
 import { VerifiedCommitScreen } from './components/verified-commit-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
@@ -103,6 +104,7 @@ import {
 } from './utils/project-context'
 import { refreshProviderCatalogs } from './utils/provider-catalogs'
 import { ToolPermissionBridge } from './utils/tool-permission-bridge'
+import { SecretPromptBridge } from './utils/secret-prompt-bridge'
 
 import type { CommandResult } from './commands/command-registry'
 import type { ModelChoice } from './components/model-selector-screen'
@@ -121,6 +123,7 @@ import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 import type { ToolPermissionRequest } from '@codebuff/common/types/tool-permission'
+import type { SecretPromptRequest } from '@codebuff/common/types/secret-prompt'
 
 export const Chat = ({
   initialPrompt,
@@ -166,6 +169,10 @@ export const Chat = ({
     useState<ToolPermissionRequest | null>(() =>
       ToolPermissionBridge.getPendingRequest(),
     )
+  const [secretPromptRequest, setSecretPromptRequest] =
+    useState<SecretPromptRequest | null>(() =>
+      SecretPromptBridge.getPendingRequest(),
+    )
   const [pendingVerifiedCommit, setPendingVerifiedCommit] =
     useState<PendingVerifiedCommit | null>(null)
   const [chatTransfer, setChatTransfer] = useState<{
@@ -179,6 +186,7 @@ export const Chat = ({
   useAskUserBridge()
 
   useEffect(() => ToolPermissionBridge.subscribe(setToolPermissionRequest), [])
+  useEffect(() => SecretPromptBridge.subscribe(setSecretPromptRequest), [])
 
   // Get chat state from extracted hook
   const {
@@ -1303,7 +1311,8 @@ export const Chat = ({
       configOpen ||
       pendingVerifiedCommit ||
       chatTransfer ||
-      toolPermissionRequest
+      toolPermissionRequest ||
+      secretPromptRequest
     )
       return
     if (feedbackMode) {
@@ -1328,6 +1337,7 @@ export const Chat = ({
     sessionRenameOpen,
     tokenUsageOpen,
     toolPermissionRequest,
+    secretPromptRequest,
   ])
 
   const handleSubmit = useCallback(async () => {
@@ -1420,6 +1430,7 @@ export const Chat = ({
         ToolPermissionBridge.cancelAll(
           'La ejecución fue cancelada por el usuario.',
         )
+        SecretPromptBridge.cancelAll()
         abortControllerRef.current?.abort()
         if (queuedMessages.length > 0) {
           pauseQueue()
@@ -1663,6 +1674,7 @@ export const Chat = ({
     disabled:
       askUserState !== null ||
       toolPermissionRequest !== null ||
+      secretPromptRequest !== null ||
       reviewMode ||
       providerLoginOpen ||
       providerManagerOpen ||
@@ -1766,7 +1778,10 @@ export const Chat = ({
     authStatus,
     showReconnectionMessage,
     isRetrying,
-    isAskUserActive: askUserState !== null || toolPermissionRequest !== null,
+    isAskUserActive:
+      askUserState !== null ||
+      toolPermissionRequest !== null ||
+      secretPromptRequest !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
@@ -1797,6 +1812,7 @@ export const Chat = ({
     !rewindOpen &&
     !configOpen &&
     toolPermissionRequest === null &&
+    secretPromptRequest === null &&
     pendingVerifiedCommit === null &&
     chatTransfer === null &&
     (hasStatusIndicatorContent ||
@@ -1906,6 +1922,12 @@ export const Chat = ({
             request={toolPermissionRequest}
             onAllow={() => ToolPermissionBridge.respond('allow')}
             onDeny={() => ToolPermissionBridge.respond('deny')}
+          />
+        ) : secretPromptRequest ? (
+          <SecretPromptScreen
+            request={secretPromptRequest}
+            onSubmit={(value) => SecretPromptBridge.respond(value)}
+            onCancel={() => SecretPromptBridge.cancel()}
           />
         ) : providerLoginOpen ? (
           <ProviderAuthFlowScreen

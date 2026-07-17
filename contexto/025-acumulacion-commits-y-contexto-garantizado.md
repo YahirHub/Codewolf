@@ -1,4 +1,4 @@
-﻿# 025 — Acumulación de commits y contexto garantizado
+# 025 — Acumulación de commits y contexto garantizado
 
 # Fecha
 

@@ -1,4 +1,4 @@
-﻿# 017 — Compactación de contexto y recuperación de sesiones dañadas
+# 017 — Compactación de contexto y recuperación de sesiones dañadas
 
 # Fecha
 

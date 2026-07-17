@@ -1,4 +1,4 @@
-﻿# 037 — Consistencia del cambio de modelo por tarea
+# 037 — Consistencia del cambio de modelo por tarea
 
 # Fecha
 

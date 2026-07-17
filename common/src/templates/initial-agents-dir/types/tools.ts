@@ -371,6 +371,14 @@ export interface SshRemoteParams {
     | 'update_server'
     | 'rename_server'
     | 'delete_server'
+    | 'vault_status'
+    | 'unlock_vault'
+    | 'lock_vault'
+    | 'change_vault_password'
+    | 'set_server_password'
+    | 'clear_server_password'
+    | 'set_server_passphrase'
+    | 'clear_server_passphrase'
     | 'list_connections'
     | 'status'
     | 'pwd'
@@ -402,12 +410,16 @@ export interface SshRemoteParams {
   clear_name?: boolean
   clear_authentication?: boolean
   close_connections?: boolean
+  /** Ask the user directly in the CLI for the SSH password; the agent never receives it. */
+  prompt_password?: boolean
+  /** Ask the user directly in the CLI for a private-key passphrase. */
+  prompt_passphrase?: boolean
   /** For direct connect, remember the non-secret server configuration globally. Defaults to true. */
   save_server?: boolean
   host?: string
   port?: number
   username?: string
-  /** Ephemeral SSH password. Never persisted. Prefer password_env. */
+  /** Ephemeral SSH password. Never persisted. Prefer prompt_password for local secure entry. */
   password?: string
   /** Environment variable containing the SSH password. */
   password_env?: string

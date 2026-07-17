@@ -1,4 +1,4 @@
-﻿# 022 — Modo PLAN seguro y restauración `/rewind`
+# 022 — Modo PLAN seguro y restauración `/rewind`
 
 Fecha: 2026-07-15
 

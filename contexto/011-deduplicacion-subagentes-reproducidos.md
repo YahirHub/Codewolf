@@ -1,4 +1,4 @@
-﻿# 011 - Deduplicación de subagentes reproducidos
+# 011 - Deduplicación de subagentes reproducidos
 
 ## Problema
 

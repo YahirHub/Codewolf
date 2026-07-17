@@ -1,4 +1,4 @@
-﻿# 042 — Registro global profesional de servidores SSH
+# 042 — Registro global profesional de servidores SSH
 
 # Fecha
 

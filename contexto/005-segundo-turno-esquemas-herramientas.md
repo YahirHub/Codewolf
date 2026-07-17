@@ -1,4 +1,4 @@
-﻿# Corrección definitiva del error cíclico en el segundo turno
+# Corrección definitiva del error cíclico en el segundo turno
 
 ## Síntoma reproducido
 

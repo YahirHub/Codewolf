@@ -1,4 +1,4 @@
-﻿# 028 — Validación local y E2E opcional
+# 028 — Validación local y E2E opcional
 
 # Fecha
 

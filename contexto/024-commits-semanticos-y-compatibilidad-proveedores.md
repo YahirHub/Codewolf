@@ -1,4 +1,4 @@
-﻿# 024 — Commits semánticos y compatibilidad de terminal/proveedores
+# 024 — Commits semánticos y compatibilidad de terminal/proveedores
 
 # Fecha
 

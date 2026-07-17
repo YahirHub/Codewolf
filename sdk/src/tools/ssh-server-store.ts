@@ -15,8 +15,10 @@ export type SshServerProfile = {
   port: number
   username: string
   password_env?: string
+  password_vault?: boolean
   private_key_path?: string
   passphrase_env?: string
+  passphrase_vault?: boolean
   agent?: string
   agent_env?: string
   host_fingerprint_sha256?: string
@@ -32,8 +34,10 @@ export type SshServerProfileInput = {
   port?: number
   username: string
   password_env?: string
+  password_vault?: boolean
   private_key_path?: string
   passphrase_env?: string
+  passphrase_vault?: boolean
   agent?: string
   agent_env?: string
   host_fingerprint_sha256?: string
@@ -157,6 +161,9 @@ function profileFromUnknown(value: unknown, index: number): SshServerProfile {
             optionalString(record.passwordEnv),
         }
       : {}),
+    ...(record.password_vault === true || record.passwordVault === true
+      ? { password_vault: true }
+      : {}),
     ...(safePrivateKeyPath(
       record.private_key_path ?? record.privateKeyPath,
     )
@@ -173,6 +180,9 @@ function profileFromUnknown(value: unknown, index: number): SshServerProfile {
             optionalString(record.passphrase_env) ??
             optionalString(record.passphraseEnv),
         }
+      : {}),
+    ...(record.passphrase_vault === true || record.passphraseVault === true
+      ? { passphrase_vault: true }
       : {}),
     ...(optionalString(record.agent) ? { agent: optionalString(record.agent) } : {}),
     ...(optionalString(record.agent_env) || optionalString(record.agentEnv)
@@ -225,12 +235,14 @@ function normalizeInput(input: SshServerProfileInput): SshServerProfileInput {
     ...(optionalString(input.password_env)
       ? { password_env: optionalString(input.password_env) }
       : {}),
+    ...(input.password_vault ? { password_vault: true } : {}),
     ...(safePrivateKeyPath(input.private_key_path)
       ? { private_key_path: safePrivateKeyPath(input.private_key_path) }
       : {}),
     ...(optionalString(input.passphrase_env)
       ? { passphrase_env: optionalString(input.passphrase_env) }
       : {}),
+    ...(input.passphrase_vault ? { passphrase_vault: true } : {}),
     ...(optionalString(input.agent) ? { agent: optionalString(input.agent) } : {}),
     ...(optionalString(input.agent_env)
       ? { agent_env: optionalString(input.agent_env) }
@@ -291,8 +303,10 @@ export function compactSshServerProfile(
   profile: SshServerProfile,
 ): Record<string, unknown> {
   const authMethods = [
+    profile.password_vault ? 'encrypted_password_vault' : undefined,
     profile.password_env ? 'password_env' : undefined,
     profile.private_key_path ? 'private_key_path' : undefined,
+    profile.passphrase_vault ? 'encrypted_passphrase_vault' : undefined,
     profile.agent_env ? 'agent_env' : undefined,
     profile.agent ? 'agent' : undefined,
   ].filter(Boolean)
@@ -307,10 +321,12 @@ export function compactSshServerProfile(
     port: profile.port,
     username: profile.username,
     authentication: authMethods.length > 0 ? authMethods : ['not_saved'],
+    ...(profile.password_vault ? { password_saved: true } : {}),
     ...(profile.password_env ? { password_env: profile.password_env } : {}),
     ...(profile.private_key_path
       ? { private_key_path: profile.private_key_path }
       : {}),
+    ...(profile.passphrase_vault ? { passphrase_saved: true } : {}),
     ...(profile.passphrase_env
       ? { passphrase_env: profile.passphrase_env }
       : {}),
@@ -410,10 +426,19 @@ export class SshServerStore {
 
       if (patch.clear_authentication) {
         delete next.password_env
+        delete next.password_vault
         delete next.private_key_path
         delete next.passphrase_env
+        delete next.passphrase_vault
         delete next.agent
         delete next.agent_env
+      }
+
+      for (const key of ['password_vault', 'passphrase_vault'] as const) {
+        if (patch[key] !== undefined) {
+          if (patch[key]) next[key] = true
+          else delete next[key]
+        }
       }
 
       for (const key of [

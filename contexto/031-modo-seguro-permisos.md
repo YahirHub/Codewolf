@@ -1,4 +1,4 @@
-﻿# 031 — Modo seguro con permisos por operación
+# 031 — Modo seguro con permisos por operación
 
 # Fecha
 

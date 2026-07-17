@@ -40,7 +40,7 @@ y variables avanzadas.
 - Compactación manual con `/compact` y compactación automática al 90 % del contexto del modelo.
 - Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
 - Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
-- Conexiones SSH internas persistentes y simultáneas para navegar, transferir archivos, ejecutar comandos y conservar shells remotas.
+- Perfiles SSH globales, bóveda portable cifrada y conexiones simultáneas para navegar, transferir archivos, ejecutar comandos y conservar shells remotas.
 - Seguridad configurable desde `/config` para operaciones locales, SSH y lectura de secretos `.env`.
 - Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
@@ -101,7 +101,7 @@ Abre `/config` y entra en **SEGURIDAD**. Los controles son independientes:
 - **Modo seguro SSH:** pide permiso para conectar, ejecutar, transferir o modificar en servidores; la navegación y lectura normal quedan libres. Está activado por defecto.
 - **Proteger archivos .env:** pide permiso antes de mostrar contenido de `.env` o `.env.*` local o remoto, incluso en modo normal. Está activado por defecto.
 
-La herramienta interna `ssh_remote` permite mantener varias conexiones durante el proceso actual, identificarlas o reutilizarlas mediante `ssh://<connection_id>` incluso al cambiar de proyecto activo, cambiar un directorio remoto persistente, usar SFTP y conservar una shell PTY entre llamadas. Una acción SSH que además exponga un `.env` pide por separado permiso remoto y permiso de lectura del secreto. No es una pantalla para el usuario: el agente la utiliza cuando una tarea requiere trabajar en un servidor.
+La herramienta interna `ssh_remote` administra perfiles globales en `~/.codewolf/ssh-servers.json`, credenciales cifradas en `~/.codewolf/ssh-secrets.enc` y varias conexiones activas reutilizables mediante `ssh://<connection_id>`. La contraseña maestra y las credenciales solicitadas se introducen en una pantalla enmascarada del CLI y nunca se entregan al agente. La bóveda permanece desbloqueada solo durante el proceso actual. Una acción SSH que además exponga un `.env` pide por separado permiso remoto y permiso de lectura del secreto.
 
 Consulta [docs/safe-mode.md](docs/safe-mode.md) y [docs/ssh-remote.md](docs/ssh-remote.md) para conocer las operaciones protegidas, autenticación y límites.
 

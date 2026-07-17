@@ -1,4 +1,4 @@
-﻿# 013 — Releases automáticas y diálogos del CLI en español
+# 013 — Releases automáticas y diálogos del CLI en español
 
 ## Objetivo
 

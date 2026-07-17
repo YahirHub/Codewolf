@@ -1,4 +1,4 @@
-﻿# 034 — Onboarding, instalador y releases multiplataforma
+# 034 — Onboarding, instalador y releases multiplataforma
 
 # Fecha
 

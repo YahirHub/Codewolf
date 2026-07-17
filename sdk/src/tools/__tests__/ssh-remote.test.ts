@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { sshRemoteParams } from '@codebuff/common/tools/params/tool/ssh-remote'
 
+import { getSshSecretsPath } from '../ssh-credential-vault'
 import {
   SshServerStore,
   compactSshServerProfile,
@@ -48,6 +49,35 @@ describe('ssh_remote schema', () => {
     expect(parsed[0]?.type).toBe('json')
   })
 
+  test('does not inject the default SSH port into connect_server', () => {
+    const parsed = sshRemoteParams.inputSchema.parse({
+      action: 'connect_server',
+      server_id: 'production',
+    })
+
+    expect(parsed.port).toBeUndefined()
+  })
+
+  test('keeps the direct-connect port optional so runtime can default to 22', () => {
+    const parsed = sshRemoteParams.inputSchema.parse({
+      action: 'connect',
+      host: 'server.example.com',
+      username: 'deploy',
+      prompt_password: true,
+    })
+
+    expect(parsed.port).toBeUndefined()
+  })
+
+  test('rejects update_server when no explicit field was provided', () => {
+    expect(() =>
+      sshRemoteParams.inputSchema.parse({
+        action: 'update_server',
+        server_id: 'production',
+      }),
+    ).toThrow('update_server requires at least one field to update')
+  })
+
   test('allows listing the current remote directory without an explicit path', () => {
     const parsed = sshRemoteParams.inputSchema.parse({
       action: 'list',
@@ -76,6 +106,15 @@ describe('ssh_remote schema', () => {
         new_name: 'production-primary',
       }).action,
     ).toBe('rename_server')
+    expect(
+      sshRemoteParams.inputSchema.parse({
+        action: 'set_server_password',
+        server_id: 'production',
+      }).action,
+    ).toBe('set_server_password')
+    expect(
+      sshRemoteParams.inputSchema.parse({ action: 'vault_status' }).action,
+    ).toBe('vault_status')
   })
 
   test('does not allow literal secrets in persistent server profiles', () => {
@@ -215,6 +254,8 @@ describe('persistent SSH manager', () => {
     for (const action of [
       'list_servers',
       'get_server',
+      'vault_status',
+      'lock_vault',
       'list_connections',
       'status',
       'pwd',
@@ -236,6 +277,12 @@ describe('persistent SSH manager', () => {
       'update_server',
       'rename_server',
       'delete_server',
+      'unlock_vault',
+      'change_vault_password',
+      'set_server_password',
+      'clear_server_password',
+      'set_server_passphrase',
+      'clear_server_passphrase',
       'exec',
       'shell_open',
       'shell_write',
@@ -285,6 +332,44 @@ describe('persistent SSH manager', () => {
         },
       ],
     })
+  })
+
+  test('stores prompted server passwords only in the encrypted vault', async () => {
+    const configDir = createTempDir()
+    const manager = new PersistentSshManager({ configDir })
+    const result = await manager.execute(
+      {
+        action: 'add_server',
+        name: 'production',
+        host: 'prod.example.com',
+        username: 'deploy',
+        prompt_password: true,
+      },
+      undefined,
+      {
+        requestSecret: async (request) => ({
+          value:
+            request.kind === 'ssh-password'
+              ? 'server-password-value'
+              : 'master-password-value',
+        }),
+      },
+    )
+
+    expect(result[0]?.type).toBe('json')
+    if (result[0]?.type !== 'json') throw new Error('Expected JSON output')
+    expect(result[0].value).toMatchObject({
+      ok: true,
+      name: 'production',
+      password_saved: true,
+      authentication: ['encrypted_password_vault'],
+    })
+
+    const registry = fs.readFileSync(getSshServersPath(configDir), 'utf8')
+    const vault = fs.readFileSync(getSshSecretsPath(configDir), 'utf8')
+    expect(registry).not.toContain('server-password-value')
+    expect(vault).not.toContain('server-password-value')
+    expect(vault).not.toContain('master-password-value')
   })
 
   test('lists and closes an empty connection registry', async () => {

@@ -1,4 +1,4 @@
-﻿# 033 — Login de suscripción ChatGPT/Codex
+# 033 — Login de suscripción ChatGPT/Codex
 
 # Fecha
 

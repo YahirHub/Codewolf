@@ -1,4 +1,4 @@
-﻿# 014 — Contexto persistente, workflow manual y edición sin monetización
+# 014 — Contexto persistente, workflow manual y edición sin monetización
 
 # Fecha
 
