@@ -2,6 +2,8 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
+import { ToolPermissionBridge } from './tool-permission-bridge'
+
 import { getAuthTokenDetails } from './auth'
 import {
   getActiveCustomProviderRuntimeConfig,
@@ -13,6 +15,11 @@ import { logger } from './logger'
 import { recordTokenUsage } from './token-usage'
 import { createTraceWriter } from './trace-writer'
 import { getRgPath } from '../native/ripgrep'
+import {
+  isEnvProtectionEnabled,
+  isSafeModeEnabled,
+  isSshSafeModeEnabled,
+} from './settings'
 import {
   resolveCodeReviewerProviderOverride,
   resolveExplorationProviderOverrides,
@@ -64,9 +71,7 @@ export function resetCodebuffClient(): void {
   clientContext = null
 }
 
-export async function getCodebuffClientContext(): Promise<
-  CodebuffClientContext | null
-> {
+export async function getCodebuffClientContext(): Promise<CodebuffClientContext | null> {
   if (!clientContext) {
     const generationAtStart = clientGeneration
     const modelSnapshot = getActiveProviderModelSnapshot()
@@ -123,6 +128,13 @@ export async function getCodebuffClientContext(): Promise<
         logger,
         traceWriter: createTraceWriter(),
         onTokenUsage: (event) => recordTokenUsage(event),
+        requestToolPermission: (request) =>
+          ToolPermissionBridge.request(request),
+        toolPermissionPolicy: {
+          safeModeEnabled: isSafeModeEnabled(),
+          sshSafeModeEnabled: isSshSafeModeEnabled(),
+          protectEnvFiles: isEnvProtectionEnabled(),
+        },
         overrideTools: {
           ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
             const askUserResponse = await AskUserBridge.request(
@@ -166,6 +178,7 @@ export function getToolDisplayInfo(toolName: string): {
 } {
   const TOOL_NAME_OVERRIDES: Record<string, string> = {
     list_directory: 'List Directories',
+    ssh_remote: 'SSH Remote',
   }
 
   const capitalizeWords = (str: string) => {

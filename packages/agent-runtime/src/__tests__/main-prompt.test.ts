@@ -333,15 +333,19 @@ describe('mainPrompt', () => {
     expect(requestToolCallSpy).toHaveBeenCalledTimes(1)
 
     // Verify the write_file call was made with the correct arguments
-    expect(requestToolCallSpy).toHaveBeenCalledWith({
-      userInputId: expect.any(String), // userInputId
-      toolName: 'write_file',
-      input: expect.objectContaining({
-        type: 'file',
-        path: 'new-file.txt',
-        content: 'Hello, world!',
+    expect(requestToolCallSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInputId: expect.any(String),
+        toolCallId: expect.any(String),
+        agentId: 'main-agent',
+        toolName: 'write_file',
+        input: expect.objectContaining({
+          type: 'file',
+          path: 'new-file.txt',
+          content: 'Hello, world!',
+        }),
       }),
-    })
+    )
   })
 
   it('should force end of response after MAX_CONSECUTIVE_ASSISTANT_MESSAGES', async () => {

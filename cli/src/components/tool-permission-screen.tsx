@@ -31,10 +31,15 @@ const OPTIONS = [
 
 const categoryLabel: Record<ToolPermissionRequest['category'], string> = {
   command: 'Comando del sistema',
+  'file-read': 'Lectura de archivo protegido',
   'file-create': 'Creación de archivo',
   'file-edit': 'Edición de archivo',
   'file-delete': 'Eliminación de archivo',
   'external-tool': 'Herramienta externa o MCP',
+  'remote-connect': 'Conexión SSH',
+  'remote-command': 'Comando o shell remoto',
+  'remote-transfer': 'Transferencia SSH',
+  'remote-file': 'Cambio de archivos remoto',
 }
 
 export const ToolPermissionScreen: React.FC<ToolPermissionScreenProps> = ({
@@ -47,7 +52,7 @@ export const ToolPermissionScreen: React.FC<ToolPermissionScreenProps> = ({
 
   useEffect(() => {
     setSelectedIndex(0)
-  }, [request.toolCallId])
+  }, [request])
   const select = useCallback(
     (id: (typeof OPTIONS)[number]['id']) => {
       if (id === 'allow') onAllow()

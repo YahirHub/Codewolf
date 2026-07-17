@@ -36,6 +36,8 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `docs/testing.md`
 - `docs/custom-providers.md`
 - `docs/chat-sessions.md`
+- `docs/safe-mode.md`
+- `docs/ssh-remote.md`
 
 ## Persistent Project Context
 
@@ -179,6 +181,17 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `run_terminal_command` always uses Bash-compatible syntax from the selected cwd. Prefer relative paths, remove redundant project-root `cd` wrappers, normalize Windows paths only when Git Bash/WSL semantics are known, and expose `executedCommand`, `startingCwd`, and `shell` when relevant.
 - `basher` must return the terminal result deterministically without a second LLM step. OpenAI-compatible error parsing must accept common gateway envelopes and mark transient upstream/rate-limit/5xx failures retryable while honoring explicit `x-should-retry` headers.
 - Update `docs/project-methodology.md`, the bundled methodology document, focused tests, and `contexto/` whenever these contracts change.
+
+## Persistent SSH Tool and Security Boundaries
+
+- `ssh_remote` is an internal agent capability, not a direct user-facing terminal feature. Its schema lives in `common`, its client handler in `agent-runtime`, and persistent connection state in `sdk/src/tools/ssh-remote.ts`.
+- Keep one process-wide in-memory manager for the active Codewolf CLI. A connection ID must remain reusable across tool calls and project-directory changes, support multiple servers simultaneously, and be removable with `close` or `close_all`. Resolve local transfer/key paths against the project root of the current call, but never persist passwords, private-key contents, sockets, or live connection state to disk.
+- PLAN agents must not receive SSH capabilities. Implementation agents may use SSH only through `ssh_remote`; do not emulate persistent remote sessions with repeated local `ssh` subprocesses.
+- `/config` exposes independent local safe mode, SSH safe mode, and `.env` protection. SSH read/navigation actions remain permission-free, while connect, command execution, shell writes, transfers, and remote mutations require per-operation approval when SSH safe mode is enabled.
+- `.env` protection is independent of both safe modes and defaults to enabled. Metadata-only operations must not prompt, but any local, remote, command, search, transfer, or external-tool path that can expose protected contents must fail closed until approved. When an operation both acts remotely and exposes a protected `.env`, require both approvals instead of allowing one to replace the other. Template files such as `.env.example` remain readable.
+- Permission previews must redact passwords, tokens, API keys, private keys, cookies, and credentials. Permission metadata must preserve the requesting agent/subagent identity.
+- Prefer `password_env`, `passphrase_env`, `private_key_path`, or an SSH agent socket over inline secrets, and support optional SHA-256 host fingerprint verification.
+- Keep `ssh2` compatible with Bun compile targets. New SSH behavior needs deterministic credential-free tests; real-server tests remain explicit manual/integration checks.
 
 ## Cleanup boundary
 

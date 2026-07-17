@@ -2,7 +2,10 @@ import { spawn } from 'child_process'
 import * as fs from 'fs'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
-import { joinPath, resolvePathFromRoot } from '@codebuff/common/util/path-flavor'
+import {
+  joinPath,
+  resolvePathFromRoot,
+} from '@codebuff/common/util/path-flavor'
 import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -30,6 +33,7 @@ export function codeSearch({
   timeoutSeconds = 10,
   logger,
   signal,
+  excludeProtectedEnvFiles = false,
 }: {
   projectPath: string
   pattern: string
@@ -42,6 +46,8 @@ export function codeSearch({
   logger?: Logger
   /** External abort (e.g. user interrupt); kills the ripgrep process. */
   signal?: AbortSignal
+  /** Exclude .env and .env.* files even when ripgrep hidden-file flags are supplied. */
+  excludeProtectedEnvFiles?: boolean
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -76,11 +82,15 @@ export function codeSearch({
       }
     })
     const searchPaths = ['.', ...existingHiddenDirs]
+    const protectedEnvExclusions = excludeProtectedEnvFiles
+      ? ['-g', '!.env', '-g', '!.env.*', '-g', '!**/.env', '-g', '!**/.env.*']
+      : []
     const args = [
       '--no-config',
       '-n',
       '--json',
       ...flagsArray,
+      ...protectedEnvExclusions,
       '--',
       pattern,
       ...searchPaths,

@@ -691,6 +691,31 @@ describe('codeSearch', () => {
       expect(spawnArgs[gFlagIndices[1]! + 1]).toBe('*.tsx')
     })
 
+    it('appends protected .env exclusions after caller glob flags', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'SECRET',
+        flags: '-g .env*',
+        excludeProtectedEnvFiles: true,
+      })
+
+      mockProcess.emit('close', 1)
+      await searchPromise
+
+      const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
+      const separatorIndex = spawnArgs.indexOf('--')
+      expect(spawnArgs.slice(separatorIndex - 8, separatorIndex)).toEqual([
+        '-g',
+        '!.env',
+        '-g',
+        '!.env.*',
+        '-g',
+        '!**/.env',
+        '-g',
+        '!**/.env.*',
+      ])
+    })
+
     it('should strip single quotes from glob pattern arguments (regression: spawn has no shell)', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',

@@ -105,6 +105,7 @@ export function createBase2(
           !noAskUser && 'ask_user',
           'read_url',
           'skill',
+          'ssh_remote',
           'set_output',
           'list_directory',
           'glob',

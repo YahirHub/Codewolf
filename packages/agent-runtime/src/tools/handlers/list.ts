@@ -30,6 +30,7 @@ import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
 import { handleSkill } from './tool/skill'
+import { handleSshRemote } from './tool/ssh-remote'
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleStrReplace } from './tool/str-replace'
@@ -86,6 +87,7 @@ export const codebuffToolHandlers: {
   set_messages: handleSetMessages,
   set_output: handleSetOutput,
   skill: handleSkill,
+  ssh_remote: handleSshRemote,
   spawn_agents: handleSpawnAgents,
   spawn_agent_inline: handleSpawnAgentInline,
   str_replace: handleStrReplace,

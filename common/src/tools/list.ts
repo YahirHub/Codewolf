@@ -28,6 +28,7 @@ import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
 import { skillParams } from './params/tool/skill'
+import { sshRemoteParams } from './params/tool/ssh-remote'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { strReplaceParams } from './params/tool/str-replace'
@@ -70,6 +71,7 @@ export const toolParams = {
   set_messages: setMessagesParams,
   set_output: setOutputParams,
   skill: skillParams,
+  ssh_remote: sshRemoteParams,
   spawn_agents: spawnAgentsParams,
   spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,
@@ -146,6 +148,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: toolParams.run_terminal_command.inputSchema.and(
       z.object({ mode: z.enum(['assistant', 'user']) }),
     ),
+  }),
+  z.object({
+    toolName: z.literal('ssh_remote'),
+    input: toolParams.ssh_remote.inputSchema,
   }),
   z.object({
     toolName: z.literal('str_replace'),

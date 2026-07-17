@@ -136,6 +136,45 @@ describe('getFiles', () => {
     })
   })
 
+  describe('protected environment files', () => {
+    test('requests authorization immediately before reading .env content', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/.env.local': { content: 'SECRET=value' },
+        },
+      })
+      const authorizeProtectedEnvRead = mock(async () => true)
+
+      const result = await getFiles({
+        filePaths: ['.env.local'],
+        cwd: '/project',
+        fs: mockFs,
+        authorizeProtectedEnvRead,
+      })
+
+      expect(authorizeProtectedEnvRead).toHaveBeenCalledWith('.env.local')
+      expect(result['.env.local']).toBe('SECRET=value')
+    })
+
+    test('does not expose .env content when authorization is denied', async () => {
+      const mockFs = createMockFs({
+        files: {
+          '/project/.env': { content: 'SECRET=value' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['.env'],
+        cwd: '/project',
+        fs: mockFs,
+        authorizeProtectedEnvRead: async () => false,
+      })
+
+      expect(result['.env']).toContain('PERMISSION_DENIED')
+      expect(result['.env']).not.toContain('SECRET=value')
+    })
+  })
+
   describe('file not found', () => {
     test('should return DOES_NOT_EXIST for missing files', async () => {
       const mockFs = createMockFs({

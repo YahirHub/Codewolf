@@ -2,7 +2,7 @@
 
 # Fecha
 
-2026-07-15
+2026-07-17
 
 # Objetivo
 
@@ -91,6 +91,8 @@ TypeScript con Bun, React y OpenTUI.
 - Proveedor y modelo personalizados propagados a agente principal y subagentes.
 - Cada tarea congela el proveedor y modelo con los que comenzó; cambiar `/models` durante una ejecución solo afecta la siguiente tarea y la barra distingue el modelo en uso del siguiente seleccionado.
 - `/config` permite asignar modelos independientes a agentes OPUS, revisión de código, investigación, `code-searcher`, `file-picker` y `file-lister`. Las preferencias vacías heredan el modelo de sesión seleccionado en `/models`, incluso en subagentes anidados.
+- `/config` también separa Modo seguro local, Modo seguro SSH y protección de `.env`; SSH y `.env` quedan protegidos por defecto, mientras el modo local conserva su valor desactivado.
+- `ssh_remote` mantiene varias conexiones SSH simultáneas durante el proceso actual, entrega referencias `ssh://<id>`, conserva directorio y shell PTY aunque cambie el proyecto activo, usa SFTP y permite cerrar una conexión o todas globalmente. PLAN no recibe esta herramienta.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -170,6 +172,7 @@ Windows usa `C:\Users\<usuario>\.codewolf`; Linux usa
 - OpenTUI.
 - Zod.
 - TanStack Query.
+- `ssh2` y `@types/ssh2` para SSH, PTY y SFTP persistentes.
 
 Consultar `package.json`, los `package.json` de workspaces y `bun.lock` para la
 lista exacta y versiones bloqueadas.
@@ -225,9 +228,22 @@ lista exacta y versiones bloqueadas.
 - `cli/src/utils/nvidia-nim-provider.ts`
 - `cli/src/utils/provider-catalogs.ts`
 - `packages/llm-providers/src/openai-compatible/chat/openai-compatible-chat-language-model.ts`
+- `common/src/tools/params/tool/ssh-remote.ts`
+- `common/src/util/protected-env.ts`
+- `common/src/util/tool-permission.ts`
+- `sdk/src/tools/ssh-remote.ts`
+- `sdk/src/tools/read-files.ts`
+- `sdk/src/tools/code-search.ts`
+- `cli/src/components/config-screen.tsx`
+- `cli/src/components/tool-permission-screen.tsx`
+- `cli/scripts/build-binary.ts`
+- `docs/ssh-remote.md`
 
 # Problemas encontrados
 
+- Codewolf no tenía una herramienta SSH persistente: repetir procesos locales `ssh` no conservaba de forma segura varias conexiones, SFTP, directorio ni shell entre llamadas del agente.
+- La cola y pantalla de permisos existentes no estaban conectadas de extremo a extremo al SDK para operaciones SSH ni para proteger contenido `.env` en modo normal.
+- Una detección de secretos basada solo en menciones podía confundir navegación o metadatos con lectura real de contenido.
 - El workspace Freebuff, sus variantes de agentes, superficies comerciales y wrappers de release seguían presentes aunque ya no eran alcanzables desde Codewolf.
 - La generación automática de contexto podía copiar solicitudes largas y respuestas completas en nombres y contenido, además de consumir una llamada adicional al proveedor en cada implementación.
 - El backend original no es una dependencia válida para proveedores, búsqueda,
@@ -264,6 +280,9 @@ lista exacta y versiones bloqueadas.
 
 # Soluciones implementadas
 
+- Se añadió `ssh_remote` como herramienta interna con múltiples conexiones en memoria, referencias reutilizables, navegación, lectura, comandos, PTY persistente, SFTP y cierre individual/global.
+- El SDK aplica permisos antes de ejecutar herramientas locales, externas o SSH, conserva la identidad del agente/subagente y exige autorizaciones separadas cuando una operación remota también puede exponer un `.env`.
+- `/config` expone políticas independientes; la protección `.env` analiza si la operación puede exponer contenido y excluye búsquedas amplias sin bloquear simples metadatos.
 - Se eliminó el workspace Freebuff, 163 archivos obsoletos, dependencias directas sin uso y ramas comerciales; se conservaron los namespaces activos del SDK y las atribuciones legales.
 - El mantenimiento de contexto normal ahora es determinista y local: limita títulos, filtra Markdown y metatexto, conserva solo viñetas técnicas y omite secciones sin información real.
 - Proveedores y búsqueda se ejecutan localmente con configuración separada de
@@ -317,6 +336,7 @@ lista exacta y versiones bloqueadas.
 - Mantener las pruebas E2E reales como ejecución explícita con credenciales; la suite local no debe depender del backend.
 - Evaluar una migración futura del namespace interno `@codebuff/*` sin romper
   workspaces ni compatibilidad.
+- Probar `ssh_remote` contra servidores controlados Linux/Windows y ejecutar la suite completa y el binario en un entorno con todas las dependencias del monorepo.
 
 # Próximos pasos
 
@@ -364,3 +384,4 @@ al terminar.
 - `036`: rediseño visual del onboarding y componente reutilizable de branding animado.
 - `037`: consistencia del cambio de modelo entre la tarea activa y la siguiente.
 - `038`: modelos configurables para búsqueda de código y exploración de archivos.
+- `039`: conexiones SSH persistentes, permisos remotos y protección independiente de `.env`.

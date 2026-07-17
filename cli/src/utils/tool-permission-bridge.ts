@@ -137,7 +137,9 @@ export const ToolPermissionBridge = {
   subscribe(listener: Listener): () => void {
     listeners.add(listener)
     listener(activeEntry?.request ?? null)
-    return () => listeners.delete(listener)
+    return () => {
+      listeners.delete(listener)
+    }
   },
 
   /** Only used by focused unit tests. */

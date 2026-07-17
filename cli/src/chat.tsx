@@ -24,6 +24,7 @@ import { SessionRenameScreen } from './components/session-rename-screen'
 import { ChatTransferScreen } from './components/chat-transfer-screen'
 import { RewindScreen } from './components/rewind-screen'
 import { ConfigScreen } from './components/config-screen'
+import { ToolPermissionScreen } from './components/tool-permission-screen'
 import { VerifiedCommitScreen } from './components/verified-commit-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
@@ -101,6 +102,7 @@ import {
   prefetchProjectContextSummary,
 } from './utils/project-context'
 import { refreshProviderCatalogs } from './utils/provider-catalogs'
+import { ToolPermissionBridge } from './utils/tool-permission-bridge'
 
 import type { CommandResult } from './commands/command-registry'
 import type { ModelChoice } from './components/model-selector-screen'
@@ -118,6 +120,7 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
+import type { ToolPermissionRequest } from '@codebuff/common/types/tool-permission'
 
 export const Chat = ({
   initialPrompt,
@@ -159,6 +162,10 @@ export const Chat = ({
   const [sessionRenameOpen, setSessionRenameOpen] = useState(false)
   const [rewindOpen, setRewindOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
+  const [toolPermissionRequest, setToolPermissionRequest] =
+    useState<ToolPermissionRequest | null>(() =>
+      ToolPermissionBridge.getPendingRequest(),
+    )
   const [pendingVerifiedCommit, setPendingVerifiedCommit] =
     useState<PendingVerifiedCommit | null>(null)
   const [chatTransfer, setChatTransfer] = useState<{
@@ -166,11 +173,12 @@ export const Chat = ({
     initialPath?: string
   } | null>(null)
 
-
   const { validate: validateAgents } = useAgentValidation()
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
+
+  useEffect(() => ToolPermissionBridge.subscribe(setToolPermissionRequest), [])
 
   // Get chat state from extracted hook
   const {
@@ -240,10 +248,7 @@ export const Chat = ({
       })
       .catch((error) => {
         if (controller.signal.aborted) return
-        logger.warn(
-          { error },
-          '[providers] Unexpected catalog refresh failure',
-        )
+        logger.warn({ error }, '[providers] Unexpected catalog refresh failure')
         return prefetchPersistentProjectContext()
       })
     return () => controller.abort()
@@ -636,7 +641,6 @@ export const Chat = ({
       }
     },
   )
-
 
   // Plan cards can request a revision without reintroducing a /plan command.
   // The mode toggle remains the single entry point for planning.
@@ -1198,10 +1202,7 @@ export const Chat = ({
         : `Modelo activo: ${selectedLabel}. Se aplicará al agente principal ` +
           `y a los subagentes sin una asignación propia. ${routingNote}`
 
-      setMessages((previous) => [
-        ...previous,
-        getSystemMessage(message),
-      ])
+      setMessages((previous) => [...previous, getSystemMessage(message)])
       setInputFocused(true)
       setTimeout(() => inputRef.current?.focus(), 0)
     },
@@ -1301,7 +1302,8 @@ export const Chat = ({
       rewindOpen ||
       configOpen ||
       pendingVerifiedCommit ||
-      chatTransfer
+      chatTransfer ||
+      toolPermissionRequest
     )
       return
     if (feedbackMode) {
@@ -1325,6 +1327,7 @@ export const Chat = ({
     rewindOpen,
     sessionRenameOpen,
     tokenUsageOpen,
+    toolPermissionRequest,
   ])
 
   const handleSubmit = useCallback(async () => {
@@ -1414,6 +1417,9 @@ export const Chat = ({
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
       onBackspaceExitMode: () => setInputMode('default'),
       onInterruptStream: () => {
+        ToolPermissionBridge.cancelAll(
+          'La ejecución fue cancelada por el usuario.',
+        )
         abortControllerRef.current?.abort()
         if (queuedMessages.length > 0) {
           pauseQueue()
@@ -1656,6 +1662,7 @@ export const Chat = ({
     handlers: chatKeyboardHandlers,
     disabled:
       askUserState !== null ||
+      toolPermissionRequest !== null ||
       reviewMode ||
       providerLoginOpen ||
       providerManagerOpen ||
@@ -1729,7 +1736,6 @@ export const Chat = ({
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
-
   const inputLayoutMetrics = useMemo(() => {
     // In bash mode, layout is based on the actual input (no ! prefix needed)
     const text = inputValue ?? ''
@@ -1760,7 +1766,7 @@ export const Chat = ({
     authStatus,
     showReconnectionMessage,
     isRetrying,
-    isAskUserActive: askUserState !== null,
+    isAskUserActive: askUserState !== null || toolPermissionRequest !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
@@ -1790,6 +1796,7 @@ export const Chat = ({
     !sessionRenameOpen &&
     !rewindOpen &&
     !configOpen &&
+    toolPermissionRequest === null &&
     pendingVerifiedCommit === null &&
     chatTransfer === null &&
     (hasStatusIndicatorContent ||
@@ -1884,7 +1891,6 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
-
         {shouldShowStatusLine && (
           <StatusBar
             timerStartTime={timerStartTime}
@@ -1895,7 +1901,13 @@ export const Chat = ({
           />
         )}
 
-        {providerLoginOpen ? (
+        {toolPermissionRequest ? (
+          <ToolPermissionScreen
+            request={toolPermissionRequest}
+            onAllow={() => ToolPermissionBridge.respond('allow')}
+            onDeny={() => ToolPermissionBridge.respond('deny')}
+          />
+        ) : providerLoginOpen ? (
           <ProviderAuthFlowScreen
             onComplete={handleProviderConfigured}
             onCancel={closeProviderLogin}

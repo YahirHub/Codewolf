@@ -105,6 +105,15 @@ describe('base2 context pruning', () => {
   })
 })
 
+describe('base2 SSH capability', () => {
+  test('enables SSH only outside read-only PLAN mode', () => {
+    expect(createBase2('default').toolNames).toContain('ssh_remote')
+    expect(createBase2('default', { planOnly: true }).toolNames).not.toContain(
+      'ssh_remote',
+    )
+  })
+})
+
 describe('base2 plan mode', () => {
   test('enforces read-only planning through capabilities', () => {
     const plan = createBase2('default', { planOnly: true })
@@ -114,6 +123,7 @@ describe('base2 plan mode', () => {
     expect(plan.toolNames).not.toContain('write_file')
     expect(plan.toolNames).not.toContain('str_replace')
     expect(plan.toolNames).not.toContain('write_todos')
+    expect(plan.toolNames).not.toContain('ssh_remote')
     expect(plan.spawnableAgents).toContain('code-searcher')
     expect(plan.spawnableAgents).not.toContain('editor')
     expect(plan.spawnableAgents).not.toContain('basher')

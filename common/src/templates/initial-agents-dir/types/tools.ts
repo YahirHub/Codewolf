@@ -25,6 +25,7 @@ export type ToolName =
   | 'set_messages'
   | 'set_output'
   | 'skill'
+  | 'ssh_remote'
   | 'spawn_agents'
   | 'str_replace'
   | 'suggest_followups'
@@ -61,6 +62,7 @@ export interface ToolParamsMap {
   set_messages: SetMessagesParams
   set_output: SetOutputParams
   skill: SkillParams
+  ssh_remote: SshRemoteParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
   suggest_followups: SuggestFollowupsParams
@@ -354,6 +356,71 @@ export interface SetOutputParams {}
 export interface SkillParams {
   /** The name of the skill to load */
   name: string
+}
+
+/**
+ * Persistent SSH connections for Codewolf itself. Connections live for the current CLI process and can coexist across different servers.
+ */
+export interface SshRemoteParams {
+  action:
+    | 'connect'
+    | 'list_connections'
+    | 'status'
+    | 'pwd'
+    | 'cd'
+    | 'list'
+    | 'stat'
+    | 'read_file'
+    | 'exec'
+    | 'shell_open'
+    | 'shell_write'
+    | 'shell_read'
+    | 'upload'
+    | 'download'
+    | 'write_file'
+    | 'mkdir'
+    | 'rename'
+    | 'delete'
+    | 'close'
+    | 'close_all'
+  /** Identifier returned by connect, or its ssh:// reference. Required for connection actions. */
+  connection_id?: string
+  label?: string
+  host?: string
+  port?: number
+  username?: string
+  /** SSH password. Prefer password_env so the secret is not written into chat history. */
+  password?: string
+  /** Local environment variable containing the SSH password. */
+  password_env?: string
+  /** Local path to an OpenSSH private key. Relative paths use the project root. */
+  private_key_path?: string
+  /** Private key contents. Prefer private_key_path. */
+  private_key?: string
+  passphrase?: string
+  passphrase_env?: string
+  /** SSH agent socket. Usually SSH_AUTH_SOCK. */
+  agent?: string
+  /** Optional expected SHA-256 host-key fingerprint. */
+  host_fingerprint_sha256?: string
+  ready_timeout_ms?: number
+  keepalive_interval_ms?: number
+  path?: string
+  destination_path?: string
+  local_path?: string
+  remote_path?: string
+  content?: string
+  encoding?: 'utf8' | 'base64'
+  command?: string
+  timeout_seconds?: number
+  pty?: boolean
+  cols?: number
+  rows?: number
+  wait_ms?: number
+  max_bytes?: number
+  recursive?: boolean
+  overwrite?: boolean
+  reason?: string
 }
 
 /**

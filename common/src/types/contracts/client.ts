@@ -4,6 +4,9 @@ import type { ToolResultOutput } from '../messages/content-part'
 
 export type RequestToolCallFn = (params: {
   userInputId: string
+  toolCallId?: string
+  agentId?: string
+  parentAgentId?: string
   toolName: string
   input: Record<string, any> & { timeout_seconds?: number }
   mcpConfig?: MCPConfig
@@ -24,10 +27,16 @@ export type RequestMcpToolDataFn = (params: {
 
 export type RequestFilesFn = (params: {
   filePaths: string[]
+  toolCallId?: string
+  agentId?: string
+  parentAgentId?: string
 }) => Promise<Record<string, string | null>>
 
 export type RequestOptionalFileFn = (params: {
   filePath: string
+  toolCallId?: string
+  agentId?: string
+  parentAgentId?: string
 }) => Promise<string | null>
 
 export type SendSubagentChunkFn = (params: {

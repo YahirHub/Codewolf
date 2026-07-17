@@ -2,6 +2,7 @@ import type {
   ToolPermissionCategory,
   ToolPermissionRequest,
 } from '../types/tool-permission'
+import type { SshRemoteAction } from '../tools/params/tool/ssh-remote'
 
 const SENSITIVE_NATIVE_TOOLS = new Set([
   'apply_patch',
@@ -16,8 +17,34 @@ const SENSITIVE_KEY_PATTERN =
 const MAX_PREVIEW_LENGTH = 1_200
 const MAX_STRING_LENGTH = 360
 
+const SENSITIVE_ASSIGNMENT_NAME = String.raw`\b[A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY|AUTHORIZATION)[A-Za-z0-9_]*\b`
+
+function redactSensitiveText(value: string): string {
+  return value
+    .replace(
+      /-----BEGIN ([A-Z ]*PRIVATE KEY)-----[\s\S]*?-----END \1-----/g,
+      (_match, label: string) =>
+        `-----BEGIN ${label}-----\n[oculto]\n-----END ${label}-----`,
+    )
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[oculto]')
+    .replace(/(https?:\/\/[^:\s/@]+:)[^@\s/]+@/gi, '$1[oculto]@')
+    .replace(
+      new RegExp(
+        `(${SENSITIVE_ASSIGNMENT_NAME}\\s*[:=]\\s*)(["'])[^"']*\\2`,
+        'gi',
+      ),
+      '$1$2[oculto]$2',
+    )
+    .replace(
+      new RegExp(`(${SENSITIVE_ASSIGNMENT_NAME}\\s*[:=]\\s*)[^\\s,;]+`, 'gi'),
+      '$1[oculto]',
+    )
+}
+
 function text(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+  return typeof value === 'string' && value.trim()
+    ? redactSensitiveText(value.trim())
+    : undefined
 }
 
 function redactPreviewValue(
@@ -29,8 +56,9 @@ function redactPreviewValue(
   if (depth > 3) return '[contenido anidado]'
 
   if (typeof value === 'string') {
-    if (value.length <= MAX_STRING_LENGTH) return value
-    return `${value.slice(0, MAX_STRING_LENGTH)}…`
+    const redacted = redactSensitiveText(value)
+    if (redacted.length <= MAX_STRING_LENGTH) return redacted
+    return `${redacted.slice(0, MAX_STRING_LENGTH)}…`
   }
   if (
     value === null ||
@@ -81,6 +109,62 @@ export function shouldRequestToolPermission(params: {
   )
 }
 
+const SSH_ACTION_DETAILS: Record<
+  SshRemoteAction,
+  { category: ToolPermissionCategory; title: string }
+> = {
+  connect: { category: 'remote-connect', title: 'Abrir conexión SSH' },
+  list_connections: { category: 'remote-file', title: 'Listar conexiones SSH' },
+  status: { category: 'remote-file', title: 'Consultar conexión SSH' },
+  pwd: { category: 'remote-file', title: 'Consultar directorio remoto' },
+  cd: { category: 'remote-file', title: 'Navegar en servidor remoto' },
+  list: { category: 'remote-file', title: 'Listar archivos remotos' },
+  stat: { category: 'remote-file', title: 'Consultar archivo remoto' },
+  read_file: { category: 'file-read', title: 'Leer archivo remoto protegido' },
+  exec: { category: 'remote-command', title: 'Ejecutar comando remoto' },
+  shell_open: {
+    category: 'remote-command',
+    title: 'Abrir shell SSH persistente',
+  },
+  shell_write: { category: 'remote-command', title: 'Escribir en shell SSH' },
+  shell_read: { category: 'remote-command', title: 'Leer salida de shell SSH' },
+  upload: { category: 'remote-transfer', title: 'Subir archivo al servidor' },
+  download: {
+    category: 'remote-transfer',
+    title: 'Descargar archivo del servidor',
+  },
+  write_file: { category: 'remote-file', title: 'Escribir archivo remoto' },
+  mkdir: { category: 'remote-file', title: 'Crear directorio remoto' },
+  rename: { category: 'remote-file', title: 'Renombrar archivo remoto' },
+  delete: { category: 'file-delete', title: 'Eliminar archivo remoto' },
+  close: { category: 'remote-connect', title: 'Cerrar conexión SSH' },
+  close_all: { category: 'remote-connect', title: 'Cerrar conexiones SSH' },
+}
+
+export function createEnvReadPermissionRequest(params: {
+  toolCallId: string
+  toolName: string
+  filePath: string
+  agentId?: string
+  parentAgentId?: string
+  scope?: 'local' | 'ssh'
+}): ToolPermissionRequest {
+  return {
+    toolCallId: params.toolCallId,
+    toolName: params.toolName,
+    input: { path: params.filePath },
+    agentId: params.agentId ?? 'agente actual',
+    ...(params.parentAgentId ? { parentAgentId: params.parentAgentId } : {}),
+    category: 'file-read',
+    scope: params.scope ?? 'local',
+    operation: 'read_env',
+    title: 'Leer variables de entorno protegidas',
+    target: params.filePath,
+    reason:
+      'El archivo puede contener contraseñas, tokens u otras credenciales. Se requiere autorización explícita para mostrar su contenido.',
+  }
+}
+
 export function createToolPermissionRequest(params: {
   toolCallId: string
   toolName: string
@@ -103,7 +187,20 @@ export function createToolPermissionRequest(params: {
     'El modelo necesita usar esta herramienta externa para continuar.'
   let preview: string | undefined
 
-  if (toolName === 'run_terminal_command') {
+  if (toolName === 'ssh_remote') {
+    const action = text(input.action) as SshRemoteAction | undefined
+    const details = action ? SSH_ACTION_DETAILS[action] : undefined
+    category = details?.category ?? 'remote-file'
+    title = details?.title ?? 'Operación SSH remota'
+    const connectionTarget =
+      text(input.connection_id) ||
+      [text(input.username), text(input.host)].filter(Boolean).join('@')
+    target = connectionTarget || toolName
+    reason =
+      explicitReason ??
+      'El modelo necesita realizar esta operación en un servidor remoto para continuar.'
+    preview = externalPreview(input)
+  } else if (toolName === 'run_terminal_command') {
     category = 'command'
     title = 'Ejecutar comando'
     target = text(input.command)
@@ -164,13 +261,27 @@ export function createToolPermissionRequest(params: {
     preview = externalPreview(input)
   }
 
+  const safeInput = redactPreviewValue(input, undefined, 0) as Record<
+    string,
+    unknown
+  >
+
   return {
     toolCallId,
     toolName,
-    input,
+    input: safeInput,
     agentId,
     ...(parentAgentId ? { parentAgentId } : {}),
     category,
+    scope:
+      toolName === 'ssh_remote'
+        ? 'ssh'
+        : params.externalTool
+          ? 'external'
+          : 'local',
+    ...(toolName === 'ssh_remote' && text(input.action)
+      ? { operation: text(input.action) }
+      : {}),
     title,
     ...(target ? { target } : {}),
     reason,

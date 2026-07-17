@@ -63,6 +63,7 @@ export const createGeneralAgent = (options: {
       'spawn_agents',
       'read_files',
       'read_subtree',
+      'ssh_remote',
       'str_replace',
       'write_file',
     ],

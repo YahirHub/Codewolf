@@ -1,5 +1,6 @@
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { isProtectedEnvFilePath } from '@codebuff/common/util/protected-env'
 
 import { resolveFilePath } from './path-utils'
 
@@ -21,8 +22,10 @@ export async function getFiles(params: {
    * If not provided, the SDK applies gitignore checking automatically.
    */
   fileFilter?: FileFilter
+  /** Called immediately before reading protected .env file contents. */
+  authorizeProtectedEnvRead?: (filePath: string) => Promise<boolean>
 }) {
-  const { filePaths, cwd, fs, fileFilter } = params
+  const { filePaths, cwd, fs, fileFilter, authorizeProtectedEnvRead } = params
   // If caller provides a filter, they own all filtering decisions
   // If not, SDK applies default gitignore checking
   const hasCustomFilter = fileFilter !== undefined
@@ -73,6 +76,16 @@ export async function getFiles(params: {
         result[relativePath] =
           FILE_READ_STATUS.TOO_LARGE +
           ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content.]`
+        continue
+      }
+
+      if (
+        authorizeProtectedEnvRead &&
+        isProtectedEnvFilePath(relativePath) &&
+        !(await authorizeProtectedEnvRead(relativePath))
+      ) {
+        result[relativePath] =
+          '[PERMISSION_DENIED: El usuario no autorizó leer este archivo .env protegido.]'
         continue
       }
 

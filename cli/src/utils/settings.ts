@@ -34,6 +34,9 @@ const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   projectContextEnabled: false,
   verifiedCommitsEnabled: false,
+  safeModeEnabled: false,
+  sshSafeModeEnabled: true,
+  protectEnvFiles: true,
   researchTimeoutMinutes: DEFAULT_RESEARCH_TIMEOUT_MINUTES,
   researchModelMode: 'automatic-economical' as const,
 }
@@ -53,6 +56,12 @@ export interface Settings {
   projectContextEnabled?: boolean
   /** Ask the user to verify structured edits before creating a Git commit. */
   verifiedCommitsEnabled?: boolean
+  /** Ask before local commands, file mutations, MCP, and external tools. */
+  safeModeEnabled?: boolean
+  /** Ask before connecting or mutating/executing/transferring through SSH. */
+  sshSafeModeEnabled?: boolean
+  /** Ask before reading .env and .env.* contents locally or remotely. */
+  protectEnvFiles?: boolean
   /** Maximum wall-clock time for web/documentation research subagents. */
   researchTimeoutMinutes?: number
   /** How research subagents choose their provider/model. */
@@ -157,6 +166,18 @@ const validateSettings = (parsed: unknown): Settings => {
 
   if (typeof obj.verifiedCommitsEnabled === 'boolean') {
     settings.verifiedCommitsEnabled = obj.verifiedCommitsEnabled
+  }
+
+  if (typeof obj.safeModeEnabled === 'boolean') {
+    settings.safeModeEnabled = obj.safeModeEnabled
+  }
+
+  if (typeof obj.sshSafeModeEnabled === 'boolean') {
+    settings.sshSafeModeEnabled = obj.sshSafeModeEnabled
+  }
+
+  if (typeof obj.protectEnvFiles === 'boolean') {
+    settings.protectEnvFiles = obj.protectEnvFiles
   }
 
   if (
@@ -302,6 +323,27 @@ export const isVerifiedCommitsEnabled = (): boolean =>
 
 export const setVerifiedCommitsEnabled = (enabled: boolean): void => {
   saveSettings({ verifiedCommitsEnabled: enabled })
+}
+
+export const isSafeModeEnabled = (): boolean =>
+  loadSettings().safeModeEnabled === true
+
+export const setSafeModeEnabled = (enabled: boolean): void => {
+  saveSettings({ safeModeEnabled: enabled })
+}
+
+export const isSshSafeModeEnabled = (): boolean =>
+  loadSettings().sshSafeModeEnabled !== false
+
+export const setSshSafeModeEnabled = (enabled: boolean): void => {
+  saveSettings({ sshSafeModeEnabled: enabled })
+}
+
+export const isEnvProtectionEnabled = (): boolean =>
+  loadSettings().protectEnvFiles !== false
+
+export const setEnvProtectionEnabled = (enabled: boolean): void => {
+  saveSettings({ protectEnvFiles: enabled })
 }
 
 export const getResearchTimeoutMinutes = (configDir?: string): number =>

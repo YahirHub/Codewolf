@@ -221,6 +221,10 @@ async function main() {
       : []),
     `--outfile=${outputFile}`,
     '--sourcemap=none',
+    // ssh2 optionally probes cpu-features through a native .node addon. Keep
+    // that optional acceleration external so Bun --compile can use ssh2's
+    // built-in JavaScript fallback on every target.
+    '--external=cpu-features',
     ...defineFlags.flatMap(([key, value]) => ['--define', `${key}=${value}`]),
     '--env=NEXT_PUBLIC_*', // Copies all current matching env vars into the compiled binary.
   ]

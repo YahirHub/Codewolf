@@ -34,6 +34,31 @@ afterEach(() => {
   }
 })
 
+describe('security settings', () => {
+  test('uses safe defaults and persists independent policies', () => {
+    const configDir = temporaryConfig()
+    expect(loadSettings(configDir)).toMatchObject({
+      safeModeEnabled: false,
+      sshSafeModeEnabled: true,
+      protectEnvFiles: true,
+    })
+
+    saveSettings(
+      {
+        safeModeEnabled: true,
+        sshSafeModeEnabled: false,
+        protectEnvFiles: false,
+      },
+      configDir,
+    )
+    expect(loadSettings(configDir)).toMatchObject({
+      safeModeEnabled: true,
+      sshSafeModeEnabled: false,
+      protectEnvFiles: false,
+    })
+  })
+})
+
 describe('research timeout settings', () => {
   test('writes the longer default for new installations', () => {
     const configDir = temporaryConfig()

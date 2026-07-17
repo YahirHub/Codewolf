@@ -485,6 +485,20 @@ export async function executeToolCall<T extends ToolName>(
     toolCall: finalToolCall,
     previousToolCallFinished,
     writeToClient: onResponseChunk,
+    requestFiles: ({ filePaths }) =>
+      params.requestFiles({
+        filePaths,
+        toolCallId,
+        agentId: agentState.agentId,
+        parentAgentId: agentState.parentId,
+      }),
+    requestOptionalFile: ({ filePath }) =>
+      params.requestOptionalFile({
+        filePath,
+        toolCallId,
+        agentId: agentState.agentId,
+        parentAgentId: agentState.parentId,
+      }),
     requestClientToolCall: (async (
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
@@ -494,6 +508,9 @@ export async function executeToolCall<T extends ToolName>(
 
       const clientToolResult = await requestToolCall({
         userInputId,
+        toolCallId: clientToolCall.toolCallId,
+        agentId: agentState.agentId,
+        parentAgentId: agentState.parentId,
         toolName: clientToolCall.toolName,
         input: clientToolCall.input,
       })
@@ -711,6 +728,9 @@ export async function executeCustomToolCall(
         : toolCall.toolName
       const clientToolResult = await requestToolCall({
         userInputId,
+        toolCallId: toolCall.toolCallId,
+        agentId: agentState.agentId,
+        parentAgentId: agentState.parentId,
         toolName,
         input: toolCall.input,
         mcpConfig: toolCall.toolName.includes(MCP_TOOL_SEPARATOR)

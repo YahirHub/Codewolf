@@ -21,6 +21,17 @@ import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import {
+  findProtectedEnvFilePath,
+  inputMentionsProtectedEnv,
+  isProtectedEnvFilePath,
+  toolMayReadProtectedEnv,
+} from '@codebuff/common/util/protected-env'
+import {
+  createEnvReadPermissionRequest,
+  createToolPermissionRequest,
+  shouldRequestToolPermission,
+} from '@codebuff/common/util/tool-permission'
+import {
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
   TRANSIENT_NETWORK_ERROR_USER_MESSAGE,
   extractApiErrorDetails,
@@ -48,6 +59,10 @@ import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
 import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
+import {
+  getPersistentSshManager,
+  isSshRemoteSensitiveAction,
+} from './tools/ssh-remote'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type {
@@ -75,6 +90,12 @@ import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type { TokenUsageCallback } from '@codebuff/common/types/token-usage'
+import type {
+  RequestToolPermissionFn,
+  ToolPermissionPolicy,
+  ToolPermissionRequest,
+} from '@codebuff/common/types/tool-permission'
+import type { SshRemoteInput } from './tools/ssh-remote'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -179,6 +200,11 @@ export type CodebuffClientOptions = {
 
   overrideTools?: OverrideToolHandlers
   customToolDefinitions?: CustomToolDefinition[]
+
+  /** Optional host callback used by safe mode to authorize sensitive operations. */
+  requestToolPermission?: RequestToolPermissionFn
+  /** Permission policy applied by the SDK before tools execute. */
+  toolPermissionPolicy?: ToolPermissionPolicy
 
   fsSource?: Source<CodebuffFileSystem>
   spawnSource?: Source<CodebuffSpawn>
@@ -346,6 +372,8 @@ async function runOnce({
   fileFilter,
   overrideTools,
   customToolDefinitions,
+  requestToolPermission,
+  toolPermissionPolicy,
 
   fsSource = () => require('fs').promises,
   spawnSource,
@@ -583,7 +611,15 @@ async function runOnce({
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
-    requestToolCall: async ({ userInputId, toolName, input, mcpConfig }) => {
+    requestToolCall: async ({
+      userInputId,
+      toolCallId,
+      agentId: requestingAgentId,
+      parentAgentId,
+      toolName,
+      input,
+      mcpConfig,
+    }) => {
       return handleToolCall({
         action: {
           type: 'tool-call-request',
@@ -607,6 +643,11 @@ async function runOnce({
         signal,
         onBeforeFileMutation,
         onAfterFileMutation,
+        requestToolPermission,
+        toolPermissionPolicy,
+        toolCallId,
+        agentId: requestingAgentId,
+        parentAgentId,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -627,21 +668,38 @@ async function runOnce({
 
       return filteredTools
     },
-    requestFiles: ({ filePaths }) =>
+    requestFiles: ({ filePaths, toolCallId, agentId, parentAgentId }) =>
       readFiles({
         filePaths,
         override: overrideTools?.read_files,
         fileFilter,
         cwd,
         fs,
+        requestToolPermission,
+        toolPermissionPolicy,
+        signal,
+        toolCallId,
+        agentId,
+        parentAgentId,
       }),
-    requestOptionalFile: async ({ filePath }) => {
+    requestOptionalFile: async ({
+      filePath,
+      toolCallId,
+      agentId,
+      parentAgentId,
+    }) => {
       const files = await readFiles({
         filePaths: [filePath],
         override: overrideTools?.read_files,
         fileFilter,
         cwd,
         fs,
+        requestToolPermission,
+        toolPermissionPolicy,
+        signal,
+        toolCallId,
+        agentId,
+        parentAgentId,
       })
       const lookupKeys = cwd
         ? getProjectPathLookupKeys(cwd, filePath)
@@ -844,6 +902,12 @@ async function readFiles({
   fileFilter,
   cwd,
   fs,
+  requestToolPermission,
+  toolPermissionPolicy,
+  signal,
+  toolCallId,
+  agentId,
+  parentAgentId,
 }: {
   filePaths: string[]
   override?: NonNullable<
@@ -852,15 +916,57 @@ async function readFiles({
   fileFilter?: FileFilter
   cwd?: string
   fs: CodebuffFileSystem
+  requestToolPermission?: RequestToolPermissionFn
+  toolPermissionPolicy?: ToolPermissionPolicy
+  signal?: AbortSignal
+  toolCallId?: string
+  agentId?: string
+  parentAgentId?: string
 }) {
+  const authorizeProtectedEnvRead = toolPermissionPolicy?.protectEnvFiles
+    ? async (filePath: string) => {
+        if (!requestToolPermission || signal?.aborted) return false
+        const response = await requestToolPermission(
+          createEnvReadPermissionRequest({
+            toolCallId: toolCallId ?? crypto.randomUUID(),
+            toolName: 'read_files',
+            filePath,
+            agentId,
+            parentAgentId,
+          }),
+        )
+        return response.decision === 'allow'
+      }
+    : undefined
+
   if (override) {
-    return await override({ filePaths })
+    const allowedPaths: string[] = []
+    const denied: Record<string, string | null> = {}
+    for (const filePath of filePaths) {
+      if (
+        authorizeProtectedEnvRead &&
+        isProtectedEnvFilePath(filePath) &&
+        !(await authorizeProtectedEnvRead(filePath))
+      ) {
+        denied[filePath] =
+          '[PERMISSION_DENIED: El usuario no autorizó leer este archivo .env protegido.]'
+      } else {
+        allowedPaths.push(filePath)
+      }
+    }
+    return {
+      ...denied,
+      ...(allowedPaths.length
+        ? await override({ filePaths: allowedPaths })
+        : {}),
+    }
   }
   return getFiles({
     filePaths,
     cwd: requireCwd(cwd, 'read_files'),
     fs,
     fileFilter,
+    authorizeProtectedEnvRead,
   })
 }
 
@@ -914,6 +1020,11 @@ async function handleToolCall({
   signal,
   onBeforeFileMutation,
   onAfterFileMutation,
+  requestToolPermission,
+  toolPermissionPolicy,
+  toolCallId,
+  agentId,
+  parentAgentId,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -925,6 +1036,11 @@ async function handleToolCall({
   signal?: AbortSignal
   onBeforeFileMutation?: CodebuffClientOptions['onBeforeFileMutation']
   onAfterFileMutation?: CodebuffClientOptions['onAfterFileMutation']
+  requestToolPermission?: RequestToolPermissionFn
+  toolPermissionPolicy?: ToolPermissionPolicy
+  toolCallId?: string
+  agentId?: string
+  parentAgentId?: string
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -939,6 +1055,89 @@ async function handleToolCall({
           },
         },
       ],
+    }
+  }
+
+  const externalTool =
+    Boolean(action.mcpConfig) || !toolNames.includes(toolName as ToolName)
+  const sshInput =
+    toolName === 'ssh_remote' ? (input as SshRemoteInput) : undefined
+  const sshPermissionRequired = Boolean(
+    sshInput &&
+    toolPermissionPolicy?.sshSafeModeEnabled &&
+    isSshRemoteSensitiveAction(sshInput.action),
+  )
+  const generalPermissionRequired = Boolean(
+    toolPermissionPolicy?.safeModeEnabled &&
+    shouldRequestToolPermission({ toolName, externalTool }),
+  )
+  const envPermissionRequired = Boolean(
+    toolPermissionPolicy?.protectEnvFiles &&
+    toolMayReadProtectedEnv({ toolName, input, externalTool }),
+  )
+
+  if (
+    sshPermissionRequired ||
+    generalPermissionRequired ||
+    envPermissionRequired
+  ) {
+    if (!requestToolPermission) {
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              permissionDenied: true,
+              errorMessage:
+                'La política de seguridad requiere autorización, pero el cliente no configuró un controlador de permisos.',
+            },
+          },
+        ],
+      }
+    }
+
+    const permissionRequests: ToolPermissionRequest[] = []
+    if (sshPermissionRequired || generalPermissionRequired) {
+      permissionRequests.push(
+        createToolPermissionRequest({
+          toolCallId: toolCallId ?? action.requestId,
+          toolName,
+          input,
+          agentId: agentId ?? 'agente actual',
+          parentAgentId,
+          externalTool,
+        }),
+      )
+    }
+    if (envPermissionRequired) {
+      permissionRequests.push(
+        createEnvReadPermissionRequest({
+          toolCallId: toolCallId ?? action.requestId,
+          toolName,
+          filePath: findProtectedEnvFilePath(input) ?? '.env',
+          agentId,
+          parentAgentId,
+          scope: sshInput ? 'ssh' : 'local',
+        }),
+      )
+    }
+
+    for (const permissionRequest of permissionRequests) {
+      const permission = await requestToolPermission(permissionRequest)
+      if (permission.decision !== 'allow') {
+        return {
+          output: [
+            {
+              type: 'json',
+              value: {
+                permissionDenied: true,
+                errorMessage:
+                  permission.message ?? 'El usuario rechazó esta operación.',
+              },
+            },
+          ],
+        }
+      }
     }
   }
 
@@ -1027,6 +1226,12 @@ async function handleToolCall({
         cwd: requireCwd(cwd, toolName),
         fs,
       })
+    } else if (toolName === 'ssh_remote') {
+      result = await getPersistentSshManager().execute(
+        input as SshRemoteInput,
+        signal,
+        { projectRoot: cwd, env },
+      )
     } else if (toolName === 'run_terminal_command') {
       const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
       result = await runTerminalCommand({
@@ -1045,6 +1250,9 @@ async function handleToolCall({
         projectPath: requireCwd(cwd, 'code_search'),
         ...input,
         signal,
+        excludeProtectedEnvFiles:
+          toolPermissionPolicy?.protectEnvFiles === true &&
+          !inputMentionsProtectedEnv(input),
       } as Parameters<typeof codeSearch>[0])
     } else if (toolName === 'list_directory') {
       result = await listDirectory({

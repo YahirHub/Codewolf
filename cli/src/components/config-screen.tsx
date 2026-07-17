@@ -28,6 +28,9 @@ import {
   getResearchTimeoutMinutes,
   isProjectContextEnabled,
   isVerifiedCommitsEnabled,
+  isSafeModeEnabled,
+  isSshSafeModeEnabled,
+  isEnvProtectionEnabled,
   setCodeReviewerModel,
   setCodeSearcherModel,
   setFileListerModel,
@@ -39,6 +42,9 @@ import {
   setResearchModelMode,
   setResearchTimeoutMinutes,
   setVerifiedCommitsEnabled,
+  setSafeModeEnabled,
+  setSshSafeModeEnabled,
+  setEnvProtectionEnabled,
 } from '../utils/settings'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
@@ -56,10 +62,11 @@ interface ConfigScreenProps {
   onProjectContextChanged?: (enabled: boolean) => void
 }
 
-type ConfigSection = 'general' | 'agents' | 'research'
+type ConfigSection = 'general' | 'security' | 'agents' | 'research'
 
 const CONFIG_SECTION_LABELS: Record<ConfigSection, string> = {
   general: 'GENERAL',
+  security: 'SEGURIDAD',
   agents: 'MODELOS DE AGENTES',
   research: 'INVESTIGACIÓN',
 }
@@ -71,7 +78,12 @@ type ConfigItemBase = {
 }
 
 type ToggleConfigItem = ConfigItemBase & {
-  id: 'project-context' | 'verified-commits'
+  id:
+    | 'project-context'
+    | 'verified-commits'
+    | 'safe-mode'
+    | 'ssh-safe-mode'
+    | 'protect-env-files'
   kind: 'toggle'
 }
 
@@ -101,7 +113,10 @@ type ModelConfigItem = ConfigItemBase & {
 }
 
 type ConfigItem =
-  ToggleConfigItem | NumberConfigItem | ChoiceConfigItem | ModelConfigItem
+  | ToggleConfigItem
+  | NumberConfigItem
+  | ChoiceConfigItem
+  | ModelConfigItem
 
 const BASE_CONFIG_ITEMS: ConfigItem[] = [
   {
@@ -119,6 +134,30 @@ const BASE_CONFIG_ITEMS: ConfigItem[] = [
     title: 'Commits verificados',
     description:
       'Solicita validar los cambios antes de crear automáticamente un commit.',
+  },
+  {
+    id: 'safe-mode',
+    kind: 'toggle',
+    section: 'security',
+    title: 'Modo seguro local',
+    description:
+      'Pide permiso antes de comandos, edición/eliminación de archivos y herramientas externas o MCP.',
+  },
+  {
+    id: 'ssh-safe-mode',
+    kind: 'toggle',
+    section: 'security',
+    title: 'Modo seguro SSH',
+    description:
+      'Pide permiso para conectar, ejecutar, transferir o modificar en servidores remotos; lectura y navegación quedan libres.',
+  },
+  {
+    id: 'protect-env-files',
+    kind: 'toggle',
+    section: 'security',
+    title: 'Proteger archivos .env',
+    description:
+      'Pide autorización antes de mostrar variables de .env o .env.* tanto localmente como por SSH.',
   },
   {
     id: 'research-model-opus',
@@ -236,6 +275,15 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   )
   const [verifiedCommitsEnabled, setVerifiedCommitsState] = useState(() =>
     isVerifiedCommitsEnabled(),
+  )
+  const [safeModeEnabled, setSafeModeState] = useState(() =>
+    isSafeModeEnabled(),
+  )
+  const [sshSafeModeEnabled, setSshSafeModeState] = useState(() =>
+    isSshSafeModeEnabled(),
+  )
+  const [envProtectionEnabled, setEnvProtectionState] = useState(() =>
+    isEnvProtectionEnabled(),
   )
   const [researchTimeoutMinutes, setResearchTimeoutState] = useState(() =>
     getResearchTimeoutMinutes(),
@@ -369,12 +417,39 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         onProjectContextChanged?.(next)
         return
       }
-
-      const next = !verifiedCommitsEnabled
-      setVerifiedCommitsEnabled(next)
-      setVerifiedCommitsState(next)
+      if (item.id === 'verified-commits') {
+        const next = !verifiedCommitsEnabled
+        setVerifiedCommitsEnabled(next)
+        setVerifiedCommitsState(next)
+        return
+      }
+      if (item.id === 'safe-mode') {
+        const next = !safeModeEnabled
+        setSafeModeEnabled(next)
+        setSafeModeState(next)
+        resetCodebuffClient()
+        return
+      }
+      if (item.id === 'ssh-safe-mode') {
+        const next = !sshSafeModeEnabled
+        setSshSafeModeEnabled(next)
+        setSshSafeModeState(next)
+        resetCodebuffClient()
+        return
+      }
+      const next = !envProtectionEnabled
+      setEnvProtectionEnabled(next)
+      setEnvProtectionState(next)
+      resetCodebuffClient()
     },
-    [onProjectContextChanged, projectContextEnabled, verifiedCommitsEnabled],
+    [
+      envProtectionEnabled,
+      onProjectContextChanged,
+      projectContextEnabled,
+      safeModeEnabled,
+      sshSafeModeEnabled,
+      verifiedCommitsEnabled,
+    ],
   )
 
   const cycleResearchMode = useCallback((direction = 1) => {
@@ -558,10 +633,13 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     )
   }
 
-  const toggleValue = (item: ToggleConfigItem): boolean =>
-    item.id === 'project-context'
-      ? projectContextEnabled
-      : verifiedCommitsEnabled
+  const toggleValue = (item: ToggleConfigItem): boolean => {
+    if (item.id === 'project-context') return projectContextEnabled
+    if (item.id === 'verified-commits') return verifiedCommitsEnabled
+    if (item.id === 'safe-mode') return safeModeEnabled
+    if (item.id === 'ssh-safe-mode') return sshSafeModeEnabled
+    return envProtectionEnabled
+  }
 
   const getStatus = (item: ConfigItem): string => {
     if (item.kind === 'toggle') {
@@ -600,6 +678,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
 
   const getSectionColor = (section: ConfigSection): string => {
     if (section === 'general') return theme.primary
+    if (section === 'security') return theme.warning
     if (section === 'agents') return theme.info
     return theme.warning
   }

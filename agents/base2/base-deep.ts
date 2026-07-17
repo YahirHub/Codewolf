@@ -287,6 +287,7 @@ export function createBaseDeep(options?: {
       'write_todos',
       !noAskUser && 'ask_user',
       'skill',
+      'ssh_remote',
       'set_output',
     ),
     spawnableAgents: [
