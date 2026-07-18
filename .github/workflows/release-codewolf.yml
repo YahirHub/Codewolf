@@ -74,6 +74,11 @@ jobs:
       - name: Instalar dependencias
         run: bun install --frozen-lockfile
 
+      - name: Validar instalador npm desde GitHub
+        run: |
+          node --test npm/__tests__/*.test.cjs
+          npm pack --dry-run
+
       - name: Compilar Linux x64
         env:
           VERSION: ${{ steps.version.outputs.value }}

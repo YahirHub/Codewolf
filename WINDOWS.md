@@ -19,6 +19,20 @@ You can access the machine either from the browser or with the desktop app:
 
 Supposedly you can also use Window's Remote Desktop to access the machine instead, but I've not tried it. Shadow.tech claims their protocol is better optimized for lower bandwidth use & hence smoother performance.
 
+## Instalación global de Codewolf desde GitHub con npm
+
+Para usuarios finales de Codewolf en Windows, con Node.js 18.18+, npm y Git:
+
+```powershell
+npm i -g YahirHub/Codewolf
+codewolf
+```
+
+El instalador selecciona automáticamente `codewolf-windows-x64.zip`, su variante
+`baseline` para CPU sin AVX2, o `codewolf-windows-arm64.zip`. El binario se
+descarga desde GitHub Releases y se verifica mediante `SHA256SUMS.txt`; Bun no
+es un requisito para ejecutar la instalación global.
+
 ## Set-up guide:
 
 You shouldn't need this - but just in case you stop using Shadow.tech, or make a new account, here's a guide on how to get from a blank Windows install to a Codebuff install.

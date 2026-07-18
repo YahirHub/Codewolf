@@ -199,3 +199,7 @@ temp/
 # Portable chat exports created by /export may contain conversation context.
 /codewolf-chat-*.jsonl
 /codewolf-chat-*.json
+
+# npm GitHub installer runtime (downloaded during global installation)
+npm/runtime/
+npm/.install-*/

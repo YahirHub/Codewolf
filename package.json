@@ -1,5 +1,5 @@
 {
-  "name": "codewolf-project",
+  "name": "codewolf",
   "version": "1.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -22,12 +22,9 @@
     "build:sdk": "cd sdk && bun run build",
     "buffbench": "bun --cwd evals run-buffbench",
     "ci": "bun run build:sdk && bun run build:binary",
-    "tests": "go run ./scripts/test-all.go"
-  },
-  "dependencies": {
-    "canvas": "^3.2.0",
-    "gif-encoder-2": "^1.0.5",
-    "zod": "^4.2.1"
+    "tests": "go run ./scripts/test-all.go",
+    "postinstall": "node ./npm/postinstall.cjs",
+    "test:npm-installer": "node --test npm/__tests__/*.test.cjs"
   },
   "overrides": {
     "react": "^19.0.0",
@@ -67,7 +64,17 @@
     "typescript-eslint": "^7.17.0"
   },
   "engines": {
-    "bun": "1.3.14"
+    "bun": "1.3.14",
+    "node": ">=18.18.0"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "bun@1.3.14",
+  "bin": {
+    "codewolf": "./npm/bin/codewolf.cjs"
+  },
+  "files": [
+    "npm/bin",
+    "npm/lib",
+    "npm/postinstall.cjs",
+    "NOTICE"
+  ]
 }

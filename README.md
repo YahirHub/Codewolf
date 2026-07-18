@@ -4,25 +4,36 @@ Codewolf es un editor y agente de programación para terminal con proveedores de
 
 ## Instalación rápida
 
-Linux, macOS y terminales Git Bash/MSYS en Windows pueden instalar la última
-release publicada con:
+### npm desde GitHub
+
+Con Node.js 18.18 o superior, npm y Git instalados:
+
+```bash
+npm i -g YahirHub/Codewolf
+```
+
+El paquete npm del repositorio es un launcher ligero. Durante `postinstall`
+detecta Windows, Linux o macOS, arquitectura x64/ARM64, musl en Linux y soporte
+AVX2 en x64; después descarga el artefacto correcto de la release `latest`,
+verifica su hash contra `SHA256SUMS.txt` y expone el comando global `codewolf`.
+No compila el monorepo y el usuario final no necesita Bun.
+
+### Script shell
+
+Linux, macOS y terminales Git Bash/MSYS en Windows también pueden instalar la
+última release publicada con:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/YahirHub/codewolf/main/install.sh | sh
 ```
 
-El instalador detecta sistema operativo, arquitectura, libc musl y compatibilidad
-AVX2 para elegir la variante correcta. Instala `codewolf` y
-`tree-sitter.wasm` en `~/.local/bin`, agrega esa ruta a `~/.bashrc` y verifica
-`SHA256SUMS.txt` antes de reemplazar archivos.
-
-Si ya existe Codewolf, descarga nuevamente la release `latest` y crea primero
-un respaldo comprimido de `~/.codewolf` en `~/.codewolf-backups`. Se puede
-cambiar el repositorio o las rutas mediante `CODEWOLF_REPOSITORY`,
-`CODEWOLF_BIN_DIR`, `CODEWOLF_CONFIG_DIR` y `CODEWOLF_BACKUP_DIR`.
+El instalador shell instala `codewolf` y `tree-sitter.wasm` en `~/.local/bin`,
+agrega esa ruta a `~/.bashrc` y verifica `SHA256SUMS.txt` antes de reemplazar
+archivos. Si ya existe Codewolf, crea primero un respaldo comprimido de
+`~/.codewolf` en `~/.codewolf-backups`.
 
 Consulta [docs/install.md](docs/install.md) para conocer detección, actualización
-y variables avanzadas.
+y variables avanzadas de ambos métodos.
 
 ## Funciones principales
 
@@ -51,6 +62,7 @@ y variables avanzadas.
 ## Requisitos de desarrollo
 
 - Bun `1.3.14`.
+- Node.js `18.18+` para validar el instalador npm.
 - Git.
 
 La versión requerida de Bun también está declarada en `.bun-version` y `package.json`.

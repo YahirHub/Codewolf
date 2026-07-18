@@ -198,6 +198,11 @@ lista exacta y versiones bloqueadas.
 - `cli/src/components/first-run-onboarding-screen.tsx`
 - `cli/src/utils/first-run-onboarding.ts`
 - `install.sh`
+- `npm/postinstall.cjs`
+- `npm/bin/codewolf.cjs`
+- `npm/lib/platform.cjs`
+- `npm/lib/archive.cjs`
+- `npm/lib/installer.cjs`
 - `docs/install.md`
 - `.github/workflows/build-binaries.yml`
 - `AGENTS.md`
