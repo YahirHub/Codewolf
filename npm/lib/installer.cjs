@@ -121,6 +121,61 @@ function replaceDirectoryAtomically(source, destination) {
   }
 }
 
+function getRuntimePaths(packageRoot, selection) {
+  const runtimeDir = path.join(packageRoot, 'npm', 'runtime')
+  return {
+    runtimeDir,
+    binaryPath: path.join(runtimeDir, selection.binaryName),
+    wasmPath: path.join(runtimeDir, 'tree-sitter.wasm'),
+    metadataPath: path.join(runtimeDir, 'install.json'),
+  }
+}
+
+function hasValidRuntime(packageRoot, selection) {
+  const { binaryPath, wasmPath, metadataPath } = getRuntimePaths(packageRoot, selection)
+  for (const filePath of [binaryPath, wasmPath, metadataPath]) {
+    try {
+      if (!fs.statSync(filePath).isFile()) return false
+    } catch {
+      return false
+    }
+  }
+
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
+    return metadata && metadata.target === selection.target
+  } catch {
+    return false
+  }
+}
+
+async function ensureInstalled(options = {}) {
+  const packageRoot = options.packageRoot ?? path.resolve(__dirname, '..', '..')
+  const selection = options.selection ?? selectReleaseAsset()
+  const paths = getRuntimePaths(packageRoot, selection)
+
+  if (!options.force && hasValidRuntime(packageRoot, selection)) {
+    return { ...paths, selection, installed: false }
+  }
+
+  if (['1', 'true', 'yes', 'on'].includes(
+    String(process.env.CODEWOLF_NPM_SKIP_DOWNLOAD ?? '').trim().toLowerCase(),
+  )) {
+    throw new Error(
+      'El runtime de Codewolf no está instalado y CODEWOLF_NPM_SKIP_DOWNLOAD impide descargarlo.',
+    )
+  }
+
+  log('Runtime no encontrado; descargando el binario adecuado para esta plataforma...')
+  await install({ ...options, packageRoot, selection })
+
+  if (!hasValidRuntime(packageRoot, selection)) {
+    throw new Error('La instalación terminó sin producir un runtime válido.')
+  }
+
+  return { ...paths, selection, installed: true }
+}
+
 async function install(options = {}) {
   const packageRoot = options.packageRoot ?? path.resolve(__dirname, '..', '..')
   const repository = options.repository ?? process.env.CODEWOLF_REPOSITORY ?? DEFAULT_REPOSITORY
@@ -142,7 +197,7 @@ async function install(options = {}) {
   }
 
   const npmDir = path.join(packageRoot, 'npm')
-  const runtimeDir = path.join(npmDir, 'runtime')
+  const { runtimeDir } = getRuntimePaths(packageRoot, selection)
   const tempRoot = fs.mkdtempSync(path.join(npmDir, '.install-'))
   const archivePath = path.join(tempRoot, asset)
   const extractedDir = path.join(tempRoot, 'runtime')
@@ -190,7 +245,10 @@ module.exports = {
   DEFAULT_REPOSITORY,
   chooseAvailableAsset,
   downloadToFile,
+  ensureInstalled,
   fetchWithRetry,
+  getRuntimePaths,
+  hasValidRuntime,
   install,
   parseChecksums,
   releaseBase,

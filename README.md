@@ -12,11 +12,12 @@ Con Node.js 18.18 o superior, npm y Git instalados:
 npm i -g YahirHub/Codewolf
 ```
 
-El paquete npm del repositorio es un launcher ligero. Durante `postinstall`
-detecta Windows, Linux o macOS, arquitectura x64/ARM64, musl en Linux y soporte
-AVX2 en x64; después descarga el artefacto correcto de la release `latest`,
-verifica su hash contra `SHA256SUMS.txt` y expone el comando global `codewolf`.
-No compila el monorepo y el usuario final no necesita Bun.
+El paquete npm del repositorio instala un launcher ligero. En la primera ejecución
+de `codewolf`, el launcher detecta Windows, Linux o macOS, arquitectura x64/ARM64,
+musl en Linux y soporte AVX2 en x64; después descarga el artefacto correcto de
+la release `latest`, verifica su hash contra `SHA256SUMS.txt` y ejecuta el binario
+nativo. La descarga no utiliza `postinstall`, evitando problemas de directorios
+temporales al instalar directamente desde GitHub. El usuario final no necesita Bun.
 
 ### Script shell
 
@@ -62,7 +63,6 @@ y variables avanzadas de ambos métodos.
 ## Requisitos de desarrollo
 
 - Bun `1.3.14`.
-- Node.js `18.18+` para validar el instalador npm.
 - Git.
 
 La versión requerida de Bun también está declarada en `.bun-version` y `package.json`.

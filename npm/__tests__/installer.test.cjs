@@ -147,3 +147,68 @@ test('install downloads, verifies and installs a release runtime', async () => {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('ensureInstalled reuses a valid runtime without network access', async () => {
+  const { ensureInstalled } = require('../lib/installer.cjs')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codewolf-existing-runtime-'))
+  const runtime = path.join(root, 'npm', 'runtime')
+  fs.mkdirSync(runtime, { recursive: true })
+  fs.writeFileSync(path.join(runtime, 'codewolf'), '#!/bin/sh\nexit 0\n')
+  fs.writeFileSync(path.join(runtime, 'tree-sitter.wasm'), 'wasm')
+  fs.writeFileSync(
+    path.join(runtime, 'install.json'),
+    JSON.stringify({ target: 'linux-x64' }),
+  )
+
+  try {
+    const result = await ensureInstalled({
+      packageRoot: root,
+      selection: {
+        target: 'linux-x64',
+        candidates: ['unused.tar.gz'],
+        preferred: 'unused.tar.gz',
+        extension: 'tar.gz',
+        binaryName: 'codewolf',
+      },
+    })
+    assert.equal(result.installed, false)
+    assert.equal(result.binaryPath, path.join(runtime, 'codewolf'))
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('ensureInstalled rejects a runtime built for a different target when downloads are disabled', async () => {
+  const { ensureInstalled } = require('../lib/installer.cjs')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codewolf-wrong-runtime-'))
+  const runtime = path.join(root, 'npm', 'runtime')
+  fs.mkdirSync(runtime, { recursive: true })
+  fs.writeFileSync(path.join(runtime, 'codewolf'), '#!/bin/sh\nexit 0\n')
+  fs.writeFileSync(path.join(runtime, 'tree-sitter.wasm'), 'wasm')
+  fs.writeFileSync(
+    path.join(runtime, 'install.json'),
+    JSON.stringify({ target: 'linux-x64-musl' }),
+  )
+
+  const previous = process.env.CODEWOLF_NPM_SKIP_DOWNLOAD
+  process.env.CODEWOLF_NPM_SKIP_DOWNLOAD = '1'
+  try {
+    await assert.rejects(
+      ensureInstalled({
+        packageRoot: root,
+        selection: {
+          target: 'linux-x64',
+          candidates: ['unused.tar.gz'],
+          preferred: 'unused.tar.gz',
+          extension: 'tar.gz',
+          binaryName: 'codewolf',
+        },
+      }),
+      /SKIP_DOWNLOAD/,
+    )
+  } finally {
+    if (previous === undefined) delete process.env.CODEWOLF_NPM_SKIP_DOWNLOAD
+    else process.env.CODEWOLF_NPM_SKIP_DOWNLOAD = previous
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})

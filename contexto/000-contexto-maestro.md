@@ -424,3 +424,4 @@ al terminar.
 - `051`: mocks de fetch compatibles con los tipos extendidos de Bun.
 - `052`: build Windows mediante staging cuando codewolf.exe está bloqueado y corrección noImplicitAny del mock de conectividad.
 - Los mocks unitarios de `fetch` deben contemplar que Bun amplía `typeof fetch` con miembros estáticos como `preconnect`; en pruebas aisladas se usa la frontera explícita `as unknown as typeof fetch` sin debilitar los tipos de producción.
+- Instalador npm GitHub: no usar lifecycle `postinstall`; el launcher `codewolf` descarga/verifica el runtime de GitHub Releases en la primera ejecución para evitar `uv_cwd` durante preparación Git de npm.

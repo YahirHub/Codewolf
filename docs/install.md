@@ -9,24 +9,33 @@ npm i -g YahirHub/Codewolf
 ```
 
 No es necesario publicar Codewolf en el registro npm. npm obtiene el paquete
-directamente del repositorio de GitHub; el `postinstall` descarga el binario
-precompilado de la release marcada como `latest` y el `bin` del paquete expone
-el comando global:
+directamente del repositorio de GitHub y registra el launcher global. La primera
+vez que se ejecuta `codewolf`, ese launcher descarga el binario precompilado de
+la release marcada como `latest`, verifica su integridad y lo inicia:
 
 ```bash
 codewolf
 ```
 
-La instalación npm no compila TypeScript ni Bun y no instala las dependencias
-del monorepo. El paquete Git contiene únicamente el launcher y el instalador;
-el ejecutable y `tree-sitter.wasm` se descargan desde GitHub Releases después
+El runtime nativo no se descarga mediante un lifecycle `postinstall`. Esto evita
+fallos `ENOENT: uv_cwd` que pueden producirse cuando npm instala una dependencia
+Git preparando el repositorio en directorios temporales. El ejecutable y
+`tree-sitter.wasm` se descargan desde GitHub Releases al primer `codewolf` después
 de verificar `SHA256SUMS.txt`.
 
-Para volver a ejecutar el `postinstall` y descargar la release binaria más
-reciente sin reinstalar el launcher:
+Para forzar manualmente una nueva descarga desde un checkout del repositorio:
 
 ```bash
-npm rebuild -g codewolf
+npm run download:npm-binary
+```
+
+Para actualizar una instalación global desde GitHub, reinstala el launcher y
+ejecuta Codewolf; si el runtime fue reemplazado con el paquete, la primera ejecución
+lo descargará de nuevo:
+
+```bash
+npm i -g YahirHub/Codewolf --force
+codewolf --version
 ```
 
 Para actualizar también el código del instalador/launcher desde la rama
@@ -42,11 +51,13 @@ También se puede fijar una release concreta para la descarga del binario:
 CODEWOLF_RELEASE=1.0.9 npm i -g YahirHub/Codewolf
 ```
 
-En PowerShell:
+En PowerShell, fija la release antes de la primera ejecución posterior a la
+instalación:
 
 ```powershell
 $env:CODEWOLF_RELEASE = '1.0.9'
-npm rebuild -g codewolf
+npm i -g YahirHub/Codewolf --force
+codewolf --version
 ```
 
 ## Instalación con script shell
@@ -151,12 +162,12 @@ El paquete raíz declara:
     "codewolf": "./npm/bin/codewolf.cjs"
   },
   "scripts": {
-    "postinstall": "node ./npm/postinstall.cjs"
+    "download:npm-binary": "node ./npm/postinstall.cjs"
   }
 }
 ```
 
-Durante una instalación global realizada con npm, el instalador:
+Durante la primera ejecución del launcher global, el instalador:
 
 1. Detecta `win32`, `linux` o `darwin` y x64/ARM64.
 2. En Linux distingue glibc de musl.
@@ -195,9 +206,9 @@ Variables específicas del instalador npm:
 CODEWOLF_REPOSITORY          Repositorio de GitHub; predeterminado YahirHub/Codewolf
 CODEWOLF_RELEASE             latest o una etiqueta concreta, por ejemplo 1.0.9
 CODEWOLF_BASELINE            auto, 1 o 0
-CODEWOLF_NPM_INSTALL_BINARY  1 para forzar la descarga fuera de npm global
-CODEWOLF_NPM_SKIP_DOWNLOAD   1 para omitir la descarga, útil en desarrollo/pruebas
+CODEWOLF_NPM_SKIP_DOWNLOAD   1 impide la descarga automática del runtime
 ```
 
-`bun install` no descarga una release: el `postinstall` detecta que no se está
-ejecutando como una instalación global de npm y se omite automáticamente.
+`bun install` y `npm i -g` no descargan ninguna release mediante lifecycle scripts.
+La descarga ocurre únicamente cuando el usuario ejecuta `codewolf` sin un runtime
+válido o cuando un mantenedor ejecuta `npm run download:npm-binary` explícitamente.

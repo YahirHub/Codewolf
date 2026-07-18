@@ -23,8 +23,8 @@
     "buffbench": "bun --cwd evals run-buffbench",
     "ci": "bun run build:sdk && bun run build:binary",
     "tests": "go run ./scripts/test-all.go",
-    "postinstall": "node ./npm/postinstall.cjs",
-    "test:npm-installer": "node --test npm/__tests__/*.test.cjs"
+    "test:npm-installer": "node --test npm/__tests__/*.test.cjs",
+    "download:npm-binary": "node ./npm/postinstall.cjs"
   },
   "overrides": {
     "react": "^19.0.0",
