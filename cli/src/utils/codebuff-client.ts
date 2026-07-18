@@ -181,6 +181,7 @@ export function getToolDisplayInfo(toolName: string): {
 } {
   const TOOL_NAME_OVERRIDES: Record<string, string> = {
     list_directory: 'List Directories',
+    gitzip: 'GitZip',
     ssh_remote: 'SSH Remote',
   }
 

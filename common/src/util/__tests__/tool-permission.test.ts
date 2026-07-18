@@ -11,6 +11,7 @@ describe('tool permission classification', () => {
       shouldRequestToolPermission({ toolName: 'run_terminal_command' }),
     ).toBe(true)
     expect(shouldRequestToolPermission({ toolName: 'write_file' })).toBe(true)
+    expect(shouldRequestToolPermission({ toolName: 'gitzip' })).toBe(true)
     expect(shouldRequestToolPermission({ toolName: 'read_files' })).toBe(false)
     expect(
       shouldRequestToolPermission({
@@ -18,6 +19,33 @@ describe('tool permission classification', () => {
         externalTool: true,
       }),
     ).toBe(true)
+  })
+
+  test('classifies local and remote GitZip requests professionally', () => {
+    const local = createToolPermissionRequest({
+      toolCallId: 'tool-gitzip-local',
+      toolName: 'gitzip',
+      input: { action: 'create', source_path: '.', output_path: 'release.zip' },
+      agentId: 'base2',
+    })
+    expect(local.scope).toBe('local')
+    expect(local.category).toBe('file-create')
+    expect(local.title).toContain('Comprimir proyecto')
+
+    const remote = createToolPermissionRequest({
+      toolCallId: 'tool-gitzip-remote',
+      toolName: 'gitzip',
+      input: {
+        action: 'upload',
+        source_path: '.',
+        connection_id: 'ssh-prod',
+        remote_path: '/srv/releases/app.tar.gz',
+      },
+      agentId: 'base2',
+    })
+    expect(remote.scope).toBe('ssh')
+    expect(remote.category).toBe('remote-transfer')
+    expect(remote.target).toBe('/srv/releases/app.tar.gz')
   })
 
   test('shows the command and the model-provided reason', () => {

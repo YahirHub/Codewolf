@@ -64,6 +64,7 @@ export const createGeneralAgent = (options: {
       'read_files',
       'read_subtree',
       'ssh_remote',
+      'gitzip',
       'str_replace',
       'write_file',
     ],

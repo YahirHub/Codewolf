@@ -79,6 +79,26 @@ describe('protected environment files', () => {
         input: { path: '.env', content: 'GENERATED=true' },
       }),
     ).toBe(false)
+    expect(
+      toolMayReadProtectedEnv({
+        toolName: 'gitzip',
+        input: {
+          action: 'create',
+          source_path: '.',
+          include_protected_env: false,
+        },
+      }),
+    ).toBe(false)
+    expect(
+      toolMayReadProtectedEnv({
+        toolName: 'gitzip',
+        input: {
+          action: 'upload',
+          source_path: '.',
+          include_protected_env: true,
+        },
+      }),
+    ).toBe(true)
   })
 
   test('detects protected env paths inside nested tool input', () => {

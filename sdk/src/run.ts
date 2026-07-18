@@ -54,6 +54,7 @@ import { changeFile } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
+import { executeGitzip, isGitzipRemoteAction } from './tools/gitzip'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFiles } from './tools/read-files'
@@ -95,6 +96,7 @@ import type {
   ToolPermissionPolicy,
   ToolPermissionRequest,
 } from '@codebuff/common/types/tool-permission'
+import type { GitzipInput } from './tools/gitzip'
 import type { SshRemoteInput } from './tools/ssh-remote'
 import type { RequestSecretFn } from '@codebuff/common/types/secret-prompt'
 
@@ -1069,10 +1071,13 @@ async function handleToolCall({
     Boolean(action.mcpConfig) || !toolNames.includes(toolName as ToolName)
   const sshInput =
     toolName === 'ssh_remote' ? (input as SshRemoteInput) : undefined
+  const gitzipInput = toolName === 'gitzip' ? (input as GitzipInput) : undefined
+  const gitzipRemote = Boolean(
+    gitzipInput && isGitzipRemoteAction(gitzipInput.action),
+  )
   const sshPermissionRequired = Boolean(
-    sshInput &&
     toolPermissionPolicy?.sshSafeModeEnabled &&
-    isSshRemoteSensitiveAction(sshInput.action),
+    ((sshInput && isSshRemoteSensitiveAction(sshInput.action)) || gitzipRemote),
   )
   const generalPermissionRequired = Boolean(
     toolPermissionPolicy?.safeModeEnabled &&
@@ -1124,7 +1129,7 @@ async function handleToolCall({
           filePath: findProtectedEnvFilePath(input) ?? '.env',
           agentId,
           parentAgentId,
-          scope: sshInput ? 'ssh' : 'local',
+          scope: sshInput || gitzipRemote ? 'ssh' : 'local',
         }),
       )
     }
@@ -1239,6 +1244,12 @@ async function handleToolCall({
         signal,
         { projectRoot: cwd, env, requestSecret },
       )
+    } else if (toolName === 'gitzip') {
+      result = await executeGitzip(input as GitzipInput, signal, {
+        projectRoot: cwd,
+        env,
+        requestSecret,
+      })
     } else if (toolName === 'run_terminal_command') {
       const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
       result = await runTerminalCommand({

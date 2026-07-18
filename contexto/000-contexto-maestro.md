@@ -95,6 +95,7 @@ TypeScript con Bun, React y OpenTUI.
 - `/config` permite asignar modelos independientes a agentes OPUS, revisión de código, investigación, `code-searcher`, `file-picker` y `file-lister`. Las preferencias vacías heredan el modelo de sesión seleccionado en `/models`, incluso en subagentes anidados.
 - `/config` también separa Modo seguro local, Modo seguro SSH y protección de `.env`; SSH y `.env` quedan protegidos por defecto, mientras el modo local conserva su valor desactivado.
 - `ssh_remote` administra perfiles globales en `~/.codewolf/ssh-servers.json` y contraseñas/passphrases en la bóveda portable cifrada `~/.codewolf/ssh-secrets.enc`. La entrada maestra y SSH se realiza directamente en el CLI, nunca llega al agente, y la bóveda queda desbloqueada solo durante el proceso actual. Las conexiones activas son múltiples, entregan `ssh://<id>`, conservan directorio/shell PTY, usan SFTP y pueden cerrarse individualmente o en conjunto. PLAN no recibe esta herramienta.
+- `gitzip` crea ZIP/TAR/TAR.GZ locales o remotos desde un manifiesto que respeta `.gitignore` raíz/anidados y exclusiones Codewolf. Puede subir por las conexiones persistentes, extraer en destino y excluye `.git/`, su propia salida y `.env` protegidos por defecto. PLAN tampoco recibe esta herramienta.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.

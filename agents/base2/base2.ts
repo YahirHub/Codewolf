@@ -39,9 +39,7 @@ export function createBase2(
   // LITE uses a smaller default model when no custom provider overrides it.
   const model =
     modelOverride ??
-    (mode === 'lite'
-      ? minimaxModels.minimaxM3
-      : 'anthropic/claude-opus-4.8')
+    (mode === 'lite' ? minimaxModels.minimaxM3 : 'anthropic/claude-opus-4.8')
   const liteCodeReviewerAgentId = 'code-reviewer-lite'
   const contextPrunerMaxContextLength =
     getBase2ContextPrunerMaxContextLength(model)
@@ -106,6 +104,7 @@ export function createBase2(
           'read_url',
           'skill',
           'ssh_remote',
+          'gitzip',
           'set_output',
           'list_directory',
           'glob',

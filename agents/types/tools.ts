@@ -11,6 +11,7 @@ export type ToolName =
   | 'find_files'
   | 'glob'
   | 'gravity_index'
+  | 'gitzip'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_str_replace'
@@ -48,6 +49,7 @@ export interface ToolParamsMap {
   find_files: FindFilesParams
   glob: GlobParams
   gravity_index: GravityIndexParams
+  gitzip: GitzipParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_str_replace: ProposeStrReplaceParams
@@ -361,6 +363,37 @@ export interface SkillParams {
 /**
  * Persistent SSH connections for Codewolf itself. Connections live for the current CLI process and can coexist across different servers.
  */
+
+/**
+ * Create gitignore-aware project archives locally or through a persistent SSH connection.
+ */
+export interface GitzipParams {
+  action: 'create' | 'upload' | 'remote_create' | 'remote_extract'
+  /** Project directory, or remote archive path for remote_extract. */
+  source_path?: string
+  /** Archive destination; relative paths are resolved inside source_path. */
+  output_path?: string
+  format?: 'zip' | 'tar' | 'tar.gz'
+  /** Active SSH connection ID or ssh:// reference. */
+  connection_id?: string
+  /** Remote upload destination. */
+  remote_path?: string
+  extract_remote?: boolean
+  extract_path?: string
+  cleanup_local?: boolean
+  cleanup_remote_archive?: boolean
+  /** Additional gitignore-style patterns. */
+  extra_excludes?: string[]
+  /** Include protected .env files; may require separate permission. */
+  include_protected_env?: boolean
+  overwrite?: boolean
+  compression_level?: number
+  /** Advanced safe argv values for remote tar/zip. */
+  archive_args?: string[]
+  timeout_seconds?: number
+  reason?: string
+}
+
 export interface SshRemoteParams {
   action:
     | 'connect'

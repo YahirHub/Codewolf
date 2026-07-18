@@ -252,3 +252,12 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `install.sh` is the supported release installer/updater for Linux, macOS, and Bash-compatible Windows environments. Keep deterministic asset names aligned with `.github/workflows/build-binaries.yml`, verify `SHA256SUMS.txt`, install `tree-sitter.wasm` beside the executable, and back up `~/.codewolf` before every detected update.
 - Release archives must contain the executable, `tree-sitter.wasm`, `LICENSE`, `NOTICE`, and `README.md`. Do not remove upstream notices or describe Codewolf as the original Codebuff project.
 - The release workflow remains manual-only, uses numeric tags without `v`, and builds Linux glibc/musl, macOS, and Windows for supported x64/ARM64 targets. Retain baseline x64 variants for CPUs without AVX2.
+
+## GitZip internal deployment tool
+
+- `gitzip` is the single native boundary for gitignore-aware project packaging. Keep local archive creation, SSH upload, remote manifest creation, and remote extraction in this tool rather than teaching agents to approximate the workflow with broad terminal commands.
+- Root and nested `.gitignore` rules are authoritative. Also honor `.codewolfignore` and legacy ignore filenames, always exclude `.git/` and the active output/temp files, and preserve empty directories and symlinks where supported.
+- Protected `.env` files are excluded by default. Explicit inclusion must require the dedicated environment-file permission in addition to local or SSH Safe Mode. Never expose their contents in archive metadata or tool output.
+- Remote archives must be produced from an explicit filtered manifest. Do not pass the source directory recursively to `tar` or `zip`, and do not permit advanced arguments to replace the manifest, add arbitrary files, trigger recursion, or execute helper commands.
+- `create` is a local mutation; `upload`, `remote_create`, and `remote_extract` are SSH-sensitive operations. PLAN must remain incapable of calling `gitzip`.
+- Keep local ZIP/TAR/TAR.GZ generation compatible with Bun-compiled Windows, Linux, and macOS binaries. Remote `tar`/`zip` availability is a runtime server requirement and errors must be explicit.

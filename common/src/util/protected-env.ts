@@ -60,6 +60,9 @@ export function toolMayReadProtectedEnv(params: {
   externalTool?: boolean
 }): boolean {
   const { toolName, input, externalTool } = params
+  if (toolName === 'gitzip' && input && typeof input === 'object') {
+    return (input as Record<string, unknown>).include_protected_env === true
+  }
   if (!inputMentionsProtectedEnv(input)) return false
   if (externalTool) return true
 

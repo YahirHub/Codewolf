@@ -41,6 +41,7 @@ y variables avanzadas.
 - Modo PLAN de solo lectura con planes verificables, revisión y aprobación por nivel de ejecución.
 - Checkpoints `/rewind` para volver la conversación, los archivos editados por Codewolf o ambos.
 - Perfiles SSH globales, bóveda portable cifrada y conexiones simultáneas para navegar, transferir archivos, ejecutar comandos y conservar shells remotas.
+- Herramienta interna `gitzip` para crear ZIP/TAR/TAR.GZ respetando `.gitignore`, subirlos por SSH o comprimir directamente en servidores conectados.
 - Seguridad configurable desde `/config` para operaciones locales, SSH y lectura de secretos `.env`.
 - Metodología opcional desde `/config`, con resumen automático de `contexto/` y commits verificados después de probar.
 - Conversaciones y configuración compartidas entre desarrollo y binarios.
@@ -102,6 +103,8 @@ Abre `/config` y entra en **SEGURIDAD**. Los controles son independientes:
 - **Proteger archivos .env:** pide permiso antes de mostrar contenido de `.env` o `.env.*` local o remoto, incluso en modo normal. Está activado por defecto.
 
 La herramienta interna `ssh_remote` administra perfiles globales en `~/.codewolf/ssh-servers.json`, credenciales cifradas en `~/.codewolf/ssh-secrets.enc` y varias conexiones activas reutilizables mediante `ssh://<connection_id>`. La contraseña maestra y las credenciales solicitadas se introducen en una pantalla enmascarada del CLI y nunca se entregan al agente. La bóveda permanece desbloqueada solo durante el proceso actual. Una acción SSH que además exponga un `.env` pide por separado permiso remoto y permiso de lectura del secreto.
+
+`gitzip` reutiliza esas conexiones para empaquetar y desplegar proyectos. Aplica `.gitignore` raíz y anidados, excluye `.git/` y `.env` protegidos, puede generar ZIP/TAR/TAR.GZ localmente, subir por SFTP, extraer en destino o crear el archivo directamente en el servidor mediante un manifiesto filtrado. Consulta `docs/gitzip.md`.
 
 Consulta [docs/safe-mode.md](docs/safe-mode.md) y [docs/ssh-remote.md](docs/ssh-remote.md) para conocer las operaciones protegidas, autenticación y límites.
 

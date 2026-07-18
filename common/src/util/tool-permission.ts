@@ -6,6 +6,7 @@ import type { SshRemoteAction } from '../tools/params/tool/ssh-remote'
 
 const SENSITIVE_NATIVE_TOOLS = new Set([
   'apply_patch',
+  'gitzip',
   'run_file_change_hooks',
   'run_terminal_command',
   'str_replace',
@@ -247,7 +248,37 @@ export function createToolPermissionRequest(params: {
     'El modelo necesita usar esta herramienta externa para continuar.'
   let preview: string | undefined
 
-  if (toolName === 'ssh_remote') {
+  if (toolName === 'gitzip') {
+    const action = text(input.action)
+    const remote =
+      action === 'upload' ||
+      action === 'remote_create' ||
+      action === 'remote_extract'
+    category = remote
+      ? action === 'upload'
+        ? 'remote-transfer'
+        : 'remote-command'
+      : 'file-create'
+    title =
+      action === 'upload'
+        ? 'Comprimir y subir proyecto por SSH'
+        : action === 'remote_create'
+          ? 'Comprimir proyecto en servidor remoto'
+          : action === 'remote_extract'
+            ? 'Extraer archivo en servidor remoto'
+            : 'Comprimir proyecto respetando .gitignore'
+    target =
+      text(input.remote_path) ??
+      text(input.output_path) ??
+      text(input.source_path) ??
+      toolName
+    reason =
+      explicitReason ??
+      (remote
+        ? 'El modelo necesita preparar o extraer un archivo de proyecto en el servidor remoto.'
+        : 'El modelo necesita crear un archivo del proyecto respetando sus reglas de exclusión.')
+    preview = externalPreview(input)
+  } else if (toolName === 'ssh_remote') {
     const action = text(input.action) as SshRemoteAction | undefined
     const details = action ? SSH_ACTION_DETAILS[action] : undefined
     category = details?.category ?? 'remote-file'
@@ -339,12 +370,17 @@ export function createToolPermissionRequest(params: {
     ...(parentAgentId ? { parentAgentId } : {}),
     category,
     scope:
-      toolName === 'ssh_remote'
+      toolName === 'ssh_remote' ||
+      (toolName === 'gitzip' &&
+        ['upload', 'remote_create', 'remote_extract'].includes(
+          text(input.action) ?? '',
+        ))
         ? 'ssh'
         : params.externalTool
           ? 'external'
           : 'local',
-    ...(toolName === 'ssh_remote' && text(input.action)
+    ...((toolName === 'ssh_remote' || toolName === 'gitzip') &&
+    text(input.action)
       ? { operation: text(input.action) }
       : {}),
     title,

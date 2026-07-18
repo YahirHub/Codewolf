@@ -14,6 +14,7 @@ import { ecosystemResearchParams } from './params/tool/ecosystem-research'
 import { findFilesParams } from './params/tool/find-files'
 import { globParams } from './params/tool/glob'
 import { gravityIndexParams } from './params/tool/gravity-index'
+import { gitzipParams } from './params/tool/gitzip'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
 import { proposeStrReplaceParams } from './params/tool/propose-str-replace'
@@ -57,6 +58,7 @@ export const toolParams = {
   find_files: findFilesParams,
   glob: globParams,
   gravity_index: gravityIndexParams,
+  gitzip: gitzipParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
   propose_str_replace: proposeStrReplaceParams,
@@ -130,6 +132,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('glob'),
     input: toolParams.glob.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('gitzip'),
+    input: toolParams.gitzip.inputSchema,
   }),
   z.object({
     toolName: z.literal('list_directory'),
