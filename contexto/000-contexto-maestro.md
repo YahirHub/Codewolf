@@ -314,6 +314,7 @@ lista exacta y versiones bloqueadas.
   para detectar prompts nuevos grandes antes de la siguiente llamada.
 - Los campos reservados del protocolo quedan protegidos frente a metadatos del
   proveedor y los historiales dañados se reparan antes de reproducirse.
+- Los proveedores personalizados OpenAI-compatible fuerzan contenido `assistant` no vacío al reproducir turnos de razonamiento o herramientas, evitando que proxies como CommandCode conviertan una cadena vacía a `null` y rechacen el historial después de una respuesta interrumpida.
 - El atajo se simplificó a `/agent`; inserta `@Agent`, usa el ID estable `agent` y hereda directamente la selección global de `/models`, sin selector ni persistencia por agente.
 - La compactación manual se confirma al terminar todo el turno y devuelve el
   resumen generado como salida exitosa, independientemente de que el historial
@@ -402,3 +403,6 @@ al terminar.
 - `042`: registro global profesional de servidores SSH.
 - `043`: bóveda cifrada portable y entrada de secretos fuera del agente.
 - `044`: confirmación de contraseña de la bóveda sin estados atrasados de React.
+- `045`: puerto 22 aplicado en runtime sin contaminar `connect_server`.
+- `046`: GitZip local/remoto con `.gitignore`, TAR/ZIP y despliegue SSH.
+- `047`: compatibilidad CommandCode para replay de mensajes `assistant` sin texto.

@@ -152,6 +152,47 @@ describe('tool calls', () => {
     ])
   })
 
+  it('keeps assistant content non-empty for strict compatible gateways', () => {
+    const result = convertToOpenAICompatibleChatMessages(
+      [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'reasoning',
+              text: 'Need to inspect the project first.',
+            },
+            {
+              type: 'tool-call',
+              input: { path: 'src/index.ts' },
+              toolCallId: 'strict-call',
+              toolName: 'read_files',
+            },
+          ],
+        },
+      ],
+      { requireNonEmptyAssistantContent: true },
+    )
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: ' ',
+        reasoning_content: 'Need to inspect the project first.',
+        tool_calls: [
+          {
+            type: 'function',
+            id: 'strict-call',
+            function: {
+              name: 'read_files',
+              arguments: JSON.stringify({ path: 'src/index.ts' }),
+            },
+          },
+        ],
+      },
+    ])
+  })
+
   it('should handle text output type in tool results', () => {
     const result = convertToOpenAICompatibleChatMessages([
       {

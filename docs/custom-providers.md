@@ -163,6 +163,8 @@ This normalization is applied at the tool boundary, tool-schema snapshot, Codebu
 
 Provider metadata is never allowed to overwrite protocol-critical fields such as `role`, `content`, `tool_calls`, or `tool_call_id`. When an older `run-state.json` already contains nullable or malformed messages, Codewolf repairs compatible entries and removes irrecoverable/orphaned entries before replaying the session.
 
+Direct custom providers also enable strict assistant-content compatibility. Tool-call-only and reasoning-only assistant turns are normally represented with an empty `content` string by the OpenAI-compatible protocol, but some gateways (including CommandCode-style proxies) coerce that falsy value to `null` and then reject it during their own schema validation. Codewolf sends a single whitespace character for those otherwise-empty assistant messages only on direct custom-provider requests, preserving tool calls and reasoning while preventing a malformed replay after an interrupted response.
+
 ## Storage and security
 
 All persistent configuration is stored in Codewolf's single cross-platform home directory, `~/.codewolf/`. Development and compiled binaries use the same location:

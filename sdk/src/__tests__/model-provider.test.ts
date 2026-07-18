@@ -246,6 +246,7 @@ describe('custom provider routing', () => {
       expect(await response.text).toBe('continuación correcta')
       expect(capturedBody.stream).toBe(true)
       const messages = capturedBody.messages as Array<Record<string, any>>
+      expect(messages[0]?.content).toBe(' ')
       expect(messages[0]?.tool_calls?.[0]?.function?.arguments).toBe(
         JSON.stringify({ path: 'src/index.ts', self: '[Circular]' }),
       )

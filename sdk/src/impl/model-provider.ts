@@ -307,6 +307,10 @@ function createCustomProviderModel(
     includeUsage: undefined,
     supportsStructuredOutputs: config.supportsStructuredOutputs ?? false,
     useNonStreamingForDoStream: config.useNonStreaming ?? false,
+    // Custom gateways such as CommandCode can coerce empty assistant content
+    // to null before validating the request. Keep replayed tool/reasoning
+    // messages as non-empty strings so interrupted sessions remain usable.
+    requireNonEmptyAssistantContent: true,
   })
 }
 

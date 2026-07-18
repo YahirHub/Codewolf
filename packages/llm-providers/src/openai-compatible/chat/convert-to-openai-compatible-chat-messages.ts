@@ -27,6 +27,7 @@ function withoutReservedMetadata<T extends object>(
 
 export function convertToOpenAICompatibleChatMessages(
   prompt: LanguageModelV2Prompt,
+  options: { requireNonEmptyAssistantContent?: boolean } = {},
 ): OpenAICompatibleChatPrompt {
   const messages: OpenAICompatibleChatPrompt = []
   for (const { role, content, ...message } of prompt) {
@@ -201,6 +202,26 @@ export function convertToOpenAICompatibleChatMessages(
       default: {
         const _exhaustiveCheck: never = role
         throw new Error(`Unsupported role: ${_exhaustiveCheck}`)
+      }
+    }
+  }
+
+  if (options.requireNonEmptyAssistantContent) {
+    // Some OpenAI-compatible gateways (notably CommandCode-style proxies)
+    // normalize an empty assistant `content` string to `null` before their
+    // final schema validation. Their validator then rejects replayed tool-call
+    // or reasoning-only assistant messages even though the original OpenAI
+    // protocol permits a nullable/empty content field in those cases.
+    //
+    // A single whitespace character is semantically inert for the model while
+    // remaining a real string through proxies that coerce other falsy values.
+    // Apply this only when explicitly requested by the provider adapter.
+    for (const message of messages) {
+      if (
+        message.role === 'assistant' &&
+        (message.content == null || message.content.length === 0)
+      ) {
+        message.content = ' '
       }
     }
   }

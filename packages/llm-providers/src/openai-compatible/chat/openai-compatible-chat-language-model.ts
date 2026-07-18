@@ -62,6 +62,13 @@ export type OpenAICompatibleChatConfig = {
   useNonStreamingForDoStream?: boolean
 
   /**
+   * Force assistant messages to carry a non-empty string content value.
+   * Some OpenAI-compatible proxies coerce an empty string to null and then
+   * reject their own normalized request during schema validation.
+   */
+  requireNonEmptyAssistantContent?: boolean
+
+  /**
    * The supported URLs for the model.
    */
   supportedUrls?: () => LanguageModelV2['supportedUrls']
@@ -209,7 +216,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       verbosity: compatibleOptions.textVerbosity,
 
       // messages:
-      messages: convertToOpenAICompatibleChatMessages(prompt),
+      messages: convertToOpenAICompatibleChatMessages(prompt, {
+        requireNonEmptyAssistantContent:
+          this.config.requireNonEmptyAssistantContent ?? false,
+      }),
 
       // tools:
       tools: openaiTools,

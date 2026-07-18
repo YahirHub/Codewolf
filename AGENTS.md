@@ -83,6 +83,7 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Manual provider model entries support `model-id=context-tokens`. Keep that value when editing providers and read common context-window fields from `/models` responses.
 - Provider metadata is untrusted extension data. Never let it overwrite protocol fields such as `role`, `content`, `tool_calls`, `reasoning_content`, `tool_call_id`, content-part `type`, or tool-call `function`.
 - Normalize persisted message history before replay. Repair legacy strings and nullable tool outputs, remove irrecoverable entries, and remove orphaned tool calls/results so one malformed historic message cannot poison every future turn.
+- Custom OpenAI-compatible providers must replay assistant tool-call/reasoning-only messages with a non-empty string `content`. Some gateways such as CommandCode coerce `""` to `null` and then reject their own normalized request; use the strict compatibility option only on direct custom-provider adapters so the original backend protocol remains unchanged.
 - Update `docs/custom-providers.md`, `docs/chat-sessions.md`, focused compaction/message tests, and `contexto/` whenever these contracts change.
 
 ## Multi-provider Web Search Architecture
