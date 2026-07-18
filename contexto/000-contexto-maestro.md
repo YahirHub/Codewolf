@@ -198,11 +198,6 @@ lista exacta y versiones bloqueadas.
 - `cli/src/components/first-run-onboarding-screen.tsx`
 - `cli/src/utils/first-run-onboarding.ts`
 - `install.sh`
-- `npm/postinstall.cjs`
-- `npm/bin/codewolf.cjs`
-- `npm/lib/platform.cjs`
-- `npm/lib/archive.cjs`
-- `npm/lib/installer.cjs`
 - `docs/install.md`
 - `.github/workflows/build-binaries.yml`
 - `AGENTS.md`
@@ -424,4 +419,3 @@ al terminar.
 - `051`: mocks de fetch compatibles con los tipos extendidos de Bun.
 - `052`: build Windows mediante staging cuando codewolf.exe está bloqueado y corrección noImplicitAny del mock de conectividad.
 - Los mocks unitarios de `fetch` deben contemplar que Bun amplía `typeof fetch` con miembros estáticos como `preconnect`; en pruebas aisladas se usa la frontera explícita `as unknown as typeof fetch` sin debilitar los tipos de producción.
-- Instalador npm GitHub: no usar lifecycle `postinstall`; el launcher `codewolf` descarga/verifica el runtime de GitHub Releases en la primera ejecución para evitar `uv_cwd` durante preparación Git de npm.

@@ -88,7 +88,6 @@ func main() {
 		{name: "Settings tests", args: []string{"test", "cli/src/utils/__tests__/settings.test.ts"}},
 		{name: "Research model tests", args: []string{"test", "cli/src/utils/__tests__/research-models.test.ts"}},
 		{name: "Subagent provider tests", args: []string{"test", "packages/agent-runtime/src/__tests__/custom-provider-subagent-context.test.ts"}},
-		{name: "GitHub npm installer tests", args: []string{"run", "test:npm-installer"}},
 		{name: "Complete test suite", args: []string{"test"}},
 		{name: "Binary build", args: []string{"run", "build:binary"}},
 	}

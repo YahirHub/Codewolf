@@ -274,4 +274,3 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 
 - Current Bun typings add static members such as `preconnect` to `typeof fetch`. Test-only async function mocks therefore do not structurally satisfy the complete `fetch` type.
 - When a unit test intentionally replaces `globalThis.fetch` or passes a callable mock where `typeof fetch` is required, use an explicit `as unknown as typeof fetch` test boundary rather than weakening production fetch types or adding fake runtime behavior.
-- Instalador npm GitHub: no usar lifecycle `postinstall`; el launcher `codewolf` descarga/verifica el runtime de GitHub Releases en la primera ejecución para evitar `uv_cwd` durante preparación Git de npm.
