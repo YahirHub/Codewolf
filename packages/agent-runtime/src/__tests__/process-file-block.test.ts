@@ -1,47 +1,11 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
+import { testLogger } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
 
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-
-let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
-
 describe('processFileBlockModule', () => {
-  beforeAll(async () => {
-    // Mock database interactions
-    await mockModule('pg-pool', () => ({
-      Pool: class {
-        connect() {
-          return {
-            query: () => ({
-              rows: [{ id: 'test-user-id' }],
-              rowCount: 1,
-            }),
-            release: () => {},
-          }
-        }
-      },
-    }))
-  })
-
-  afterAll(() => {
-    clearMockedModules()
-  })
-
-  beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
-  })
-
   describe('cleanMarkdownCodeBlock', () => {
     it('should remove markdown code block syntax with language tag', () => {
       const input = '```typescript\nconst x = 1;\n```'
@@ -74,7 +38,7 @@ describe('processFileBlockModule', () => {
         path: 'test.ts',
         initialContentPromise: Promise.resolve(null),
         newContent,
-        logger: agentRuntimeImpl.logger,
+        logger: testLogger,
       })
 
       expect(result.aborted).toBe(false)
@@ -107,7 +71,7 @@ describe('processFileBlockModule', () => {
         path: 'test.ts',
         initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        logger: agentRuntimeImpl.logger,
+        logger: testLogger,
       })
 
       expect(result.aborted).toBe(false)
@@ -136,7 +100,7 @@ describe('processFileBlockModule', () => {
         path: 'test.ts',
         initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        logger: agentRuntimeImpl.logger,
+        logger: testLogger,
       })
 
       expect(result.aborted).toBe(false)
@@ -158,7 +122,7 @@ describe('processFileBlockModule', () => {
         path: 'test.ts',
         initialContentPromise: Promise.resolve(oldContent),
         newContent,
-        logger: agentRuntimeImpl.logger,
+        logger: testLogger,
       })
 
       expect(result.aborted).toBe(false)
@@ -192,6 +156,5 @@ describe('processFileBlockModule', () => {
         )
       }
     })
-
   })
 })

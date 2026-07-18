@@ -45,7 +45,6 @@ import {
 
 import { cloneDeep } from 'lodash'
 
-import { executeComposioToolViaServer } from './composio'
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -771,6 +770,9 @@ async function runOnce({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
+  // Provider-direct CLI runs use a local identity and never validate against
+  // Codebuff. The legacy SDK path is retained only for backwards compatibility
+  // when callers instantiate the SDK without a custom provider.
   const userInfo = customProvider
     ? { id: `local-provider:${customProvider.id}` }
     : await getUserInfoFromApiKey({
@@ -1296,11 +1298,9 @@ async function handleToolCall({
         },
       ]
     } else if (isComposioMetaToolName(toolName)) {
-      result = await executeComposioToolViaServer({
-        apiKey,
-        toolName,
-        input,
-      })
+      throw new Error(
+        'Las herramientas Composio heredadas están deshabilitadas porque dependían del backend de Codebuff. Usa una integración local/MCP o una herramienta directa.',
+      )
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

@@ -7,7 +7,12 @@ import {
   setupDbSpies,
 } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { AbortError, promptSuccess } from '@codebuff/common/util/error'
+import {
+  AbortError,
+  FETCH_IDLE_TIMEOUT_USER_MESSAGE,
+  PROVIDER_CONNECTION_ERROR_USER_MESSAGE,
+  promptSuccess,
+} from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import {
   afterAll,
@@ -1185,6 +1190,12 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         'test-agent': llmOnlyTemplate,
       }
 
+      // Keep this unit test independent from the machine/CI network. The
+      // timeout belongs to the provider path while public Internet is healthy.
+      const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+        (async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
+      )
+
       // Bun aborts a fetch after 5 minutes without receiving bytes, throwing a
       // DOMException named TimeoutError with this exact message.
       loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
@@ -1201,12 +1212,12 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
       expect(result.output.type).toBe('error')
       if (result.output.type === 'error') {
-        expect(result.output.message).toContain(
-          'no data was received from the server for 5 minutes',
-        )
+        expect(result.output.message).toBe(FETCH_IDLE_TIMEOUT_USER_MESSAGE)
         expect(result.output.message).not.toContain('Agent run error:')
         expect(result.output.message).not.toBe('The operation timed out.')
       }
+
+      fetchSpy.mockRestore()
     })
 
     it('should explain dropped socket connections instead of showing the raw runtime message', async () => {
@@ -1218,6 +1229,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       const localAgentTemplates = {
         'test-agent': llmOnlyTemplate,
       }
+
+      // Keep this unit test independent from the machine/CI network. A dropped
+      // provider socket with public Internet available is a provider/path
+      // failure, not a general offline state.
+      const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+        (async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
+      )
 
       // Bun's fetch throws a plain Error with this message (and code
       // ECONNRESET/ConnectionClosed) when the TCP connection is dropped.
@@ -1237,12 +1255,16 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
       expect(result.output.type).toBe('error')
       if (result.output.type === 'error') {
-        expect(result.output.message).toContain('Connection interrupted')
+        expect(result.output.message).toBe(
+          PROVIDER_CONNECTION_ERROR_USER_MESSAGE,
+        )
         expect(result.output.message).not.toContain('Agent run error:')
         expect(result.output.message).not.toContain(
           'pass `verbose: true` in the second argument to fetch()',
         )
       }
+
+      fetchSpy.mockRestore()
     })
   })
 

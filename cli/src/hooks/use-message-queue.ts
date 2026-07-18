@@ -18,6 +18,7 @@ export const useMessageQueue = (
   sendMessage: (message: QueuedMessage) => Promise<void>,
   isChainInProgressRef: React.MutableRefObject<boolean>,
   activeAgentStreamsRef: React.MutableRefObject<number>,
+  isConnected = true,
 ) => {
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([])
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle')
@@ -71,6 +72,16 @@ export const useMessageQueue = (
     const queueLength = queuedList.length
 
     if (queueLength === 0) {
+      return
+    }
+
+    // Keep pending agent work queued while the machine has no Internet.
+    // Local slash/bash commands are routed outside this queue and remain usable.
+    if (!isConnected) {
+      logger.debug(
+        { queueLength },
+        '[message-queue] Queue blocked: no Internet connectivity',
+      )
       return
     }
 
@@ -195,6 +206,7 @@ export const useMessageQueue = (
     sendMessage,
     isChainInProgressRef,
     activeAgentStreamsRef,
+    isConnected,
   ])
 
   useEffect(() => {

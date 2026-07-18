@@ -713,9 +713,9 @@ export function getActiveProviderModelSnapshot(
   if (!provider) {
     return {
       providerId: null,
-      providerName: 'Codewolf',
-      modelId: 'default',
-      modelName: 'Backend predeterminado',
+      providerName: 'Sin proveedor',
+      modelId: 'none',
+      modelName: 'Configura un proveedor con /login',
     }
   }
 

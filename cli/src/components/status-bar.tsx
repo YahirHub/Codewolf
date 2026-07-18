@@ -77,7 +77,7 @@ export const StatusBar = ({
     activeCustomModel?.name ?? activeCustomModel?.id ?? 'sin-modelo'
   const selectedModelLabel = activeCustomProvider
     ? `${activeCustomProvider.name}/${selectedModelName}`
-    : 'Codewolf/Backend predeterminado'
+    : 'Sin proveedor'
   const activeRunModel = useChatStore((state) => state.activeRunModel)
   const activeRunModelLabel = activeRunModel
     ? `${activeRunModel.providerName}/${activeRunModel.modelName}`
@@ -141,11 +141,16 @@ export const StatusBar = ({
           </span>
         )
       case 'reconnected':
-        return <span fg={theme.success}>Reconectado</span>
+        return <span fg={theme.success}>Internet restablecido</span>
       case 'retrying':
         return <ShimmerText text="reintentando..." primaryColor={theme.warning} />
       case 'connecting':
-        return <ShimmerText text="conectando..." />
+        return (
+          <ShimmerText
+            text="sin internet · esperando..."
+            primaryColor={theme.warning}
+          />
+        )
       case 'waiting':
         return (
           <ShimmerText

@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react'
 
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
-import { filterNetworkErrors } from '../utils/validation-error-helpers'
 
 export type ValidationError = {
   id: string
@@ -22,42 +21,40 @@ type UseAgentValidationResult = {
 }
 
 /**
- * Hook that provides agent validation functionality.
- * Call validate() manually to trigger validation (e.g., on message send).
+ * Validate agent definitions locally before sending a turn.
+ *
+ * Codewolf intentionally does not call the legacy Codebuff validation service:
+ * local syntax/schema errors block the turn, while Internet/provider failures
+ * are handled independently by the connectivity and provider layers.
  */
 export const useAgentValidation = (): UseAgentValidationResult => {
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
-    [],
-  )
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [isValidating, setIsValidating] = useState(false)
 
-  // Validate agents and update state
-  // Returns validation result with success status and any errors
   const validate = useCallback(async (): Promise<ValidationCheckResult> => {
     setIsValidating(true)
 
     try {
       const agentDefinitions = loadAgentDefinitions()
-
       const validationResult = await validateAgents(agentDefinitions, {
-        remote: true,
+        remote: false,
       })
-
-      if (validationResult.success) {
-        setValidationErrors([])
-        return { success: true, errors: [] }
-      } else {
-        const filteredValidationErrors = filterNetworkErrors(
-          validationResult.validationErrors,
-        )
-        setValidationErrors(filteredValidationErrors)
-        return { success: false, errors: filteredValidationErrors }
-      }
+      const errors = validationResult.validationErrors
+      setValidationErrors(errors)
+      return { success: validationResult.success, errors }
     } catch (error) {
-      logger.error({ error }, 'Agent validation failed with exception')
-      // Don't update validation errors on exception - keep previous state
-      // Return failure to block message sending on validation errors
-      return { success: false, errors: [] }
+      logger.error({ error }, 'Local agent validation failed with exception')
+      const errors = [
+        {
+          id: 'local_validation_error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'La validación local del agente falló inesperadamente.',
+        },
+      ]
+      setValidationErrors(errors)
+      return { success: false, errors }
     } finally {
       setIsValidating(false)
     }

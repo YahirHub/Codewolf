@@ -1,52 +1,48 @@
+import {
+  checkInternetConnection,
+  getInternetConnectivityState,
+  subscribeInternetConnectivity,
+} from '@codebuff/common/util/internet-connectivity'
 import { useEffect, useRef, useState } from 'react'
 
-import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
-// Adaptive health check interval configuration
-// Progressively increases polling interval based on consecutive successful checks
+// Adaptive Internet probe interval configuration.
 export const HEALTH_CHECK_CONFIG = {
-  // Initial interval after startup or failure (ms)
-  INITIAL_INTERVAL: 10_000, // 10 seconds
-  // Interval thresholds based on consecutive successful checks
+  INITIAL_INTERVAL: 10_000,
+  OFFLINE_INTERVAL: 2_000,
   INTERVALS: [
-    { successCount: 3, interval: 30_000 }, // 30 seconds after 3 successes
-    { successCount: 6, interval: 60_000 }, // 1 minute after 6 successes
-    { successCount: 10, interval: 120_000 }, // 2 minutes after 10 successes
-    { successCount: 15, interval: 300_000 }, // 5 minutes after 15 successes
-    { successCount: 20, interval: 600_000 }, // 10 minutes after 20 successes
+    { successCount: 3, interval: 30_000 },
+    { successCount: 6, interval: 60_000 },
+    { successCount: 10, interval: 120_000 },
+    { successCount: 15, interval: 300_000 },
+    { successCount: 20, interval: 600_000 },
   ],
 } as const
 
-/**
- * Calculates the next health check interval based on consecutive successful checks
- * Exported for testing purposes
- */
 export function getNextInterval(consecutiveSuccesses: number): number {
-  // Find the highest threshold that we've passed
   for (let i = HEALTH_CHECK_CONFIG.INTERVALS.length - 1; i >= 0; i--) {
     const { successCount, interval } = HEALTH_CHECK_CONFIG.INTERVALS[i]
-    if (consecutiveSuccesses >= successCount) {
-      return interval
-    }
+    if (consecutiveSuccesses >= successCount) return interval
   }
   return HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
 }
 
 /**
- * Hook to monitor connection status to the Codebuff backend.
- * Uses adaptive exponential backoff to reduce polling frequency when connection is stable.
- *
- * When the connection transitions from disconnected to connected, the optional
- * onReconnect callback is invoked with a boolean indicating whether this was
- * the initial connection (true) or a subsequent reconnection (false).
+ * Monitor actual public Internet connectivity. This deliberately does not ping
+ * Codebuff or the selected model provider: a provider outage must remain a
+ * provider/API error, while only a real Internet outage pauses queued work.
  */
 export const useConnectionStatus = (
   onReconnect?: (isInitialConnection: boolean) => void,
 ) => {
-  const [isConnected, setIsConnected] = useState(true)
-  // null = never connected, false = was disconnected, true = was connected
-  const previousConnectedRef = useRef<boolean | null>(null)
+  const initialState = getInternetConnectivityState()
+  const [isConnected, setIsConnected] = useState(initialState !== 'offline')
+  const previousConnectedRef = useRef<boolean | null>(
+    initialState === 'unknown' ? null : initialState === 'online',
+  )
+  const onReconnectRef = useRef(onReconnect)
+  onReconnectRef.current = onReconnect
 
   useEffect(() => {
     let isMounted = true
@@ -54,88 +50,56 @@ export const useConnectionStatus = (
     let consecutiveSuccesses = 0
     let currentInterval: number = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
 
+    const applyConnectivity = (connected: boolean) => {
+      if (!isMounted) return
+      const previous = previousConnectedRef.current
+      setIsConnected(connected)
+      previousConnectedRef.current = connected
+
+      if (connected && previous !== true) {
+        onReconnectRef.current?.(previous === null)
+      }
+    }
+
+    const unsubscribe = subscribeInternetConnectivity((state) => {
+      if (state === 'unknown') return
+      applyConnectivity(state === 'online')
+    })
+
     const scheduleNextCheck = (interval: number) => {
       if (!isMounted) return
-      timeoutId = setTimeout(() => checkConnection(), interval)
+      timeoutId = setTimeout(() => void checkConnection(), interval)
     }
 
     const checkConnection = async () => {
-      const client = await getCodebuffClient()
-      if (!client) {
-        if (isMounted) {
-          setIsConnected(false)
-          previousConnectedRef.current = false
-          consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          logger.debug(
-            { interval: currentInterval },
-            'Health check: No client, reset to initial interval',
-          )
-          scheduleNextCheck(currentInterval)
-        }
-        return
-      }
-
       try {
-        const connected = await client.checkConnection()
+        const connected = await checkInternetConnection()
         if (!isMounted) return
 
-        const prevConnected = previousConnectedRef.current
-        setIsConnected(connected)
-        previousConnectedRef.current = connected
-
+        applyConnectivity(connected)
         if (connected) {
-          // Determine if this is the initial connection (null) or a reconnection (false)
-          const isInitialConnection = prevConnected === null
-          const shouldFireReconnectCallback =
-            typeof onReconnect === 'function' && prevConnected !== true
-
-          if (shouldFireReconnectCallback) {
-            logger.info(
-              { isInitialConnection },
-              'Reconnection detected, firing onReconnect callback',
-            )
-            onReconnect(isInitialConnection)
-          }
-          consecutiveSuccesses++
-          const newInterval = getNextInterval(consecutiveSuccesses)
-
-          if (newInterval !== currentInterval) {
-            currentInterval = newInterval
-          }
-
-          scheduleNextCheck(currentInterval)
+          consecutiveSuccesses += 1
+          currentInterval = getNextInterval(consecutiveSuccesses)
         } else {
-          // Reset to fast polling on connection failure
-          previousConnectedRef.current = false
           consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          logger.debug(
-            { interval: currentInterval },
-            'Health check failed, reset to initial interval',
-          )
-          scheduleNextCheck(currentInterval)
+          currentInterval = HEALTH_CHECK_CONFIG.OFFLINE_INTERVAL
         }
       } catch (error) {
-        logger.debug({ error }, 'Connection check failed')
-        if (isMounted) {
-          setIsConnected(false)
-          previousConnectedRef.current = false
-          consecutiveSuccesses = 0
-          currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
-          scheduleNextCheck(currentInterval)
-        }
+        logger.debug({ error }, 'Internet connectivity probe failed')
+        if (!isMounted) return
+        applyConnectivity(false)
+        consecutiveSuccesses = 0
+        currentInterval = HEALTH_CHECK_CONFIG.OFFLINE_INTERVAL
       }
+      scheduleNextCheck(currentInterval)
     }
 
-    // Start first check immediately
-    checkConnection()
+    void checkConnection()
 
     return () => {
       isMounted = false
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
+      unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
     }
   }, [])
 

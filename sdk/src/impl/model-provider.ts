@@ -4,12 +4,9 @@
  * This module handles:
  * - Custom provider: Direct requests to a user-configured OpenAI-compatible endpoint
  * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
- * - Default: Requests through Codebuff backend (which routes to OpenRouter)
+ * - No implicit backend fallback: a direct provider must be configured
  */
 
-import path from 'path'
-
-import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   CHATGPT_BACKEND_BASE_URL,
   CHATGPT_CODEX_PROVIDER_ID,
@@ -20,14 +17,16 @@ import {
 } from '@codebuff/common/constants/chatgpt-oauth'
 import { isTransientNetworkError } from '@codebuff/common/util/error'
 import {
+  checkInternetConnection,
+  waitForInternetConnection,
+} from '@codebuff/common/util/internet-connectivity'
+import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/llm-providers/openai-compatible'
 import { APICallError } from 'ai'
 
-import { getWebsiteUrl } from '../constants'
 import { getValidChatGptOAuthCredentials } from '../credentials'
-import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
@@ -44,8 +43,8 @@ import type { LanguageModel } from 'ai'
 let chatGptOAuthRateLimitedUntil: number | null = null
 
 /**
- * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
- * and use Codebuff backend until the reset time.
+ * Mark ChatGPT OAuth as rate-limited. Subsequent direct OAuth requests fail
+ * clearly until the reset time instead of changing routes implicitly.
  */
 export function markChatGptOAuthRateLimited(resetAt?: Date): void {
   const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
@@ -80,13 +79,13 @@ export function resetChatGptOAuthRateLimit(): void {
  * Parameters for requesting a model.
  */
 export interface ModelRequestParams {
-  /** Codebuff API key for backend authentication */
+  /** Runtime key/sentinel retained for SDK compatibility; not sent to Codebuff. */
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
-  /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
+  /** If true, skip opportunistic ChatGPT OAuth resolution. */
   skipChatGptOAuth?: boolean
-  /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
+  /** Cost mode retained for compatibility with existing callers. */
   costMode?: string
   /** Optional custom OpenAI-compatible provider/model override. */
   customProvider?: CustomProviderRuntimeConfig
@@ -104,26 +103,19 @@ export interface ModelResult {
   isCustomProvider: boolean
 }
 
-// Usage accounting type for OpenRouter/Codebuff backend responses
-type OpenRouterUsageAccounting = {
-  cost: number | null
-  costDetails: {
-    upstreamInferenceCost: number | null
-  }
-}
 
 /**
  * Get the appropriate model for a request.
  *
- * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
- * returns an OpenAI direct model. Otherwise, returns the Codebuff backend model.
+ * Resolves an explicitly configured direct provider. There is no implicit
+ * Codebuff backend fallback.
  *
  * This function is async because it may need to refresh the OAuth token.
  */
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
-  const { apiKey, model, skipChatGptOAuth, costMode, customProvider } = params
+  const { apiKey, model, skipChatGptOAuth, customProvider } = params
 
   if (customProvider?.id === CHATGPT_CODEX_PROVIDER_ID) {
     if (!isChatGptOAuthModelAllowed(customProvider.modelId)) {
@@ -173,50 +165,42 @@ export async function getModelForRequest(
   }
 
   // Check if we should use ChatGPT OAuth direct
-  // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
+  // Only attempt for allowlisted models; non-allowlisted models continue to the explicit-provider requirement.
   if (
     CHATGPT_OAUTH_ENABLED &&
     !skipChatGptOAuth &&
     isOpenAIProviderModel(model) &&
     isChatGptOAuthModelAllowed(model)
   ) {
-    // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
-    // the Codebuff backend — LITE should only use the direct OpenAI route or fail.
+    // There is no backend fallback. Keep the original OAuth failure explicit
+    // instead of silently changing routes or ending with a generic no-provider error.
     if (isChatGptOAuthRateLimited()) {
-      if (costMode === 'free') {
-        throw new Error(
-          'ChatGPT rate limit reached. Please wait a few minutes and try again.',
-        )
-      }
-    } else {
-      const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
+      throw new Error(
+        'ChatGPT rate limit reached. Please wait a few minutes and try again.',
+      )
+    }
 
-      if (chatGptOAuthCredentials) {
-        return {
-          model: createOpenAIOAuthModel(
-            model,
-            chatGptOAuthCredentials.accessToken,
-          ),
-          isChatGptOAuth: true,
-          isCustomProvider: false,
-        }
-      }
+    const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
 
-      // In free mode, if credentials are unavailable, don't fall through to backend.
-      if (costMode === 'free') {
-        throw new Error(
-          'ChatGPT OAuth credentials unavailable. Please reconnect from /login.',
-        )
+    if (chatGptOAuthCredentials) {
+      return {
+        model: createOpenAIOAuthModel(
+          model,
+          chatGptOAuthCredentials.accessToken,
+        ),
+        isChatGptOAuth: true,
+        isCustomProvider: false,
       }
     }
+
+    throw new Error(
+      'ChatGPT OAuth credentials unavailable. Please reconnect from /login.',
+    )
   }
 
-  // Default: use Codebuff backend
-  return {
-    model: createCodebuffBackendModel(apiKey, model),
-    isChatGptOAuth: false,
-    isCustomProvider: false,
-  }
+  throw new Error(
+    'No hay un proveedor directo configurado para esta solicitud. Codewolf ya no utiliza el backend heredado de Codebuff como fallback. Configura un proveedor con /login y selecciónalo con /models.',
+  )
 }
 
 /**
@@ -242,7 +226,9 @@ function createOpenAIOAuthModel(
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
       ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
     }),
-    fetch: createChatGptBackendFetch(),
+    fetch: createInternetRecoveryFetch(
+      createChatGptBackendFetch() as typeof globalThis.fetch,
+    ),
     supportsStructuredOutputs: true,
     includeUsage: undefined,
   })
@@ -259,29 +245,60 @@ function createOpenAIOAuthModel(
  * exponential backoff (default 2 retries) absorb brief server/network blips
  * instead of failing the whole agent run.
  */
-function fetchWithRetryableNetworkErrors(
-  ...args: Parameters<typeof globalThis.fetch>
-): ReturnType<typeof globalThis.fetch> {
-  return globalThis.fetch(...args).catch((error: unknown) => {
-    if (isTransientNetworkError(error)) {
-      const input = args[0]
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url
-      throw new APICallError({
-        message: error instanceof Error ? error.message : String(error),
-        cause: error,
-        url,
-        requestBodyValues: {},
-        isRetryable: true,
-      })
-    }
-    throw error
-  })
+function getFetchSignal(
+  input: Parameters<typeof globalThis.fetch>[0],
+  init?: Parameters<typeof globalThis.fetch>[1],
+): AbortSignal | undefined {
+  return init?.signal ?? (input instanceof Request ? input.signal : undefined)
 }
+
+/**
+ * Retry provider transport requests indefinitely only when the machine is
+ * actually offline. If public Internet is reachable, the original provider
+ * error is rethrown as retryable for the AI SDK's bounded retry policy. This
+ * keeps provider outages, bad endpoints, rate limits, and HTTP errors distinct
+ * from a real loss of Internet connectivity.
+ */
+export function createInternetRecoveryFetch(
+  baseFetch?: typeof globalThis.fetch,
+): typeof globalThis.fetch {
+  return (async (...args: Parameters<typeof globalThis.fetch>) => {
+    const [input, init] = args
+    const signal = getFetchSignal(input, init)
+    const requestTemplate = input instanceof Request ? input.clone() : null
+
+    while (true) {
+      try {
+        const attemptInput = requestTemplate ? requestTemplate.clone() : input
+        return await (baseFetch ?? globalThis.fetch)(attemptInput, init)
+      } catch (error) {
+        if (!isTransientNetworkError(error)) throw error
+
+        const internetAvailable = await checkInternetConnection({ signal })
+        if (!internetAvailable) {
+          await waitForInternetConnection({ signal })
+          continue
+        }
+
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url
+        throw new APICallError({
+          message: error instanceof Error ? error.message : String(error),
+          cause: error,
+          url,
+          requestBodyValues: {},
+          isRetryable: true,
+        })
+      }
+    }
+  }) as typeof globalThis.fetch
+}
+
+const fetchWithInternetRecovery = createInternetRecoveryFetch()
 
 function createCustomProviderModel(
   config: CustomProviderRuntimeConfig,
@@ -303,7 +320,7 @@ function createCustomProviderModel(
       ...(config.headers ?? {}),
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codewolf-custom-provider`,
     }),
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
+    fetch: fetchWithInternetRecovery as typeof globalThis.fetch,
     includeUsage: undefined,
     supportsStructuredOutputs: config.supportsStructuredOutputs ?? false,
     useNonStreamingForDoStream: config.useNonStreaming ?? false,
@@ -311,79 +328,5 @@ function createCustomProviderModel(
     // to null before validating the request. Keep replayed tool/reasoning
     // messages as non-empty strings so interrupted sessions remain usable.
     requireNonEmptyAssistantContent: true,
-  })
-}
-
-/**
- * Create a model that routes through the Codebuff backend.
- * This is the existing behavior - requests go to Codebuff backend which forwards to OpenRouter.
- */
-function createCodebuffBackendModel(
-  apiKey: string,
-  model: string,
-): LanguageModel {
-  const openrouterUsage: OpenRouterUsageAccounting = {
-    cost: null,
-    costDetails: {
-      upstreamInferenceCost: null,
-    },
-  }
-
-  const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
-
-  return new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'codebuff',
-    url: ({ path: endpoint }) =>
-      new URL(path.join('/api/v1', endpoint), getWebsiteUrl()).toString(),
-    headers: () => ({
-      Authorization: `Bearer ${apiKey}`,
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
-      ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
-    }),
-    metadataExtractor: {
-      extractMetadata: async ({ parsedBody }: { parsedBody: any }) => {
-        if (openrouterApiKey !== undefined) {
-          return { codebuff: { usage: openrouterUsage } }
-        }
-
-        if (typeof parsedBody?.usage?.cost === 'number') {
-          openrouterUsage.cost = parsedBody.usage.cost
-        }
-        if (
-          typeof parsedBody?.usage?.cost_details?.upstream_inference_cost ===
-          'number'
-        ) {
-          openrouterUsage.costDetails.upstreamInferenceCost =
-            parsedBody.usage.cost_details.upstream_inference_cost
-        }
-        return { codebuff: { usage: openrouterUsage } }
-      },
-      createStreamExtractor: () => ({
-        processChunk: (parsedChunk: any) => {
-          if (openrouterApiKey !== undefined) {
-            return
-          }
-
-          if (typeof parsedChunk?.usage?.cost === 'number') {
-            openrouterUsage.cost = parsedChunk.usage.cost
-          }
-          if (
-            typeof parsedChunk?.usage?.cost_details?.upstream_inference_cost ===
-            'number'
-          ) {
-            openrouterUsage.costDetails.upstreamInferenceCost =
-              parsedChunk.usage.cost_details.upstream_inference_cost
-          }
-        },
-        buildMetadata: () => {
-          return { codebuff: { usage: openrouterUsage } }
-        },
-      }),
-    },
-    // Cast: Bun's fetch type also declares a `preconnect` helper, but the AI
-    // SDK only ever invokes fetch as a plain function.
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
-    includeUsage: undefined,
-    supportsStructuredOutputs: true,
   })
 }

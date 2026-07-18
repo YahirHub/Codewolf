@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'fs'
@@ -47,6 +48,56 @@ function log(message: string) {
 
 function logAlways(message: string) {
   console.log(message)
+}
+
+function isWindowsFileLockError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const code = (error as NodeJS.ErrnoException).code
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY'
+}
+
+function getPendingBinaryPath(outputFile: string): string {
+  const extension = outputFile.toLowerCase().endsWith('.exe') ? '.exe' : ''
+  const base = extension ? outputFile.slice(0, -extension.length) : outputFile
+  const preferred = `${base}.next${extension}`
+
+  try {
+    rmSync(preferred, { force: true })
+    return preferred
+  } catch (error) {
+    if (!isWindowsFileLockError(error)) throw error
+    return `${base}.next-${Date.now()}${extension}`
+  }
+}
+
+function installCompiledBinary(options: {
+  stagedOutputFile: string
+  outputFile: string
+  outputFilename: string
+  platform: NodeJS.Platform
+}): { installedFile: string; pending: boolean } {
+  const { stagedOutputFile, outputFile, outputFilename, platform } = options
+
+  try {
+    rmSync(outputFile, { force: true })
+    renameSync(stagedOutputFile, outputFile)
+    return { installedFile: outputFile, pending: false }
+  } catch (error) {
+    if (platform !== 'win32' || !isWindowsFileLockError(error)) {
+      throw error
+    }
+
+    const pendingFile = getPendingBinaryPath(outputFile)
+    renameSync(stagedOutputFile, pendingFile)
+
+    logAlways(
+      `⚠️ ${outputFilename} está en uso y Windows no permite reemplazarlo. ` +
+        `El nuevo binario quedó en ${pendingFile}. Cierra la instancia activa de Codewolf ` +
+        `y vuelve a ejecutar el build para instalarlo como ${outputFilename}.`,
+    )
+
+    return { installedFile: pendingFile, pending: true }
+  }
 }
 
 function runCommand(
@@ -192,6 +243,15 @@ async function main() {
   const outputFilename =
     targetInfo.platform === 'win32' ? `${binaryName}.exe` : binaryName
   const outputFile = join(binDir, outputFilename)
+  // Always compile to a unique staging path first. On Windows Bun cannot move
+  // its compiled executable over an already-running .exe, which otherwise
+  // makes repository validation fail with EPERM even though compilation
+  // itself succeeded. Promotion to the canonical filename happens below.
+  const stagedOutputFilename =
+    targetInfo.platform === 'win32'
+      ? `.${binaryName}.build-${process.pid}-${Date.now()}.exe`
+      : `.${binaryName}.build-${process.pid}-${Date.now()}`
+  const stagedOutputFile = join(binDir, stagedOutputFilename)
 
   // Collect all NEXT_PUBLIC_* environment variables
   const nextPublicEnvVars = Object.entries(process.env)
@@ -219,7 +279,7 @@ async function main() {
     ...(OVERRIDE_COMPILE_EXECUTABLE_PATH
       ? [`--compile-executable-path=${OVERRIDE_COMPILE_EXECUTABLE_PATH}`]
       : []),
-    `--outfile=${outputFile}`,
+    `--outfile=${stagedOutputFile}`,
     '--sourcemap=none',
     // ssh2 optionally probes cpu-features through a native .node addon. Keep
     // that optional acceleration external so Bun --compile can use ssh2's
@@ -235,7 +295,20 @@ async function main() {
       .join(' ')}`,
   )
 
-  runCommand(bunExecutable, buildArgs, { cwd: cliRoot })
+  let installedBinary: { installedFile: string; pending: boolean }
+  try {
+    runCommand(bunExecutable, buildArgs, { cwd: cliRoot })
+    installedBinary = installCompiledBinary({
+      stagedOutputFile,
+      outputFile,
+      outputFilename,
+      platform: targetInfo.platform,
+    })
+  } finally {
+    // A failed compile/promotion must not leave hidden staging executables.
+    // When promotion succeeds the staged path no longer exists.
+    rmSync(stagedOutputFile, { force: true })
+  }
 
   // Ship tree-sitter.wasm as a sibling file next to the binary. Bun
   // --compile asset embedding is unreliable on Windows (every JS-level
@@ -251,10 +324,13 @@ async function main() {
   logAlways(`Copied tree-sitter.wasm sibling: ${sourceWasm} → ${siblingWasm}`)
 
   if (targetInfo.platform !== 'win32') {
-    chmodSync(outputFile, 0o755)
+    chmodSync(installedBinary.installedFile, 0o755)
   }
 
-  logAlways(`✅ Built ${outputFilename} (${getCliTargetLabel(targetInfo)})`)
+  const builtName = installedBinary.pending
+    ? installedBinary.installedFile.slice(binDir.length + 1)
+    : outputFilename
+  logAlways(`✅ Built ${builtName} (${getCliTargetLabel(targetInfo)})`)
 }
 
 main().catch((error: unknown) => {

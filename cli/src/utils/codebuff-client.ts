@@ -1,11 +1,9 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { ToolPermissionBridge } from './tool-permission-bridge'
 import { SecretPromptBridge } from './secret-prompt-bridge'
 
-import { getAuthTokenDetails } from './auth'
 import {
   getActiveCustomProviderRuntimeConfig,
   getActiveProviderModelSnapshot,
@@ -84,22 +82,17 @@ export async function getCodebuffClientContext(): Promise<CodebuffClientContext 
       return null
     }
 
-    const { token: storedApiKey } = getAuthTokenDetails()
-    // Direct-provider mode must remain completely independent from the original
-    // Codebuff backend. Use an internal sentinel even when a legacy Codebuff
-    // token is still stored, so an accidentally dropped customProvider context
-    // cannot silently route a subagent through the upstream service.
-    const apiKey = customProvider
-      ? `local-custom-provider:${customProvider.id}`
-      : storedApiKey
-
-    if (!apiKey) {
+    // The CLI is provider-direct only. Never fall back to the historical
+    // Codebuff backend when no provider is selected, even if legacy credentials
+    // still exist in ~/.codewolf. This prevents hidden upstream dependencies.
+    if (!customProvider) {
       logger.warn(
         {},
-        `No se encontró un token de autenticación. Inicia sesión, define ${API_KEY_ENV_VAR} o configura un proveedor con /login.`,
+        'No hay un proveedor activo. Configura uno con /login y selecciona un modelo con /models.',
       )
       return null
     }
+    const apiKey = `local-custom-provider:${customProvider.id}`
 
     const projectRoot = getProjectRoot()
 

@@ -1,8 +1,6 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
-
-import type { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
@@ -27,8 +25,8 @@ export const handleReadDocs = (async (
     clientEnv: ClientEnv
     ciEnv: CiEnv
   } & ParamsExcluding<
-    typeof fetchContext7LibraryDocumentation,
-    'query' | 'topic' | 'tokens'
+    typeof callDocsSearchAPI,
+    'libraryTitle' | 'topic' | 'maxTokens' | 'repoUrl' | 'env'
   >,
 ): Promise<{
   output: CodebuffToolOutput<'read_docs'>
@@ -70,49 +68,44 @@ export const handleReadDocs = (async (
 
   let creditsUsed = 0
   try {
-    const viaWebApi = await callDocsSearchAPI({
+    const result = await callDocsSearchAPI({
       libraryTitle,
       topic,
       maxTokens: max_tokens,
-      repoUrl: null,
+      repoUrl: undefined,
       logger,
       fetch,
       env: { clientEnv, ciEnv },
     })
+    creditsUsed = result.creditsUsed ?? 0
 
-    if (viaWebApi.error || typeof viaWebApi.documentation !== 'string') {
+    if (!result.documentation) {
       const docsDuration = Date.now() - docsStartTime
-      const docMsg = `Error fetching documentation for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}: ${viaWebApi.error}`
+      const docMsg = result.error
+        ? `Error fetching documentation for "${libraryTitle}": ${result.error}`
+        : `No documentation found for "${libraryTitle}"${topic ? ` (topic: ${topic})` : ''}`
       logger.warn(
         {
           ...docsContext,
           docsDuration,
-          usedWebApi: true,
+          provider: 'context7-direct',
           success: false,
-          error: viaWebApi.error,
         },
-        'Web API docs returned error',
+        'Context7 documentation request returned no content',
       )
       return {
         output: jsonToolResult({
           documentation: docMsg,
-          ...(viaWebApi.error && { errorMessage: viaWebApi.error }),
+          errorMessage: docMsg,
         }),
         creditsUsed,
       }
     }
 
+    const documentation = result.documentation
     const docsDuration = Date.now() - docsStartTime
-    const resultLength = viaWebApi.documentation?.length || 0
-    const hasResults = Boolean(
-      viaWebApi.documentation && viaWebApi.documentation.trim(),
-    )
+    const resultLength = documentation.length
     const estimatedTokens = Math.ceil(resultLength / 4)
-
-    // Capture credits used from the API response
-    if (typeof viaWebApi.creditsUsed === 'number') {
-      creditsUsed = viaWebApi.creditsUsed
-    }
 
     logger.info(
       {
@@ -120,15 +113,15 @@ export const handleReadDocs = (async (
         docsDuration,
         resultLength,
         estimatedTokens,
-        hasResults,
-        usedWebApi: true,
+        hasResults: Boolean(documentation.trim()),
+        provider: 'context7',
         creditsUsed,
         success: true,
       },
-      'Documentation request completed successfully via web API',
+      'Documentation request completed successfully via Context7',
     )
     return {
-      output: jsonToolResult({ documentation: viaWebApi.documentation }),
+      output: jsonToolResult({ documentation }),
       creditsUsed,
     }
   } catch (error) {

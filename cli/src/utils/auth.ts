@@ -4,8 +4,6 @@ import path from 'path'
 import { getCiEnv } from '@codebuff/common/env-ci'
 import { z } from 'zod'
 
-
-import { getApiClient, setApiClientAuthToken } from './codebuff-api'
 import { getConfigDir as getConfigDirBase } from './config-dir'
 import { logger } from './logger'
 
@@ -203,31 +201,8 @@ export const clearUserCredentials = (): void => {
 }
 
 export async function logoutUser(): Promise<boolean> {
-  try {
-    const user = getUserCredentials()
-    if (user?.authToken) {
-      setApiClientAuthToken(user.authToken)
-      const apiClient = getApiClient()
-      try {
-        const response = await apiClient.logout({
-          userId: user.id,
-          fingerprintId: user.fingerprintId,
-          fingerprintHash: user.fingerprintHash,
-        })
-        if (!response.ok) {
-          logger.error(
-            { status: response.status, error: response.error },
-            'Logout request failed',
-          )
-        }
-      } catch (err) {
-        logger.error(err, 'Logout request error')
-      }
-    }
-  } catch (error) {
-    logger.error(error, 'Unexpected error preparing logout')
-  }
-
+  // Provider-direct Codewolf has no remote session to invalidate. Logout is a
+  // purely local cleanup operation and must work without Internet access.
   try {
     clearUserCredentials()
   } catch (error) {

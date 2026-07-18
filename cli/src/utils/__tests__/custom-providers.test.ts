@@ -326,7 +326,7 @@ describe('custom providers', () => {
     expect(getActiveCustomProviderCompactionThreshold(configDir)).toBe(900_000)
   })
 
-  test('switches providers and models and can return to the Codebuff backend', () => {
+  test('switches providers and models and can return to an explicit no-provider state', () => {
     upsertCustomProvider({
       id: 'first',
       name: 'First',
@@ -364,7 +364,9 @@ describe('custom providers', () => {
     expect(getActiveCustomProviderRuntimeConfig(configDir)).toBeUndefined()
     expect(getActiveProviderModelSnapshot(configDir)).toMatchObject({
       providerId: null,
-      modelId: 'default',
+      providerName: 'Sin proveedor',
+      modelId: 'none',
+      modelName: 'Configura un proveedor con /login',
     })
   })
 

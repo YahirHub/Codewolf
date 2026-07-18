@@ -48,7 +48,7 @@ export const ModelSelectorScreen: React.FC<ModelSelectorScreenProps> = ({
   onSelect,
   onCancel,
   selectionMode = 'activate',
-  includeCodewolf = true,
+  includeCodewolf = false,
   selectedChoice,
   title = 'Modelos por proveedor',
 }) => {

@@ -610,6 +610,7 @@ export const Chat = ({
           inputRef,
           inputValue: content,
           isChainInProgressRef,
+          isConnected,
           isStreaming,
           logoutMutation,
           streamMessageIdRef,

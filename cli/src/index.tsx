@@ -30,7 +30,7 @@ import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
-import { getAuthToken, getAuthTokenDetails } from './utils/auth'
+import { getAuthToken } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
@@ -286,8 +286,6 @@ async function main(): Promise<void> {
       React.useState(showProjectPicker)
 
     React.useEffect(() => {
-      const apiKey = getAuthTokenDetails().token ?? ''
-
       // The full editor always opens so /login can configure a provider
       // interactively, even on a fresh installation without credentials.
       setHasInvalidCredentials(false)

@@ -67,7 +67,6 @@ import {
   resetEarlyReturnState,
   setupStreamingContext,
 } from './helpers/send-message'
-import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import { yieldToEventLoop } from '../utils/yield-to-event-loop'
 import {
   buildEffectiveAgentPrompt,
@@ -410,17 +409,7 @@ export const useSendMessage = ({
             { errors: validationResult.errors },
             '[send-message] Validation failed',
           )
-          const errorsToAttach =
-            validationResult.errors.length === 0
-              ? [
-                  // Hide this for now, as validate endpoint may be flaky and we don't want to bother users.
-                  // {
-                  //   id: NETWORK_ERROR_ID,
-                  //   message:
-                  //     'Falló la validación del agente. Puede deberse a un problema de red o a un fallo temporal del servidor. Inténtalo de nuevo.',
-                  // },
-                ]
-              : validationResult.errors
+          const errorsToAttach = validationResult.errors
 
           setMessages((prev) =>
             prev.map((msg) => {

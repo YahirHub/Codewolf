@@ -3,11 +3,9 @@
  */
 
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
-import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 
 
-import { authQueryKeys } from './use-auth-query'
 import { useConnectionStatus } from './use-connection-status'
 import { useElapsedTime } from './use-elapsed-time'
 import { useExitHandler } from './use-exit-handler'
@@ -85,7 +83,6 @@ export function useChatStreaming({
   activeAgentStreamsRef,
   sendMessageRef,
 }: UseChatStreamingOptions): UseChatStreamingReturn {
-  const queryClient = useQueryClient()
   const [, startUiTransition] = useTransition()
 
   // Reconnection state
@@ -95,8 +92,6 @@ export function useChatStreaming({
   // Reconnection handler
   const handleReconnection = useCallback(
     (isInitialConnection: boolean) => {
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-
       startUiTransition(() => {
         if (!isInitialConnection) {
           setShowReconnectionMessage(true)
@@ -112,7 +107,7 @@ export function useChatStreaming({
         }
       })
     },
-    [queryClient, reconnectionTimeout, startUiTransition],
+    [reconnectionTimeout, startUiTransition],
   )
 
   // Connection status
@@ -157,6 +152,7 @@ export function useChatStreaming({
       }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
+    isConnected,
   )
 
   // Queue UI

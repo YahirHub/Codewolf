@@ -144,7 +144,7 @@ type OpenRouterUsageAccounting = {
 }
 
 /**
- * Check if an error is an OAuth rate limit error that should trigger fallback.
+ * Check if an error is an OAuth rate limit error that needs explicit handling.
  */
 function isOAuthRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -635,18 +635,11 @@ export async function* promptAiSdkStream(
 
         markChatGptOAuthRateLimited()
 
-        // In free mode, don't fall back to Codebuff backend — fail instead
-        if (params.costMode === 'free') {
-          throw new Error(
-            `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
-          )
-        }
-
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipChatGptOAuth: true,
-        })
-        return fallbackResult
+        // There is no implicit backend route anymore. Preserve the real OAuth
+        // failure instead of retrying through an unrelated service/provider.
+        throw new Error(
+          `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
+        )
       }
 
       if (chatGptErrorPolicy === 'fail-auth-reconnect') {
@@ -665,7 +658,7 @@ export async function* promptAiSdkStream(
           logger,
         })
 
-        // Try refreshing the token and retrying once before failing/falling back
+        // Try refreshing the token and retrying once before failing explicitly
         if (!params.chatGptOAuthRetried) {
           const refreshed = await refreshChatGptOAuthToken()
           if (refreshed) {
@@ -685,20 +678,11 @@ export async function* promptAiSdkStream(
           )
         }
 
-        // Refresh failed or already retried
-        // In free mode, don't fall back to Codebuff backend — fail instead
-        if (params.costMode === 'free') {
-          throw new Error(
-            'La autenticación de ChatGPT/Codex falló. Vuelve a iniciar sesión desde /login e inténtalo de nuevo.',
-          )
-        }
-
-        // Fall back to Codebuff backend
-        const fallbackResult = yield* promptAiSdkStream({
-          ...params,
-          skipChatGptOAuth: true,
-        })
-        return fallbackResult
+        // Refresh failed or already retried. There is no implicit Codebuff
+        // backend fallback: surface the authentication problem directly.
+        throw new Error(
+          'La autenticación de ChatGPT/Codex falló. Vuelve a iniciar sesión desde /login e inténtalo de nuevo.',
+        )
       }
 
       logger.error(

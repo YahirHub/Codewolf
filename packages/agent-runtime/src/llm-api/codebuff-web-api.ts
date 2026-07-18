@@ -1,167 +1,28 @@
-import { withTimeout } from '@codebuff/common/util/promise'
+import { fetchContext7LibraryDocumentation } from './context7-api'
 
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { JSONObject } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const FETCH_TIMEOUT_MS = 30_000
-const MAX_RETRIES = 3
-const RETRY_BASE_DELAY_MS = 1000
-const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
-
+/**
+ * Compatibility-only facade for legacy upstream symbols.
+ *
+ * Codewolf no longer sends runtime requests to Codebuff services. Active web
+ * search uses the local multi-provider search runtime, documentation goes
+ * directly to Context7, context token accounting is local, and Gravity Index
+ * is not exposed by bundled agents.
+ */
 interface CodebuffWebApiEnv {
   clientEnv: ClientEnv
   ciEnv: CiEnv
 }
 
-const tryParseJson = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-const getStringField = (value: unknown, key: string): string | undefined => {
-  if (!value || typeof value !== 'object') return undefined
-  const record = value as Record<string, unknown>
-  const field = record[key]
-  return typeof field === 'string' ? field : undefined
-}
-
-const getNumberField = (value: unknown, key: string): number | undefined => {
-  if (!value || typeof value !== 'object') return undefined
-  const record = value as Record<string, unknown>
-  const field = record[key]
-  return typeof field === 'number' ? field : undefined
-}
-
-const callCodebuffV1 = async (params: {
-  endpoint:
-    '/api/v1/web-search' | '/api/v1/docs-search' | '/api/v1/gravity-index'
-  payload: unknown
-  fetch: typeof globalThis.fetch
-  logger: Logger
-  env: CodebuffWebApiEnv
-  baseUrl?: string
-  apiKey?: string
-  requestName: 'web-search' | 'docs-search' | 'gravity-index'
-}): Promise<{ json?: unknown; error?: string; creditsUsed?: number }> => {
-  const { endpoint, payload, fetch, logger, env, requestName } = params
-  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
-
-  if (!baseUrl || !apiKey) {
-    return { error: 'Missing legacy backend base URL or API key' }
-  }
-
-  const url = `${baseUrl}${endpoint}`
-  let lastError: string | undefined
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const res = await withTimeout(
-        fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'x-codebuff-api-key': apiKey,
-          },
-          body: JSON.stringify(payload),
-        }),
-        FETCH_TIMEOUT_MS,
-        `Request to ${endpoint} timed out after ${FETCH_TIMEOUT_MS}ms`,
-      )
-
-      const text = await res.text()
-      const json = tryParseJson(text)
-
-      if (!res.ok) {
-        const err =
-          getStringField(json, 'error') ??
-          getStringField(json, 'message') ??
-          text ??
-          'Request failed'
-
-        // Retry on transient errors
-        if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < MAX_RETRIES) {
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
-          logger.warn(
-            {
-              url,
-              status: res.status,
-              statusText: res.statusText,
-              attempt,
-              maxRetries: MAX_RETRIES,
-              nextRetryDelayMs: delay,
-            },
-            `Web API ${requestName} request failed with retryable status, retrying...`,
-          )
-          await new Promise((resolve) => setTimeout(resolve, delay))
-          lastError = err
-          continue
-        }
-
-        logger.warn(
-          {
-            url,
-            status: res.status,
-            statusText: res.statusText,
-            body: text?.slice(0, 500),
-            attempt,
-          },
-          `Web API ${requestName} request failed`,
-        )
-        return { error: err }
-      }
-
-      return { json, creditsUsed: getNumberField(json, 'creditsUsed') }
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : 'Network error'
-
-      // Retry on network errors
-      if (attempt < MAX_RETRIES) {
-        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
-        logger.warn(
-          {
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : error,
-            attempt,
-            maxRetries: MAX_RETRIES,
-            nextRetryDelayMs: delay,
-          },
-          `Web API ${requestName} network error, retrying...`,
-        )
-        await new Promise((resolve) => setTimeout(resolve, delay))
-        continue
-      }
-
-      logger.error(
-        {
-          error:
-            error instanceof Error
-              ? { name: error.name, message: error.message, stack: error.stack }
-              : error,
-          attempt,
-        },
-        `Web API ${requestName} network error after all retries`,
-      )
-      return { error: lastError }
-    }
-  }
-
-  return { error: lastError ?? 'Request failed after all retries' }
-}
-
 /**
- * @deprecated Native Codewolf searches use the local multi-provider runtime in
- * `common/src/web-search`. This function remains only for upstream API
- * compatibility and must not be wired back into the active `web_search` tool.
+ * @deprecated Active Codewolf searches use the local multi-provider runtime in
+ * `common/src/web-search`. Kept only so downstream imports fail gracefully
+ * instead of contacting the historical Codebuff backend.
  */
-export async function callWebSearchAPI(params: {
+export async function callWebSearchAPI(_params: {
   query: string
   depth?: 'standard' | 'deep'
   repoUrl?: string | null
@@ -171,28 +32,10 @@ export async function callWebSearchAPI(params: {
   baseUrl?: string
   apiKey?: string
 }): Promise<{ result?: string; error?: string; creditsUsed?: number }> {
-  const { query, depth = 'standard', repoUrl, fetch, logger, env } = params
-  const payload = { query, depth, ...(repoUrl ? { repoUrl } : {}) }
-
-  const res = await callCodebuffV1({
-    endpoint: '/api/v1/web-search',
-    payload,
-    fetch,
-    logger,
-    env,
-    baseUrl: params.baseUrl,
-    apiKey: params.apiKey,
-    requestName: 'web-search',
-  })
-  if (res.error) return { error: res.error }
-
-  const result = getStringField(res.json, 'result')
-  if (result) {
-    return { result, creditsUsed: res.creditsUsed }
+  return {
+    error:
+      'El backend heredado de búsqueda de Codebuff está deshabilitado. Usa el runtime local de proveedores de búsqueda de Codewolf.',
   }
-
-  const error = getStringField(res.json, 'error')
-  return { error: error ?? 'Invalid response format' }
 }
 
 export async function callDocsSearchAPI(params: {
@@ -206,34 +49,31 @@ export async function callDocsSearchAPI(params: {
   baseUrl?: string
   apiKey?: string
 }): Promise<{ documentation?: string; error?: string; creditsUsed?: number }> {
-  const { libraryTitle, topic, maxTokens, repoUrl, fetch, logger, env } = params
-  const payload: Record<string, unknown> = { libraryTitle }
-  if (topic) payload.topic = topic
-  if (typeof maxTokens === 'number') payload.maxTokens = maxTokens
-  if (repoUrl) payload.repoUrl = repoUrl
-
-  const res = await callCodebuffV1({
-    endpoint: '/api/v1/docs-search',
-    payload,
-    fetch,
-    logger,
-    env,
-    baseUrl: params.baseUrl,
-    apiKey: params.apiKey,
-    requestName: 'docs-search',
+  // Compatibility facade: documentation is fetched directly from Context7.
+  const documentation = await fetchContext7LibraryDocumentation({
+    query: params.libraryTitle,
+    topic: params.topic,
+    tokens: params.maxTokens,
+    logger: params.logger,
+    fetch: params.fetch,
   })
-  if (res.error) return { error: res.error }
 
-  const documentation = getStringField(res.json, 'documentation')
-  if (documentation) {
-    return { documentation, creditsUsed: res.creditsUsed }
+  if (!documentation) {
+    return {
+      error: `No documentation found for "${params.libraryTitle}"${
+        params.topic ? ` (topic: ${params.topic})` : ''
+      }`,
+    }
   }
 
-  const error = getStringField(res.json, 'error')
-  return { error: error ?? 'Invalid response format' }
+  return { documentation, creditsUsed: 0 }
 }
 
-export async function callGravityIndexAPI(params: {
+/**
+ * @deprecated Gravity Index depended on the historical Codebuff backend and is
+ * intentionally disabled. Bundled Codewolf agents do not expose this tool.
+ */
+export async function callGravityIndexAPI(_params: {
   input: JSONObject
   fetch: typeof globalThis.fetch
   logger: Logger
@@ -245,32 +85,16 @@ export async function callGravityIndexAPI(params: {
   error?: string
   creditsUsed?: number
 }> {
-  const { input, fetch, logger, env } = params
-
-  const res = await callCodebuffV1({
-    endpoint: '/api/v1/gravity-index',
-    payload: input,
-    fetch,
-    logger,
-    env,
-    baseUrl: params.baseUrl,
-    apiKey: params.apiKey,
-    requestName: 'gravity-index',
-  })
-  if (res.error) return { error: res.error }
-
-  if (res.json && typeof res.json === 'object' && !Array.isArray(res.json)) {
-    return {
-      result: res.json as JSONObject,
-      creditsUsed: res.creditsUsed,
-    }
+  return {
+    error:
+      'Gravity Index está deshabilitado porque dependía del backend heredado de Codebuff. Usa researcher-web o los proveedores de búsqueda configurados.',
   }
-
-  const error = getStringField(res.json, 'error')
-  return { error: error ?? 'Invalid response format' }
 }
 
-export async function callTokenCountAPI(params: {
+/**
+ * @deprecated Context token accounting is now always performed locally.
+ */
+export async function callTokenCountAPI(_params: {
   messages: unknown[]
   system?: string
   model?: string
@@ -281,72 +105,8 @@ export async function callTokenCountAPI(params: {
   baseUrl?: string
   apiKey?: string
 }): Promise<{ inputTokens?: number; error?: string }> {
-  const { messages, system, model, tools, fetch, logger, env } = params
-  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
-
-  if (!baseUrl || !apiKey) {
-    return { error: 'Missing legacy backend base URL or API key' }
-  }
-
-  const url = `${baseUrl}/api/v1/token-count`
-  const payload: Record<string, unknown> = { messages }
-  if (system) payload.system = system
-  if (model) payload.model = model
-  if (tools) payload.tools = tools
-
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'x-codebuff-api-key': apiKey,
-        },
-        body: JSON.stringify(payload),
-      }),
-      FETCH_TIMEOUT_MS,
-      `Request to /api/v1/token-count timed out after ${FETCH_TIMEOUT_MS}ms`,
-    )
-
-    const text = await res.text()
-    const json = tryParseJson(text)
-
-    if (!res.ok) {
-      const err =
-        getStringField(json, 'error') ??
-        getStringField(json, 'message') ??
-        text ??
-        'Request failed'
-      logger.warn(
-        {
-          url,
-          status: res.status,
-          statusText: res.statusText,
-          body: text?.slice(0, 500),
-        },
-        'Web API token-count request failed',
-      )
-      return { error: err }
-    }
-
-    const inputTokens = getNumberField(json, 'inputTokens')
-    if (typeof inputTokens === 'number') {
-      return { inputTokens }
-    }
-
-    return { error: 'Invalid response format' }
-  } catch (error) {
-    logger.error(
-      {
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : error,
-      },
-      'Web API token-count network error',
-    )
-    return { error: error instanceof Error ? error.message : 'Network error' }
+  return {
+    error:
+      'El conteo remoto de tokens está deshabilitado; Codewolf usa conteo local de contexto.',
   }
 }

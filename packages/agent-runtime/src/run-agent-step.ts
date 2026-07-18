@@ -8,6 +8,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import {
   AbortError,
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
+  PROVIDER_CONNECTION_ERROR_USER_MESSAGE,
   TRANSIENT_NETWORK_ERROR_USER_MESSAGE,
   extractApiErrorDetails,
   getErrorObject,
@@ -16,6 +17,10 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
+import {
+  checkInternetConnection,
+  waitForInternetConnection,
+} from '@codebuff/common/util/internet-connectivity'
 import { getEcosystemDelegationPrompt } from '@codebuff/common/ecosystem-research/detect'
 import {
   assistantMessage,
@@ -26,7 +31,6 @@ import { type ToolSet } from 'ai'
 import { cloneDeep } from 'lodash'
 
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
-import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { isThinkOnlyResponse } from './util/think-tags'
@@ -695,8 +699,6 @@ export async function loopAgentSteps(
     startAgentRun,
     userId,
     userInputId,
-    clientEnv,
-    ciEnv,
   } = params
 
   let agentTemplate = params.agentTemplate
@@ -900,9 +902,6 @@ ${ecosystemRoutingPrompt}`
     },
   )
 
-  const shouldUseLocalContextTokenCount =
-    Boolean(params.customProvider) ||
-    params.costMode === 'free'
   const estimatePersistedContextTokensLocally = (state: AgentState) =>
     countTokensMessages(state.messageHistory) +
     countTokens(system) +
@@ -952,38 +951,9 @@ ${ecosystemRoutingPrompt}`
         countTokens(system) +
         countTokensJson(toolsForTokenCount)
 
-      // LITE and custom-provider runs never call the Codebuff
-      // token-count web API. Custom providers are intentionally independent
-      // from Codebuff credentials/services, and a local estimate is sufficient
-      // for context pruning across OpenAI-compatible endpoints.
-      if (shouldUseLocalContextTokenCount) {
-        currentAgentState.contextTokenCount = estimateContextTokensLocally()
-      } else {
-        // Check context token count via the web API. Pass the run's apiKey
-        // explicitly: interactive CLI users don't have CODEBUFF_API_KEY set in
-        // their environment, so relying on the ciEnv fallback made this call
-        // fail every step ('Missing Codebuff base URL or API key') and forced
-        // the less accurate local estimate.
-        const tokenCountResult = await callTokenCountAPI({
-          messages: messagesWithStepPrompt,
-          system,
-          model: agentTemplate.model,
-          tools: toolsForTokenCount,
-          fetch,
-          logger,
-          env: { clientEnv, ciEnv },
-          apiKey: params.apiKey,
-        })
-        if (tokenCountResult.inputTokens !== undefined) {
-          currentAgentState.contextTokenCount = tokenCountResult.inputTokens
-        } else if (tokenCountResult.error) {
-          logger.warn(
-            { error: tokenCountResult.error },
-            'Failed to get token count from web API',
-          )
-          currentAgentState.contextTokenCount = estimateContextTokensLocally()
-        }
-      }
+      // Token counting is deliberately local for every provider. This removes
+      // the last per-step dependency on the legacy Codebuff web API.
+      currentAgentState.contextTokenCount = estimateContextTokensLocally()
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined
@@ -1064,25 +1034,68 @@ ${ecosystemRoutingPrompt}`
 
       const creditsBefore = currentAgentState.directCreditsUsed
       const childrenBefore = currentAgentState.childRunIds.length
+      let stepResult: Awaited<ReturnType<typeof runAgentStep>>
+      while (true) {
+        try {
+          stepResult = await runAgentStep({
+            ...params,
+
+            agentState: currentAgentState,
+            agentTemplate,
+            n,
+            prompt: currentPrompt,
+            runId,
+            spawnParams: currentParams,
+            system,
+            tools,
+            additionalToolDefinitions: additionalToolDefinitionsWithCache,
+          })
+          break
+        } catch (error) {
+          const connectionLevelFailure =
+            isTransientNetworkError(error) || isFetchIdleTimeoutError(error)
+          if (!connectionLevelFailure) throw error
+
+          // A transport error does not automatically mean the provider is fine.
+          // Probe unrelated public endpoints first: only a real Internet outage
+          // pauses this exact agent step. Provider-specific failures continue to
+          // bubble up normally and keep their original API error semantics.
+          const internetAvailable = await checkInternetConnection({ signal })
+          if (internetAvailable) throw error
+
+          logger.warn(
+            {
+              agentType,
+              agentId: currentAgentState.agentId,
+              runId,
+              totalSteps,
+            },
+            'Internet connection lost during agent step; waiting to resume',
+          )
+          await waitForInternetConnection({ signal })
+          logger.info(
+            {
+              agentType,
+              agentId: currentAgentState.agentId,
+              runId,
+              totalSteps,
+            },
+            'Internet connection restored; resuming interrupted agent step',
+          )
+          // processStream mutates currentAgentState in place and finalizes any
+          // completed tool calls/results even when the stream breaks. Retrying
+          // from that state preserves completed work instead of restarting the
+          // whole user task and potentially duplicating side effects.
+        }
+      }
+
       const {
         agentState: newAgentState,
         fullResponse,
         shouldEndTurn: llmShouldEndTurn,
         messageId,
         nResponses: generatedResponses,
-      } = await runAgentStep({
-        ...params,
-
-        agentState: currentAgentState,
-        agentTemplate,
-        n,
-        prompt: currentPrompt,
-        runId,
-        spawnParams: currentParams,
-        system,
-        tools,
-        additionalToolDefinitions: additionalToolDefinitionsWithCache,
-      })
+      } = stepResult
 
       if (newAgentState.runId) {
         await addAgentStep({
@@ -1101,13 +1114,11 @@ ${ecosystemRoutingPrompt}`
 
       Object.assign(initialAgentState, newAgentState)
       currentAgentState = initialAgentState
-      if (shouldUseLocalContextTokenCount) {
-        // The pre-request count does not include the assistant/tool output
-        // appended by the completed step. Refresh it so the persistent context
-        // meter does not lag one model request behind.
-        currentAgentState.contextTokenCount =
-          estimatePersistedContextTokensLocally(currentAgentState)
-      }
+      // The pre-request count does not include the assistant/tool output
+      // appended by the completed step. Refresh it so the persistent context
+      // meter does not lag one model request behind.
+      currentAgentState.contextTokenCount =
+        estimatePersistedContextTokensLocally(currentAgentState)
       shouldEndTurn = llmShouldEndTurn
       nResponses = generatedResponses
 
@@ -1257,10 +1268,15 @@ ${ecosystemRoutingPrompt}`
     const apiErrorDetails = extractApiErrorDetails(error)
     const isIdleTimeout = isFetchIdleTimeoutError(error)
     const isNetworkError = !isIdleTimeout && isTransientNetworkError(error)
+    const internetAvailableForTransportFailure = isNetworkError
+      ? await checkInternetConnection({ signal }).catch(() => false)
+      : false
     const hasServerMessage = apiErrorDetails.message !== undefined
     let fallbackMessage: string
     if (isIdleTimeout) {
       fallbackMessage = FETCH_IDLE_TIMEOUT_USER_MESSAGE
+    } else if (isNetworkError && internetAvailableForTransportFailure) {
+      fallbackMessage = PROVIDER_CONNECTION_ERROR_USER_MESSAGE
     } else if (isNetworkError) {
       fallbackMessage = TRANSIENT_NETWORK_ERROR_USER_MESSAGE
     } else if (error instanceof Error) {

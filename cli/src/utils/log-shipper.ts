@@ -1,5 +1,3 @@
-import { IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
-
 import { getApiClient } from './codebuff-api'
 import { getCliEnv } from './env'
 
@@ -12,7 +10,8 @@ import type { LogRecordInput } from '@codebuff/common/schemas/logs'
  * through the app logger (which would recurse).
  *
  * Tuning via env:
- *  - CODEBUFF_SHIP_LOGS 'true' | 'false'  (default: on outside dev/test)
+ *  - CODEBUFF_SHIP_LOGS='true' explicitly opts into the legacy remote sink.
+ *    Default is off so normal Codewolf operation has no hidden Codebuff traffic.
  */
 
 const MAX_BATCH = 50
@@ -25,10 +24,10 @@ let flushing = false
 let shutdownRegistered = false
 
 function enabled(): boolean {
-  const flag = getCliEnv().CODEBUFF_SHIP_LOGS
-  if (flag === 'true') return true
-  if (flag === 'false') return false
-  return !IS_DEV && !IS_TEST && !IS_CI
+  // Never contact the legacy Codebuff log sink implicitly. This remains an
+  // explicit compatibility opt-in only for installations that still operate
+  // their own compatible endpoint.
+  return getCliEnv().CODEBUFF_SHIP_LOGS === 'true'
 }
 
 function ensureTimer(): void {

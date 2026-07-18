@@ -253,6 +253,7 @@ export async function routeUserPrompt(
     inputRef,
     inputValue,
     isChainInProgressRef,
+    isConnected = true,
     isStreaming,
     streamMessageIdRef,
     addToQueue,
@@ -317,7 +318,17 @@ export async function routeUserPrompt(
     setInputFocused(true)
     inputRef.current?.focus()
 
-    sendMessage({ content: buildInterviewPrompt(trimmed), agentMode })
+    const interviewPrompt = buildInterviewPrompt(trimmed)
+    if (
+      !isConnected ||
+      isStreaming ||
+      streamMessageIdRef.current ||
+      isChainInProgressRef.current
+    ) {
+      addToQueue(interviewPrompt)
+    } else {
+      void sendMessage({ content: interviewPrompt, agentMode })
+    }
     setTimeout(() => {
       scrollToLatest()
     }, 0)
@@ -333,7 +344,17 @@ export async function routeUserPrompt(
     setInputFocused(true)
     inputRef.current?.focus()
 
-    sendMessage({ content: buildReviewPrompt('custom', trimmed), agentMode })
+    const reviewPrompt = buildReviewPrompt('custom', trimmed)
+    if (
+      !isConnected ||
+      isStreaming ||
+      streamMessageIdRef.current ||
+      isChainInProgressRef.current
+    ) {
+      addToQueue(reviewPrompt)
+    } else {
+      void sendMessage({ content: reviewPrompt, agentMode })
+    }
     setTimeout(() => {
       scrollToLatest()
     }, 0)
@@ -430,6 +451,7 @@ export async function routeUserPrompt(
   setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
   if (
+    !isConnected ||
     isStreaming ||
     streamMessageIdRef.current ||
     isChainInProgressRef.current
@@ -461,7 +483,7 @@ export async function routeUserPrompt(
     return
   }
 
-  sendMessage({ content: trimmed, agentMode })
+  void sendMessage({ content: trimmed, agentMode })
 
   setTimeout(() => {
     scrollToLatest()

@@ -2,7 +2,7 @@
 
 # Fecha
 
-2026-07-17
+2026-07-18
 
 # Objetivo
 
@@ -96,6 +96,8 @@ TypeScript con Bun, React y OpenTUI.
 - `/config` también separa Modo seguro local, Modo seguro SSH y protección de `.env`; SSH y `.env` quedan protegidos por defecto, mientras el modo local conserva su valor desactivado.
 - `ssh_remote` administra perfiles globales en `~/.codewolf/ssh-servers.json` y contraseñas/passphrases en la bóveda portable cifrada `~/.codewolf/ssh-secrets.enc`. La entrada maestra y SSH se realiza directamente en el CLI, nunca llega al agente, y la bóveda queda desbloqueada solo durante el proceso actual. Las conexiones activas son múltiples, entregan `ssh://<id>`, conservan directorio/shell PTY, usan SFTP y pueden cerrarse individualmente o en conjunto. PLAN no recibe esta herramienta.
 - `gitzip` crea ZIP/TAR/TAR.GZ locales o remotos desde un manifiesto que respeta `.gitignore` raíz/anidados y exclusiones Codewolf. Puede subir por las conexiones persistentes, extraer en destino y excluye `.git/`, su propia salida y `.env` protegidos por defecto. PLAN tampoco recibe esta herramienta.
+- El flujo interactivo normal es provider-direct y no depende automáticamente del backend de Codebuff para healthcheck, validación de agentes, conteo de contexto ni persistencia de runs. El estado de red comprueba Internet mediante endpoints públicos neutrales; los prompts quedan en cola durante cortes reales y las peticiones/pasos interrumpidos se reanudan al volver la conectividad. Errores HTTP o fallos específicos del provider conservan su error propio y no entran en espera infinita.
+- `read_docs` consulta Context7 directamente, Gravity Index heredado permanece deshabilitado y el envío remoto de logs está apagado por defecto. Si no existe un provider directo configurado, Codewolf pide configurarlo en lugar de usar un fallback de Codebuff.
 - `/agent` inserta el agente auxiliar genérico `@Agent`, que hereda el proveedor/modelo activo de `/models` sin configuración independiente.
 - Búsqueda local multiproveedor mediante `/setup-search` con Tavily, Brave,
   Exa, Linkup, Firecrawl, SerpApi y Zenserp.
@@ -259,6 +261,8 @@ lista exacta y versiones bloqueadas.
 - La generación automática de contexto podía copiar solicitudes largas y respuestas completas en nombres y contenido, además de consumir una llamada adicional al proveedor en cada implementación.
 - El backend original no es una dependencia válida para proveedores, búsqueda,
   créditos ni suscripciones de esta edición.
+- El indicador `Conectando...` consultaba el healthcheck de Codebuff en lugar de Internet, y la validación remota de agentes podía bloquear o cancelar silenciosamente un prompt antes de enviarlo a CommandCode u otro provider directo.
+- Los errores de transporte no distinguían una caída general de Internet de un endpoint de provider inaccesible, por lo que una política de reintento podía ocultar el origen real del fallo.
 - Los subagentes podían perder el proveedor personalizado.
 - Algunos gateways reproducían tool calls y creaban investigaciones duplicadas.
 - Esquemas Zod vivos podían introducir ciclos en la sesión.
@@ -299,6 +303,8 @@ lista exacta y versiones bloqueadas.
 - El mantenimiento de contexto normal ahora es determinista y local: limita títulos, filtra Markdown y metatexto, conserva solo viñetas técnicas y omite secciones sin información real.
 - Proveedores y búsqueda se ejecutan localmente con configuración separada de
   credenciales.
+- La conectividad del CLI se comprueba contra endpoints públicos neutrales. Los prompts de IA permanecen en cola sin Internet y los pasos/peticiones de provider interrumpidos esperan y continúan al recuperar la red; un error HTTP o un fallo específico del provider no se confunde con desconexión global.
+- La validación de agentes y el conteo de contexto son locales; el runtime provider-direct usa metadatos de ejecución locales, `read_docs` consulta Context7 sin pasar por Codebuff y no existe fallback automático al backend heredado cuando falta un provider.
 - El contexto del proveedor se propaga a todos los subagentes.
 - El estado del SDK se normaliza a JSON plano.
 - Tool calls e investigadores se deduplican semánticamente.
@@ -350,6 +356,7 @@ lista exacta y versiones bloqueadas.
 - Evaluar una migración futura del namespace interno `@codebuff/*` sin romper
   workspaces ni compatibilidad.
 - Probar `ssh_remote` contra servidores controlados Linux/Windows y ejecutar la suite completa y el binario en un entorno con todas las dependencias del monorepo.
+- Probar desconexión y reconexión real de Internet con CommandCode durante un prompt pendiente y durante una tarea activa, verificando reanudación sin confundir errores del provider.
 
 # Próximos pasos
 
@@ -406,3 +413,9 @@ al terminar.
 - `045`: puerto 22 aplicado en runtime sin contaminar `connect_server`.
 - `046`: GitZip local/remoto con `.gitignore`, TAR/ZIP y despliegue SSH.
 - `047`: compatibilidad CommandCode para replay de mensajes `assistant` sin texto.
+- `048`: conectividad resiliente, cola offline y eliminación de dependencias automáticas del backend Codebuff en el flujo provider-direct.
+- `049`: pruebas alineadas con el estado sin proveedor, OAuth sin fallback y clasificación de conectividad determinista sin Internet real.
+- `050`: aislamiento de pruebas unitarias de processFileBlock sin mocks globales ajenos.
+- `051`: mocks de fetch compatibles con los tipos extendidos de Bun.
+- `052`: build Windows mediante staging cuando codewolf.exe está bloqueado y corrección noImplicitAny del mock de conectividad.
+- Los mocks unitarios de `fetch` deben contemplar que Bun amplía `typeof fetch` con miembros estáticos como `preconnect`; en pruebas aisladas se usa la frontera explícita `as unknown as typeof fetch` sin debilitar los tipos de producción.

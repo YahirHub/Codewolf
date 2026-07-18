@@ -3,8 +3,6 @@ import {
   type DynamicAgentValidationError,
 } from '@codebuff/common/templates/agent-validation'
 
-import { getWebsiteUrl } from './constants'
-
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 export interface ValidationResult {
@@ -17,25 +15,18 @@ export interface ValidationResult {
 }
 
 export interface ValidateAgentsOptions {
-  /**
-   * Whether to perform remote validation via the web API.
-   * Remote validation checks spawnable agents against the database.
-   */
+  /** @deprecated Validation is always local; retained for API compatibility. */
   remote?: boolean
 
-  /**
-   * The base URL of the Codebuff website API.
-   * Optional - defaults to NEXT_PUBLIC_CODEBUFF_APP_URL or environment-based URL.
-   * Example: 'https://codebuff.com'
-   */
+  /** @deprecated Ignored. Validation never contacts a remote service. */
   websiteUrl?: string
 }
 
 /**
  * Validates an array of agent definitions.
  *
- * By default, performs local Zod schema validation.
- * When `options.remote` is true, additionally validates spawnable agents via the web API.
+ * Performs local Zod/schema validation only. Remote validation options are
+ * accepted for backwards compatibility but intentionally ignored.
  *
  * @param definitions - Array of agent definitions to validate
  * @param options - Optional configuration for validation
@@ -45,17 +36,11 @@ export interface ValidateAgentsOptions {
  * ```typescript
  * // Local validation only
  * const result = await validateAgents(definitions)
- *
- * // Remote validation
- * const result = await validateAgents(definitions, {
- *   remote: true,
- *   websiteUrl: 'https://codebuff.com'
- * })
  * ```
  */
 export async function validateAgents(
   definitions: AgentDefinition[],
-  options?: ValidateAgentsOptions,
+  _options?: ValidateAgentsOptions,
 ): Promise<ValidationResult> {
   // Convert array of definitions to Record<string, AgentDefinition> format
   // that the common validation functions expect
@@ -80,66 +65,16 @@ export async function validateAgents(
     error: () => {},
   }
 
-  let validationErrors: DynamicAgentValidationError[] = []
-
-  if (options?.remote) {
-    // Remote validation: call the web API
-    // Use provided websiteUrl or fall back to the default from environment
-    const websiteUrl = options.websiteUrl || getWebsiteUrl()
-
-    try {
-      const response = await fetch(`${websiteUrl}/api/agents/validate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ agentDefinitions: definitions }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage =
-          (errorData as any).error ||
-          `HTTP ${response.status}: ${response.statusText}`
-
-        return {
-          success: false,
-          validationErrors: [
-            {
-              id: 'network_error',
-              message: `Failed to validate via API: ${errorMessage}`,
-            },
-          ],
-          errorCount: 1,
-        }
-      }
-
-      const data = await response.json()
-      validationErrors = data.validationErrors || []
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-
-      return {
-        success: false,
-        validationErrors: [
-          {
-            id: 'network_error',
-            message: `Failed to connect to validation API: ${errorMessage}`,
-          },
-        ],
-        errorCount: 1,
-      }
-    }
-  } else {
-    // Local validation: use common package validation logic
-    const result = validateAgentsCommon({
-      agentTemplates,
-      logger,
-    })
-
-    validationErrors = result.validationErrors
-  }
+  // Validation is intentionally local-only. The `remote` and `websiteUrl`
+  // options are retained for source compatibility but never trigger network
+  // traffic. This guarantees that sending a prompt cannot be blocked by an
+  // unrelated Codebuff service.
+  const result = validateAgentsCommon({
+    agentTemplates,
+    logger,
+  })
+  const validationErrors: DynamicAgentValidationError[] =
+    result.validationErrors
 
   // Transform validation errors to the SDK format
   const transformedErrors = validationErrors.map((error) => ({

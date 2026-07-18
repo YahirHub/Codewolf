@@ -5,7 +5,6 @@ import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampl
 import { success } from '@codebuff/common/util/error'
 
 import { getWebsiteUrl } from '../constants'
-
 import {
   addAgentStep,
   fetchAgentFromDatabase,
@@ -126,7 +125,9 @@ export function getAgentRuntimeImpl(
     clientEnv,
     ciEnv: getCiEnv(),
 
-    // Database
+    // Provider-direct Codewolf runs use local metadata and never call the
+    // historical Codebuff database/run-tracking services. Legacy SDK callers
+    // without a custom provider retain their existing compatibility behavior.
     getUserInfoFromApiKey: customProvider
       ? async ({ fields }) =>
           Object.fromEntries(

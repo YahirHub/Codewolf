@@ -1,6 +1,6 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
-import { getWebsiteUrl } from './constants'
+import { checkInternetConnection } from '@codebuff/common/util/internet-connectivity'
 import { getCodebuffApiKeyFromEnv } from './env'
 import { run } from './run'
 
@@ -62,26 +62,13 @@ export class CodebuffClient {
   }
 
   /**
-   * Check connection to the configured backend by hitting the /healthz endpoint.
-   *
-   * @returns Promise that resolves to true if connected, false otherwise
+   * Check public Internet connectivity without contacting Codebuff or the
+   * selected model provider. Provider/API health is intentionally a separate
+   * concern so provider failures are never mislabeled as Internet outages.
    */
   public async checkConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${getWebsiteUrl()}/api/healthz`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      })
-
-      if (!response.ok) return false
-
-      const result = await response.json()
-      return (
-        typeof result === 'object' &&
-        result !== null &&
-        'status' in result &&
-        (result as { status?: unknown }).status === 'ok'
-      )
+      return await checkInternetConnection()
     } catch {
       return false
     }

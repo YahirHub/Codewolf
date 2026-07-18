@@ -27,7 +27,7 @@ export function createBase2(
     planOnly = false,
     noAskUser = false,
     noReview = false,
-    noGravityIndex = false,
+    noGravityIndex = true,
     model: modelOverride,
     providerOptions,
   } = options ?? {}

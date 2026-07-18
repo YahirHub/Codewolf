@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
 import {
+  createInternetRecoveryFetch,
   isChatGptOAuthRateLimited,
   markChatGptOAuthRateLimited,
   resetChatGptOAuthRateLimit,
@@ -253,6 +254,99 @@ describe('custom provider routing', () => {
       expect(messages[1]?.content).toBe(
         JSON.stringify({ ok: true, self: '[Circular]' }),
       )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
+
+describe('Internet-aware provider transport', () => {
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test('does not use a hidden backend when no direct provider is configured', async () => {
+    const { getModelForRequest } = await import('../impl/model-provider')
+
+    await expect(
+      getModelForRequest({
+        apiKey: 'legacy-key-that-must-not-be-used',
+        model: 'anthropic/claude-sonnet-4',
+        skipChatGptOAuth: true,
+      }),
+    ).rejects.toThrow('No hay un proveedor directo configurado')
+  })
+
+  test('classifies a provider transport failure separately when public Internet is reachable', async () => {
+    globalThis.fetch = (async () => new Response('', { status: 204 })) as unknown as typeof fetch
+    const providerFetch = async () => {
+      const error = new Error('provider connection refused') as Error & { code: string }
+      error.code = 'ECONNREFUSED'
+      throw error
+    }
+
+    const wrapped = createInternetRecoveryFetch(providerFetch as unknown as typeof fetch)
+
+    try {
+      await wrapped('https://provider.example.test/v1/chat/completions')
+      throw new Error('Expected provider transport failure')
+    } catch (error) {
+      expect((error as { isRetryable?: boolean }).isRetryable).toBe(true)
+      expect(String((error as Error).message)).toContain('provider connection refused')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test('waits for real Internet recovery and retries the same provider request', async () => {
+    let providerAttempts = 0
+    const providerFetch = async () => {
+      providerAttempts += 1
+      if (providerAttempts === 1) {
+        const error = new Error('network unreachable') as Error & { code: string }
+        error.code = 'ENETUNREACH'
+        throw error
+      }
+      return new Response('ok', { status: 200 })
+    }
+
+    let probeCalls = 0
+    globalThis.fetch = (async () => {
+      probeCalls += 1
+      // The first connectivity check launches the four configured probes.
+      // The immediate check performed by waitForInternetConnection succeeds.
+      if (probeCalls <= 4) throw new Error('offline')
+      return new Response('', { status: 204 })
+    }) as unknown as typeof fetch
+
+    try {
+      const wrapped = createInternetRecoveryFetch(providerFetch as unknown as typeof fetch)
+      const response = await wrapped('https://provider.example.test/v1/chat/completions')
+
+      expect(response.status).toBe(200)
+      expect(providerAttempts).toBe(2)
+      expect(probeCalls).toBeGreaterThan(4)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test('does not reinterpret provider HTTP responses as an Internet outage', async () => {
+    let probes = 0
+    globalThis.fetch = (async () => {
+      probes += 1
+      return new Response('', { status: 204 })
+    }) as unknown as typeof fetch
+    const providerFetch = async () => new Response('rate limited', { status: 429 })
+
+    try {
+      const wrapped = createInternetRecoveryFetch(providerFetch as unknown as typeof fetch)
+      const response = await wrapped('https://provider.example.test/v1/chat/completions')
+      expect(response.status).toBe(429)
+      expect(probes).toBe(0)
     } finally {
       globalThis.fetch = originalFetch
     }

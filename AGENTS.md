@@ -69,9 +69,11 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - An active custom provider is a global model override for the main agent and all subagents. `extractSubagentContextParams` must preserve `customProvider`; otherwise spawned agents silently fall back to the original backend. Switching provider/model must reset the cached CLI SDK client.
 - `/agent` is the only public shortcut for the bundled generic auxiliary agent. It inserts `@Agent ` and must inherit the global provider/model selected through `/models`; do not add model names, a per-agent selector, or separate provider/model persistence. The stable bundled ID is `agent` and the display name is `Agent`.
 - Direct-provider mode must not send Codebuff/OpenRouter-only request options or call Codebuff user validation, billing, remote agent lookup, or run persistence.
+- Normal interactive connectivity must probe public Internet independently of both Codebuff and the selected provider. Queue AI prompts while truly offline and resume interrupted provider requests/agent steps only after independent probes confirm Internet restoration. Provider HTTP errors, rate limits, authentication failures, and endpoint-specific outages must remain provider errors and must never trigger indefinite offline waiting.
+- Agent validation and context token accounting are local-only in normal Codewolf execution. Active documentation lookup goes directly to Context7; do not reintroduce automatic Codebuff healthchecks, remote validation, remote token counting, Gravity Index calls, or hidden log shipping.
 - Provider configuration is editor-only: `/login` opens the provider wizard and `/models` opens the grouped selector. Do not reintroduce standalone `codebuff provider` or `codebuff model` management commands.
 - The full editor must remain reachable without prior credentials so a fresh installation can configure its first provider.
-- Preserve the original backend behavior when no custom provider is active.
+- Never fall back to the historical Codebuff backend when no direct provider is active. Require the user to configure/select a provider through `/login` and `/models`.
 - Update `docs/custom-providers.md` and `contexto/` when this architecture or its command surface changes.
 - Every `RunState` returned by the SDK must be plain JSON data. Never retain live Zod/tool schema instances in `AgentState.toolDefinitions`; convert them to JSON Schema before storage and normalize the final `prompt-response` session at the SDK boundary so a later `previousRun` cannot fail on circular references.
 
@@ -209,15 +211,18 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - `bun test` must run without Infisical, backend credentials, tmux, macOS clipboard access, or live browser runners. Keep those integrations opt-in or excluded by explicit directory patterns in `bunfig.toml`.
 - Child-process tests that need Bun must launch `process.execPath`, never the bare `bun` command, so Windows installations without Bun in the inherited `PATH` remain valid.
 - Tests using injected filesystems must preserve the path syntax supplied by the fixture. Use `common/src/util/path-flavor.ts` instead of host-native path operations for `/project`, Windows drive roots, or UNC roots.
+- Connectivity unit tests must never depend on the machine or CI having Internet. Mock the public connectivity probes explicitly and test offline recovery separately from provider/API failures.
+- Disabling the active provider leaves an explicit no-provider state. ChatGPT/Codex rate-limit or credential failures must remain explicit and must never fall back to the historical Codebuff backend in any cost mode.
 - User-visible Spanish labels are the current contract. Do not keep tests expecting removed credit surfaces or stale English labels.
 - Async atomic writes to the same target must stay serialized per path; a failed write must not poison later writes or leave an unhandled rejected cleanup promise.
+- Unit tests for pure utilities must not register unrelated global `mock.module` hooks. Prefer direct injected fixtures such as `testLogger`; unnecessary global mocks can collide across the full Bun suite and surface as `(unnamed)` hook failures.
 
 ## Temporary bundled OpenCode providers
 
 - `cli/src/providers/opencode-catalog.ts` is the single catalog/constant boundary for the temporary OpenCode integration. Keep endpoint URLs, provider IDs, fallback free models, the `-free` filter, and the public model cache there.
 - `cli/src/utils/opencode-providers.ts` owns network refresh and OpenCode Go configuration. Generic OpenAI-compatible provider logic must remain in `custom-providers.ts`.
 - `opencode-free` is read-only and ephemeral: include it in available providers and `/models`, but never persist its provider definition or an API key. Requests to its `/models` endpoint must not include `Authorization`.
-- On a fresh config, OpenCode Free may be the default. Once `providers.json` exists with no active provider, preserve the user's explicit choice of the Codewolf backend rather than reactivating OpenCode Free.
+- On a fresh config, OpenCode Free may be the default. Once `providers.json` exists with no active provider, preserve that explicit no-provider state rather than reactivating OpenCode Free or falling back to the historical Codebuff backend.
 - Only IDs ending exactly in `-free` belong to OpenCode Free. If discovery fails, retain the cache or embedded fallback instead of removing the provider.
 - `opencode-go` is a normal persisted provider with a secret stored only in `provider-auth.json`. Its base URL and model endpoint are fixed to the official Go service.
 - `/login` first selects the authentication method. The subscription path currently offers ChatGPT Plus/Pro (Codex Subscription); API-key login offers OpenCode Go, NVIDIA NIM, and the generic provider wizard.
@@ -262,3 +267,10 @@ Codewolf is a terminal coding editor with configurable model providers, multi-pr
 - Remote archives must be produced from an explicit filtered manifest. Do not pass the source directory recursively to `tar` or `zip`, and do not permit advanced arguments to replace the manifest, add arbitrary files, trigger recursion, or execute helper commands.
 - `create` is a local mutation; `upload`, `remote_create`, and `remote_extract` are SSH-sensitive operations. PLAN must remain incapable of calling `gitzip`.
 - Keep local ZIP/TAR/TAR.GZ generation compatible with Bun-compiled Windows, Linux, and macOS binaries. Remote `tar`/`zip` availability is a runtime server requirement and errors must be explicit.
+
+- Windows binary builds must compile to a unique staging executable before replacing `cli/bin/codewolf.exe`. If the canonical executable is locked (`EPERM`, `EACCES`, or `EBUSY`), preserve the successful build as `codewolf.next.exe` (or a timestamped equivalent), report it clearly, and do not kill user processes. A later build may promote normally after the active CLI closes.
+
+## Bun fetch mocks
+
+- Current Bun typings add static members such as `preconnect` to `typeof fetch`. Test-only async function mocks therefore do not structurally satisfy the complete `fetch` type.
+- When a unit test intentionally replaces `globalThis.fetch` or passes a callable mock where `typeof fetch` is required, use an explicit `as unknown as typeof fetch` test boundary rather than weakening production fetch types or adding fake runtime behavior.

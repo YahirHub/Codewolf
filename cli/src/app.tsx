@@ -1,5 +1,4 @@
 import path from 'path'
-import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -8,7 +7,6 @@ import { ChatHistoryScreen } from './components/chat-history-screen'
 import { FirstRunOnboardingScreen } from './components/first-run-onboarding-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
-import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { getProjectRoot, startNewChat } from './project-files'
@@ -82,9 +80,6 @@ export const App = ({
     onFocusChange: setInputFocused,
     onSupportDetected: handleSupportDetected,
   })
-
-  // Get auth query for network status tracking
-  const authQuery = useAuthQuery()
 
   const {
     isAuthenticated,
@@ -199,23 +194,10 @@ export const App = ({
   const effectiveContinueChat = continueChat || resumeChatId !== null
   const effectiveContinueChatId = resumeChatId ?? continueChatId
 
-  // Derive auth reachability + retrying state from authQuery error
-  const authError = authQuery.error
-  const authErrorStatusCode = authError
-    ? getErrorStatusCode(authError)
-    : undefined
-
-  let authStatus: AuthStatus = 'ok'
-  if (authQuery.isError && authErrorStatusCode !== undefined) {
-    if (isRetryableStatusCode(authErrorStatusCode)) {
-      // Retryable errors (408 timeout, 429 rate limit, 5xx server errors)
-      authStatus = 'retrying'
-    } else if (authErrorStatusCode >= 500) {
-      // Non-retryable server errors (unlikely but possible future codes)
-      authStatus = 'unreachable'
-    }
-    // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
-  }
+  // Authentication reachability is not used as a connectivity signal.
+  // Codewolf providers authenticate independently and Internet status is tracked
+  // by the generic connectivity monitor.
+  const authStatus: AuthStatus = 'ok'
 
   if (showFirstRunOnboarding) {
     return (

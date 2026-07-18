@@ -50,6 +50,7 @@ export type RouterParams = {
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputValue: string
   isChainInProgressRef: React.MutableRefObject<boolean>
+  isConnected?: boolean
   isStreaming: boolean
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>

@@ -384,15 +384,15 @@ export function isFetchIdleTimeoutError(error: unknown): boolean {
 }
 
 /**
- * User-facing explanation for the fetch idle timeout. The raw runtime message
- * ("The operation timed out.") reads like a server failure; in practice it
- * means no bytes reached this machine for 5 minutes, which points at the
- * network path, since the server heartbeats every 30 seconds.
+ * User-facing explanation for an idle provider stream. A real Internet outage
+ * is handled earlier by the connectivity recovery loop, so reaching this
+ * message means public Internet was available and the selected provider (or
+ * the network path specifically to it) stopped delivering data.
  */
 export const FETCH_IDLE_TIMEOUT_USER_MESSAGE =
-  'Connection timed out: no data was received from the server for 5 minutes, so the request was aborted.\n\n' +
-  'The server sends a heartbeat every 30 seconds while responses stream, so this usually means the connection was silently dropped in transit (VPN, proxy, firewall, or flaky network) rather than a server outage.\n\n' +
-  'Things to try: retry your message, check your network/VPN/proxy, or switch networks if it keeps happening.'
+  'La respuesta del proveedor de IA dejó de entregar datos durante el tiempo límite, pero la conexión general a Internet está disponible.\n\n' +
+  'Esto puede indicar saturación o caída del proveedor, un problema con su endpoint, o un proxy/firewall/VPN que afecta específicamente a ese servicio.\n\n' +
+  'Codewolf no lo tratará como una caída general de Internet ni lo reintentará indefinidamente.'
 
 /**
  * Substrings of error messages that indicate the TCP connection died in
@@ -412,6 +412,11 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'ECONNREFUSED',
   'EPIPE',
   'ETIMEDOUT',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'ENOTFOUND',
+  'EAI_AGAIN',
   // Bun-specific fetch error codes
   'ConnectionClosed',
   'ConnectionRefused',
@@ -460,6 +465,12 @@ export const TRANSIENT_NETWORK_ERROR_USER_MESSAGE =
   'Connection interrupted: the connection to the server was closed unexpectedly, even after retrying.\n\n' +
   'This is usually a transient issue — a flaky network, VPN/proxy, or the server briefly under heavy load.\n\n' +
   'Your progress is saved. Please try sending your message again.'
+
+
+export const PROVIDER_CONNECTION_ERROR_USER_MESSAGE =
+  'No se pudo conectar con el endpoint del proveedor de IA, pero la conexión general a Internet sí está disponible.\n\n' +
+  'Esto apunta a un problema del proveedor, su URL/base URL, DNS específico del endpoint, proxy o firewall dirigido a ese servicio; no a una caída general de Internet.\n\n' +
+  'La tarea no se reintentará indefinidamente como si estuvieras sin conexión.'
 
 // Extended error properties that various libraries add to Error objects
 interface ExtendedErrorProperties {

@@ -69,33 +69,33 @@ describe('getModelForRequest free-mode guards', () => {
     ).rejects.toThrow('ChatGPT OAuth credentials unavailable')
   })
 
-  test('falls through to backend when rate-limited in non-free mode', async () => {
+  test('fails explicitly when rate-limited in non-free mode instead of falling back', async () => {
     const { getModelForRequest, markChatGptOAuthRateLimited } =
       await importFresh()
 
     markChatGptOAuthRateLimited()
 
-    const result = await getModelForRequest({
-      apiKey: 'test-key',
-      model: 'openai/gpt-5.3',
-      costMode: 'default',
-    })
-
-    expect(result.isChatGptOAuth).toBe(false)
+    await expect(
+      getModelForRequest({
+        apiKey: 'test-key',
+        model: 'openai/gpt-5.3',
+        costMode: 'default',
+      }),
+    ).rejects.toThrow('ChatGPT rate limit reached')
   })
 
-  test('falls through to backend when credentials unavailable in non-free mode', async () => {
+  test('fails explicitly when credentials are unavailable in non-free mode instead of falling back', async () => {
     const { getModelForRequest } = await importFresh()
 
     mockGetValidChatGptOAuthCredentials.mockResolvedValue(null)
 
-    const result = await getModelForRequest({
-      apiKey: 'test-key',
-      model: 'openai/gpt-5.3',
-      costMode: 'default',
-    })
-
-    expect(result.isChatGptOAuth).toBe(false)
+    await expect(
+      getModelForRequest({
+        apiKey: 'test-key',
+        model: 'openai/gpt-5.3',
+        costMode: 'default',
+      }),
+    ).rejects.toThrow('ChatGPT OAuth credentials unavailable')
   })
 
   test('routes the bundled Codex subscription provider through ChatGPT OAuth', async () => {

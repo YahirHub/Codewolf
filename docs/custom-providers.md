@@ -137,7 +137,7 @@ A keyboard and mouse selector opens inside the editor:
 - Models within each provider are sorted by display name or ID.
 - The active model is marked with `●`.
 - Arrow keys move the selection, Enter activates it, and Esc closes the selector.
-- The first `Codewolf` group contains `Backend predeterminado`, which disables the direct-provider override interactively.
+- The normal selector contains only direct providers/models. Codewolf does not expose a hidden backend fallback as a selectable model.
 
 The new selection resets the cached SDK client and applies to the next request. A request already running continues with the provider/model it started with.
 
@@ -151,7 +151,7 @@ Enter:
 
 The command inserts `@Agent ` into the prompt. The generic agent does not maintain a separate provider/model assignment and does not open another model selector. It inherits the provider and model currently active through `/models`, because the active custom-provider configuration is propagated globally to the main agent and every spawned subagent.
 
-If no custom provider is active, the existing backend fallback remains unchanged. Switching `/models` resets the cached SDK client, so the next `/agent` request uses the new selection.
+If no direct provider is active, Codewolf stops before model execution and asks the user to configure/select one through `/login` and `/models`. It never falls back silently to the historical Codebuff backend. Switching `/models` resets the cached SDK client, so the next `/agent` request uses the new selection.
 
 ## Tool history, schemas, and JSON safety
 
@@ -237,6 +237,18 @@ const client = new CodebuffClient({
 ```
 
 When `customProvider` is present, the SDK skips Codebuff user validation, remote agent lookups, billing callbacks, and run persistence. Bundled and local agent definitions remain available, and all model calls go directly to the configured endpoint.
+
+## Internet connectivity and recovery
+
+The interactive CLI does not use Codebuff health endpoints to decide whether it is online. Connectivity is probed against multiple public endpoints that are independent of both Codebuff and the selected model provider.
+
+- A user prompt that needs AI remains queued while public Internet is unavailable and is submitted automatically after connectivity returns.
+- If a provider request or active agent step fails at the transport layer, Codewolf probes public Internet separately. A confirmed outage pauses and retries the same request/step after recovery.
+- Provider HTTP responses such as `401`, `403`, `429`, and `5xx` remain provider/API errors. They never trigger indefinite offline waiting.
+- If public Internet is available but only the provider endpoint cannot be reached, Codewolf reports a provider connection error and uses bounded provider retry behavior.
+- Agent validation and context-token accounting are local. Active documentation lookup talks directly to Context7; normal provider-direct execution does not need Codebuff validation, token-count, run-tracking, or healthcheck services.
+
+Offline queues and active run state are process-local. Closing the CLI terminates the current execution; reconnect recovery is intended for network loss while the same Codewolf process remains running.
 
 ## Subagent routing guarantee
 

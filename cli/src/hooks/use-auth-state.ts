@@ -1,10 +1,9 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useCallback, useEffect, useState } from 'react'
 
-import { useAuthQuery, useLogoutMutation } from './use-auth-query'
+import { useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
 import { identifyUser, trackEvent } from '../utils/analytics'
-import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { loggerContext } from '../utils/logger'
 
@@ -15,11 +14,6 @@ const setAuthLoggerContext = (params: { userId: string; email: string }) => {
   loggerContext.userId = params.userId
   loggerContext.userEmail = params.email
   identifyUser(params.userId, { email: params.email })
-}
-
-const clearAuthLoggerContext = () => {
-  delete loggerContext.userId
-  delete loggerContext.userEmail
 }
 
 interface UseAuthStateOptions {
@@ -35,7 +29,6 @@ export const useAuthState = ({
   setInputFocused,
   resetChatStore,
 }: UseAuthStateOptions) => {
-  const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
   const { resetLoginState } = useLoginStore()
 
@@ -53,42 +46,6 @@ export const useAuthState = ({
     setIsAuthenticated(!requireAuth)
   }, [requireAuth])
 
-  // Update authentication state based on query results
-  useEffect(() => {
-    if (authQuery.isSuccess && authQuery.data) {
-      setIsAuthenticated(true)
-      if (!user) {
-        const userCredentials = getUserCredentials()
-        const userData: User = {
-          id: authQuery.data.id,
-          name: userCredentials?.name || '',
-          email: authQuery.data.email || '',
-          authToken: userCredentials?.authToken || '',
-        }
-        setUser(userData)
-        // Identify first so the login event is attributed to the real user id
-        // and the pre-login anonymous history is aliased in.
-        setAuthLoggerContext({
-          userId: authQuery.data.id,
-          email: authQuery.data.email || '',
-        })
-        // Returning users restore an existing session instead of going through
-        // the login modal, so `cli.login` would otherwise never fire for them —
-        // making them look like a login-step drop-off in the funnel even though
-        // they're authenticated. Emit it here too, tagged by `via`.
-        trackEvent(AnalyticsEvent.LOGIN, {
-          userId: authQuery.data.id,
-          via: 'session_restore',
-          hasEmail: Boolean(authQuery.data.email),
-          hasName: Boolean(userCredentials?.name),
-        })
-      }
-    } else if (authQuery.isError) {
-      setIsAuthenticated(false)
-      setUser(null)
-      clearAuthLoggerContext()
-    }
-  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
   // Handle successful login
   const handleLoginSuccess = useCallback(
