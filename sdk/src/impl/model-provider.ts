@@ -87,6 +87,8 @@ export interface ModelRequestParams {
   skipChatGptOAuth?: boolean
   /** Cost mode retained for compatibility with existing callers. */
   costMode?: string
+  /** Stable conversation/session id used by providers that support cache affinity. */
+  clientSessionId?: string
   /** Optional custom OpenAI-compatible provider/model override. */
   customProvider?: CustomProviderRuntimeConfig
 }
@@ -115,7 +117,13 @@ export interface ModelResult {
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
-  const { apiKey, model, skipChatGptOAuth, customProvider } = params
+  const {
+    apiKey,
+    model,
+    skipChatGptOAuth,
+    customProvider,
+    clientSessionId,
+  } = params
 
   if (customProvider?.id === CHATGPT_CODEX_PROVIDER_ID) {
     if (!isChatGptOAuthModelAllowed(customProvider.modelId)) {
@@ -140,6 +148,7 @@ export async function getModelForRequest(
       model: createOpenAIOAuthModel(
         customProvider.modelId,
         credentials.accessToken,
+        clientSessionId,
       ),
       isChatGptOAuth: true,
       isCustomProvider: false,
@@ -187,6 +196,7 @@ export async function getModelForRequest(
         model: createOpenAIOAuthModel(
           model,
           chatGptOAuthCredentials.accessToken,
+          clientSessionId,
         ),
         isChatGptOAuth: true,
         isCustomProvider: false,
@@ -210,6 +220,7 @@ export async function getModelForRequest(
 function createOpenAIOAuthModel(
   model: string,
   oauthToken: string,
+  clientSessionId?: string,
 ): LanguageModel {
   const openAIModelId = toOpenAIModelId(model)
   const accountId = extractChatGptAccountId(oauthToken)
@@ -220,14 +231,14 @@ function createOpenAIOAuthModel(
     headers: () => ({
       Authorization: `Bearer ${oauthToken}`,
       'Content-Type': 'application/json',
-      'OpenAI-Beta': 'responses=experimental',
+      Accept: 'text/event-stream',
       originator: 'codex_cli_rs',
-      accept: 'text/event-stream',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
-      ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
+      'User-Agent': `codex_cli_rs/${process.env.CODEWOLF_CLI_VERSION ?? '1.0.0'} (${process.platform}; ${process.arch})`,
+      ...(clientSessionId ? { 'session-id': clientSessionId } : {}),
+      ...(accountId ? { 'ChatGPT-Account-ID': accountId } : {}),
     }),
     fetch: createInternetRecoveryFetch(
-      createChatGptBackendFetch() as typeof globalThis.fetch,
+      createChatGptBackendFetch({ sessionId: clientSessionId }) as typeof globalThis.fetch,
     ),
     supportsStructuredOutputs: true,
     includeUsage: undefined,

@@ -1,18 +1,44 @@
 /**
- * Custom fetch for routing ChatGPT OAuth requests through the ChatGPT backend API.
+ * ChatGPT/Codex transport adapter.
  *
- * The AI SDK's OpenAICompatibleChatLanguageModel speaks Chat Completions format,
- * but ChatGPT OAuth tokens only work with the ChatGPT backend (chatgpt.com/backend-api)
- * which uses the Responses API format.
- *
- * This module transforms:
- * - Request: Chat Completions body → Responses API body
- * - Response: Responses API SSE → Chat Completions SSE
+ * Codewolf's internal model adapter speaks Chat Completions while the ChatGPT
+ * subscription endpoint speaks the Responses API. This module translates the
+ * request/response shapes and, importantly, bounds the startup/idle phases of
+ * the SSE transport so a dead Codex connection cannot leave the CLI stuck on
+ * "Working..." indefinitely.
  */
 
 import type { FetchFunction } from '@ai-sdk/provider-utils'
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+
+const DEFAULT_HEADER_TIMEOUT_MS = 20_000
+const DEFAULT_FIRST_EVENT_TIMEOUT_MS = 30_000
+const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 90_000
+const DEFAULT_STARTUP_RETRIES = 1
+const BASE_RETRY_DELAY_MS = 500
+
+export interface ChatGptBackendFetchOptions {
+  /** Stable Codewolf conversation/session identifier used for Codex cache affinity. */
+  sessionId?: string
+  /** Timeout waiting for HTTP response headers. */
+  headerTimeoutMs?: number
+  /** Timeout waiting for the first SSE bytes after successful headers. */
+  firstEventTimeoutMs?: number
+  /** Idle timeout after streaming has started. */
+  streamIdleTimeoutMs?: number
+  /** Retries for Codex startup stalls and transient 5xx responses. */
+  startupRetries?: number
+  /** Test seam; production defaults to globalThis.fetch. */
+  fetch?: FetchLike
+}
+
+class CodexTransportTimeoutError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'CodexTransportTimeoutError'
+  }
+}
 
 // ============================================================================
 // JWT / Account ID
@@ -30,11 +56,19 @@ export function extractChatGptAccountId(accessToken: string): string | null {
   try {
     const parts = accessToken.split('.')
     if (parts.length !== 3) return null
-    const payload = JSON.parse(base64UrlDecode(parts[1]))
-    const auth = payload?.['https://api.openai.com/auth']
-    return typeof auth?.chatgpt_account_id === 'string'
-      ? auth.chatgpt_account_id
-      : null
+    const payload = JSON.parse(base64UrlDecode(parts[1])) as {
+      chatgpt_account_id?: unknown
+      organizations?: Array<{ id?: unknown }>
+      'https://api.openai.com/auth'?: { chatgpt_account_id?: unknown }
+    }
+    const nestedAccountId =
+      payload['https://api.openai.com/auth']?.chatgpt_account_id
+    if (typeof payload.chatgpt_account_id === 'string') {
+      return payload.chatgpt_account_id
+    }
+    if (typeof nestedAccountId === 'string') return nestedAccountId
+    const organizationId = payload.organizations?.[0]?.id
+    return typeof organizationId === 'string' ? organizationId : null
   } catch {
     return null
   }
@@ -85,16 +119,12 @@ function convertUserContentParts(content: unknown): unknown {
   })
 }
 
-function convertMessages(
-  messages: ChatCompletionsMessage[],
-): unknown[] {
+function convertMessages(messages: ChatCompletionsMessage[]): unknown[] {
   const input: unknown[] = []
 
   for (const msg of messages) {
     switch (msg.role) {
       case 'system': {
-        // System messages are extracted to top-level `instructions` field;
-        // if any slip through, convert to developer role
         if (msg.content) {
           input.push({ type: 'message', role: 'developer', content: msg.content })
         }
@@ -160,18 +190,25 @@ function convertTools(tools: ChatCompletionsTool[]): unknown[] {
   })
 }
 
-function transformRequestBody(
+function normalizePromptCacheKey(sessionId: string | undefined): string | undefined {
+  const value = sessionId?.trim()
+  if (!value) return undefined
+  return value.length <= 64 ? value : value.slice(0, 64)
+}
+
+export function transformChatGptRequestBody(
   body: Record<string, unknown>,
+  options: Pick<ChatGptBackendFetchOptions, 'sessionId'> = {},
 ): Record<string, unknown> {
   const messages = (body.messages ?? []) as ChatCompletionsMessage[]
   const tools = body.tools as ChatCompletionsTool[] | undefined
 
-  // Extract system messages into the top-level `instructions` field
-  // (required by the ChatGPT backend API)
   const systemMessages = messages.filter((m) => m.role === 'system')
   const nonSystemMessages = messages.filter((m) => m.role !== 'system')
   const instructions = systemMessages
-    .map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))
+    .map((m) =>
+      typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+    )
     .join('\n\n')
 
   const transformed: Record<string, unknown> = {
@@ -181,18 +218,16 @@ function transformRequestBody(
     stream: true,
     store: false,
     include: ['reasoning.encrypted_content'],
+    tool_choice: 'auto',
+    parallel_tool_calls: true,
   }
+
+  const promptCacheKey = normalizePromptCacheKey(options.sessionId)
+  if (promptCacheKey) transformed.prompt_cache_key = promptCacheKey
 
   if (tools?.length) {
     transformed.tools = convertTools(tools)
   }
-  if (body.tool_choice != null) {
-    transformed.tool_choice = body.tool_choice
-  }
-
-  // The ChatGPT backend does not support: max_output_tokens, max_tokens,
-  // temperature, top_p, stop, frequency_penalty, presence_penalty, logprobs,
-  // n, stream_options — omit them all.
 
   const reasoningEffort = body.reasoning_effort as string | undefined
   transformed.reasoning = {
@@ -200,9 +235,273 @@ function transformRequestBody(
     summary: 'auto',
   }
 
-  transformed.text = { verbosity: 'medium' }
+  // Pi's current Codex transport defaults to low verbosity. This keeps coding
+  // turns responsive while reasoning/tool output still streams normally.
+  transformed.text = { verbosity: 'low' }
 
   return transformed
+}
+
+// ============================================================================
+// Transport helpers
+// ============================================================================
+
+function getInputSignal(input: RequestInfo | URL, init?: RequestInit): AbortSignal | undefined {
+  return init?.signal ?? (input instanceof Request ? input.signal : undefined)
+}
+
+function createTimeoutSignal(params: {
+  parent?: AbortSignal
+  timeoutMs: number
+  message: string
+}): {
+  signal: AbortSignal
+  cleanup: () => void
+  timeoutError: () => CodexTransportTimeoutError | undefined
+} {
+  const controller = new AbortController()
+  let timeoutError: CodexTransportTimeoutError | undefined
+
+  const onParentAbort = () => controller.abort(params.parent?.reason)
+  params.parent?.addEventListener('abort', onParentAbort, { once: true })
+
+  const timer = setTimeout(() => {
+    timeoutError = new CodexTransportTimeoutError(params.message)
+    controller.abort(timeoutError)
+  }, params.timeoutMs)
+
+  if (params.parent?.aborted) onParentAbort()
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer)
+      params.parent?.removeEventListener('abort', onParentAbort)
+    },
+    timeoutError: () => timeoutError,
+  }
+}
+
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw signal.reason ?? new Error('Request aborted')
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal?.reason ?? new Error('Request aborted'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  }).finally(() => {
+    // Event listeners registered with once:true clean themselves after abort.
+  })
+}
+
+async function readWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number,
+  signal: AbortSignal | undefined,
+  message: string,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  const timeout = createTimeoutSignal({
+    parent: signal,
+    timeoutMs,
+    message,
+  })
+
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) => {
+        timeout.signal.addEventListener(
+          'abort',
+          () => reject(timeout.timeoutError() ?? timeout.signal.reason),
+          { once: true },
+        )
+      }),
+    ])
+  } finally {
+    timeout.cleanup()
+  }
+}
+
+function streamFromReader(params: {
+  reader: ReadableStreamDefaultReader<Uint8Array>
+  firstChunk: Uint8Array
+  signal?: AbortSignal
+  idleTimeoutMs: number
+}): ReadableStream<Uint8Array> {
+  let sentFirst = false
+  let cancelled = false
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (cancelled) return
+      if (!sentFirst) {
+        sentFirst = true
+        controller.enqueue(params.firstChunk)
+        return
+      }
+
+      try {
+        const result = await readWithTimeout(
+          params.reader,
+          params.idleTimeoutMs,
+          params.signal,
+          `La conexión Codex no recibió datos durante ${Math.round(params.idleTimeoutMs / 1000)} segundos.`,
+        )
+        if (result.done) {
+          controller.close()
+          return
+        }
+        if (result.value) controller.enqueue(result.value)
+      } catch (error) {
+        cancelled = true
+        try {
+          await params.reader.cancel(error)
+        } catch {
+          // Ignore cancellation failures after a transport error.
+        }
+        controller.error(error)
+      }
+    },
+    async cancel(reason) {
+      cancelled = true
+      try {
+        await params.reader.cancel(reason)
+      } catch {
+        // Best effort.
+      }
+    },
+  })
+}
+
+function shouldRetryStartupResponse(status: number): boolean {
+  return status === 408 || status === 502 || status === 503 || status === 504
+}
+
+async function fetchCodexResponse(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  options: Required<
+    Pick<
+      ChatGptBackendFetchOptions,
+      | 'headerTimeoutMs'
+      | 'firstEventTimeoutMs'
+      | 'streamIdleTimeoutMs'
+      | 'startupRetries'
+    >
+  > & { fetch: FetchLike },
+): Promise<Response> {
+  const parentSignal = getInputSignal(input, init)
+  const requestTemplate = input instanceof Request ? input.clone() : null
+  let lastError: unknown
+
+  for (let attempt = 0; attempt <= options.startupRetries; attempt++) {
+    if (parentSignal?.aborted) {
+      throw parentSignal.reason ?? new Error('Request aborted')
+    }
+
+    const attemptInput = requestTemplate ? requestTemplate.clone() : input
+    const headerTimeout = createTimeoutSignal({
+      parent: parentSignal,
+      timeoutMs: options.headerTimeoutMs,
+      message: `Codex no respondió con cabeceras en ${Math.round(options.headerTimeoutMs / 1000)} segundos.`,
+    })
+
+    let response: Response
+    try {
+      response = await options.fetch(attemptInput, {
+        ...init,
+        signal: headerTimeout.signal,
+      })
+    } catch (error) {
+      const timeoutError = headerTimeout.timeoutError()
+      lastError = timeoutError ?? error
+      if (timeoutError && attempt < options.startupRetries) {
+        await sleep(BASE_RETRY_DELAY_MS * 2 ** attempt, parentSignal)
+        continue
+      }
+      throw lastError
+    } finally {
+      headerTimeout.cleanup()
+    }
+
+    if (!response.ok) {
+      if (
+        shouldRetryStartupResponse(response.status) &&
+        attempt < options.startupRetries
+      ) {
+        try {
+          await response.body?.cancel()
+        } catch {
+          // Ignore body cancellation before retry.
+        }
+        await sleep(BASE_RETRY_DELAY_MS * 2 ** attempt, parentSignal)
+        continue
+      }
+      return response
+    }
+
+    if (!response.body) return response
+
+    const reader = response.body.getReader()
+    try {
+      const first = await readWithTimeout(
+        reader,
+        options.firstEventTimeoutMs,
+        parentSignal,
+        `Codex abrió la conexión pero no envió ningún evento en ${Math.round(options.firstEventTimeoutMs / 1000)} segundos.`,
+      )
+
+      if (first.done || !first.value) {
+        lastError = new CodexTransportTimeoutError(
+          'Codex cerró la respuesta antes de enviar el primer evento.',
+        )
+        if (attempt < options.startupRetries) {
+          try {
+            await reader.cancel(lastError)
+          } catch {
+            // Ignore.
+          }
+          await sleep(BASE_RETRY_DELAY_MS * 2 ** attempt, parentSignal)
+          continue
+        }
+        throw lastError
+      }
+
+      const headers = new Headers(response.headers)
+      return new Response(
+        streamFromReader({
+          reader,
+          firstChunk: first.value,
+          signal: parentSignal,
+          idleTimeoutMs: options.streamIdleTimeoutMs,
+        }),
+        {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        },
+      )
+    } catch (error) {
+      lastError = error
+      try {
+        await reader.cancel(error)
+      } catch {
+        // Ignore.
+      }
+      if (
+        error instanceof CodexTransportTimeoutError &&
+        attempt < options.startupRetries
+      ) {
+        await sleep(BASE_RETRY_DELAY_MS * 2 ** attempt, parentSignal)
+        continue
+      }
+      throw error
+    }
+  }
+
+  throw lastError ?? new Error('Codex transport failed before streaming started')
 }
 
 // ============================================================================
@@ -219,18 +518,76 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
   let nextToolCallIndex = 0
   const outputIndexToToolIndex = new Map<number, number>()
   let emittedRole = false
+  let terminalSeen = false
 
   function emit(
     controller: TransformStreamDefaultController<Uint8Array>,
     chunk: Record<string, unknown>,
   ) {
+    if (terminalSeen) return
     controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
+  }
+
+  function finish(
+    controller: TransformStreamDefaultController<Uint8Array>,
+    resp: Record<string, unknown> | undefined,
+  ) {
+    if (terminalSeen) return
+
+    const usage = resp?.usage as Record<string, unknown> | undefined
+    const status = resp?.status as string | undefined
+    let finishReason = 'stop'
+    if (status === 'incomplete') finishReason = 'length'
+    else if (nextToolCallIndex > 0) finishReason = 'tool_calls'
+
+    const chunk: Record<string, unknown> = {
+      id: responseId,
+      choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+    }
+
+    if (usage) {
+      const outputDetails = usage.output_tokens_details as
+        | Record<string, unknown>
+        | undefined
+      chunk.usage = {
+        prompt_tokens: usage.input_tokens,
+        completion_tokens: usage.output_tokens,
+        total_tokens: usage.total_tokens,
+        ...(outputDetails?.reasoning_tokens != null && {
+          completion_tokens_details: {
+            reasoning_tokens: outputDetails.reasoning_tokens,
+          },
+        }),
+      }
+    }
+
+    emit(controller, chunk)
+    terminalSeen = true
+    controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+  }
+
+  function fail(
+    controller: TransformStreamDefaultController<Uint8Array>,
+    errorObj: Record<string, unknown> | undefined,
+  ) {
+    if (terminalSeen) return
+    emit(controller, {
+      error: {
+        message:
+          (errorObj?.message as string) ?? 'ChatGPT backend request failed',
+        type: (errorObj?.type as string) ?? 'server_error',
+        ...(typeof errorObj?.code === 'string' && { code: errorObj.code }),
+      },
+    })
+    terminalSeen = true
+    controller.enqueue(encoder.encode('data: [DONE]\n\n'))
   }
 
   function processEvent(
     controller: TransformStreamDefaultController<Uint8Array>,
     data: Record<string, unknown>,
   ) {
+    if (terminalSeen) return
     const type = data.type as string | undefined
     if (!type) return
 
@@ -298,7 +655,8 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
                       id: (item.call_id as string) ?? (item.id as string),
                       function: {
                         name: item.name as string,
-                        arguments: '',
+                        arguments:
+                          typeof item.arguments === 'string' ? item.arguments : '',
                       },
                     },
                   ],
@@ -335,43 +693,10 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
       }
 
       case 'response.completed':
-      case 'response.done': {
+      case 'response.done':
+      case 'response.incomplete': {
         const resp = data.response as Record<string, unknown> | undefined
-        const usage = resp?.usage as Record<string, unknown> | undefined
-        const status = resp?.status as string | undefined
-
-        let finishReason = 'stop'
-        if (status === 'incomplete') {
-          finishReason = 'length'
-        } else if (nextToolCallIndex > 0) {
-          finishReason = 'tool_calls'
-        }
-
-        const chunk: Record<string, unknown> = {
-          id: responseId,
-          choices: [
-            { index: 0, delta: {}, finish_reason: finishReason },
-          ],
-        }
-
-        if (usage) {
-          const outputDetails = usage.output_tokens_details as
-            | Record<string, unknown>
-            | undefined
-          chunk.usage = {
-            prompt_tokens: usage.input_tokens,
-            completion_tokens: usage.output_tokens,
-            total_tokens: usage.total_tokens,
-            ...(outputDetails?.reasoning_tokens != null && {
-              completion_tokens_details: {
-                reasoning_tokens: outputDetails.reasoning_tokens,
-              },
-            }),
-          }
-        }
-
-        emit(controller, chunk)
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        finish(controller, resp)
         break
       }
 
@@ -380,70 +705,96 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
         const errorObj = (resp?.error ?? data.error) as
           | Record<string, unknown>
           | undefined
-        emit(controller, {
-          error: {
-            message:
-              (errorObj?.message as string) ??
-              'ChatGPT backend request failed',
-            type: (errorObj?.type as string) ?? 'server_error',
-          },
-        })
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        fail(controller, errorObj)
         break
       }
 
       case 'error': {
         const errorObj = (data.error ?? data) as Record<string, unknown>
-        emit(controller, {
-          error: {
-            message:
-              (errorObj.message as string) ??
-              'Unknown error from ChatGPT backend',
-            type: (errorObj.type as string) ?? 'server_error',
-          },
-        })
+        fail(controller, errorObj)
         break
       }
+    }
+  }
 
-      // Skip all other events silently (content_part.added, output_text.done, etc.)
+  function processBufferedEvents(
+    controller: TransformStreamDefaultController<Uint8Array>,
+    flush = false,
+  ) {
+    // Normalize CRLF so event parsing behaves the same on every platform.
+    buffer = buffer.replace(/\r\n/g, '\n')
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const eventBlock = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+
+      const dataLines = eventBlock
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trim())
+      const jsonStr = dataLines.join('\n').trim()
+
+      if (jsonStr && jsonStr !== '[DONE]') {
+        try {
+          processEvent(
+            controller,
+            JSON.parse(jsonStr) as Record<string, unknown>,
+          )
+        } catch (error) {
+          controller.error(
+            new Error(
+              `Respuesta SSE inválida de Codex: ${error instanceof Error ? error.message : String(error)}`,
+            ),
+          )
+          return
+        }
+      }
+
+      boundary = buffer.indexOf('\n\n')
+    }
+
+    if (flush && buffer.trim()) {
+      const dataLines = buffer
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trim())
+      const jsonStr = dataLines.join('\n').trim()
+      if (jsonStr && jsonStr !== '[DONE]') {
+        try {
+          processEvent(
+            controller,
+            JSON.parse(jsonStr) as Record<string, unknown>,
+          )
+        } catch (error) {
+          controller.error(
+            new Error(
+              `Respuesta SSE inválida de Codex: ${error instanceof Error ? error.message : String(error)}`,
+            ),
+          )
+          return
+        }
+      }
+      buffer = ''
     }
   }
 
   return new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
+      if (terminalSeen) return
       buffer += decoder.decode(chunk, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-
-        const jsonStr = line.slice(6).trim()
-        if (!jsonStr || jsonStr === '[DONE]') {
-          continue
-        }
-
-        try {
-          const parsed = JSON.parse(jsonStr) as Record<string, unknown>
-          processEvent(controller, parsed)
-        } catch {
-          // Skip unparseable lines
-        }
-      }
+      processBufferedEvents(controller)
     },
 
     flush(controller) {
-      if (buffer.trim().startsWith('data: ')) {
-        const jsonStr = buffer.trim().slice(6).trim()
-        if (jsonStr && jsonStr !== '[DONE]') {
-          try {
-            const parsed = JSON.parse(jsonStr) as Record<string, unknown>
-            processEvent(controller, parsed)
-          } catch {
-            // skip
-          }
-        }
+      buffer += decoder.decode()
+      processBufferedEvents(controller, true)
+      if (!terminalSeen) {
+        controller.error(
+          new Error(
+            'La conexión Codex terminó antes de recibir response.completed.',
+          ),
+        )
       }
     },
   })
@@ -452,16 +803,30 @@ function createSseTransformStream(): TransformStream<Uint8Array, Uint8Array> {
 function transformResponseStream(
   inputStream: ReadableStream<Uint8Array>,
 ): ReadableStream<Uint8Array> {
-  const transform = createSseTransformStream()
-  inputStream.pipeTo(transform.writable).catch(() => {})
-  return transform.readable
+  // pipeThrough propagates upstream and transform errors. The previous
+  // pipeTo(...).catch(() => {}) swallowed transport failures and could leave the
+  // AI SDK waiting forever for a completion marker.
+  return inputStream.pipeThrough(createSseTransformStream())
 }
 
 // ============================================================================
 // Custom Fetch
 // ============================================================================
 
-export function createChatGptBackendFetch(): FetchFunction {
+export function createChatGptBackendFetch(
+  options: ChatGptBackendFetchOptions = {},
+): FetchFunction {
+  const resolvedOptions = {
+    sessionId: options.sessionId,
+    headerTimeoutMs: options.headerTimeoutMs ?? DEFAULT_HEADER_TIMEOUT_MS,
+    firstEventTimeoutMs:
+      options.firstEventTimeoutMs ?? DEFAULT_FIRST_EVENT_TIMEOUT_MS,
+    streamIdleTimeoutMs:
+      options.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    startupRetries: options.startupRetries ?? DEFAULT_STARTUP_RETRIES,
+    fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
+  }
+
   const fetchFn: FetchLike = async (
     input: RequestInfo | URL,
     init?: RequestInit,
@@ -471,29 +836,38 @@ export function createChatGptBackendFetch(): FetchFunction {
     if (init?.body && typeof init.body === 'string') {
       try {
         const body = JSON.parse(init.body) as Record<string, unknown>
-        const transformedBody = transformRequestBody(body)
+        const transformedBody = transformChatGptRequestBody(body, {
+          sessionId: resolvedOptions.sessionId,
+        })
         transformedInit = { ...init, body: JSON.stringify(transformedBody) }
       } catch {
-        // If body can't be parsed, pass through unchanged
+        // If body cannot be parsed, let the provider receive the original body.
       }
     }
 
-    const response = await globalThis.fetch(input, transformedInit)
+    let response = await fetchCodexResponse(input, transformedInit, {
+      headerTimeoutMs: resolvedOptions.headerTimeoutMs,
+      firstEventTimeoutMs: resolvedOptions.firstEventTimeoutMs,
+      streamIdleTimeoutMs: resolvedOptions.streamIdleTimeoutMs,
+      startupRetries: resolvedOptions.startupRetries,
+      fetch: resolvedOptions.fetch,
+    })
 
     if (!response.ok) {
-      // Map 404 usage-limit errors to 429 (same as opencode plugin)
+      // Some Codex account usage-limit responses have historically surfaced as
+      // 404. Preserve the existing behavior and expose them as rate limits.
       if (response.status === 404) {
         try {
           const text = await response.clone().text()
           if (/usage_limit|rate_limit/i.test(text)) {
-            return new Response(text, {
+            response = new Response(text, {
               status: 429,
               statusText: 'Too Many Requests',
               headers: response.headers,
             })
           }
         } catch {
-          // Fall through to return original response
+          // Return the original response if its body cannot be inspected.
         }
       }
       return response

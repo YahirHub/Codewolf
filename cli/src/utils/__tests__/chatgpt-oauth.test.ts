@@ -92,6 +92,12 @@ describe('chatgpt-oauth utility', () => {
         'https://auth.openai.com/api/accounts/deviceauth/token',
         'https://auth.openai.com/oauth/token',
       ])
+      expect(new Headers(requests[0]?.init?.headers).get('User-Agent')).toContain(
+        'codewolf/',
+      )
+      expect(new Headers(requests[1]?.init?.headers).get('User-Agent')).toContain(
+        'codewolf/',
+      )
       expect(new Headers(requests[2]?.init?.headers).get('Content-Type')).toBe(
         'application/x-www-form-urlencoded',
       )

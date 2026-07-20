@@ -117,8 +117,10 @@ TypeScript con Bun, React y OpenTUI.
   estadísticas técnicas locales de tokens, sin precios ni cuotas.
 - Estadísticas locales mediante `/usage`, con cifras informadas por el proveedor
   cuando existen y cálculo local cuando no existen.
-- `/compact` resume manualmente una sesión; Base2 compacta automáticamente al
-  90 % del contexto máximo configurado o descubierto para el modelo.
+- `/compact` resume manualmente una sesión mediante un turno interno aislado,
+  sin herramientas, subagentes ni `handleSteps`; Base2 compacta automáticamente
+  mediante `context-pruner` al 90 % del contexto máximo configurado o descubierto
+  para el modelo.
 - Las sesiones heredadas con `role`/`content` nulos se normalizan al reanudarse,
   y los metadatos del proveedor no pueden sobrescribir campos del protocolo.
 - `/history` abre el historial del proyecto actual y `Tab` cambia a una vista
@@ -419,3 +421,18 @@ al terminar.
 - `051`: mocks de fetch compatibles con los tipos extendidos de Bun.
 - `052`: build Windows mediante staging cuando codewolf.exe está bloqueado y corrección noImplicitAny del mock de conectividad.
 - Los mocks unitarios de `fetch` deben contemplar que Bun amplía `typeof fetch` con miembros estáticos como `preconnect`; en pruebas aisladas se usa la frontera explícita `as unknown as typeof fetch` sin debilitar los tipos de producción.
+
+- `053`: `/compact` aislado del agente normal y auto-compactación interna preservada.
+
+## Compactación manual y runner de validación (2026-07-20)
+
+- `/compact` es una operación interna aislada y de una sola llamada al modelo; tool calls inesperados no deben provocar iteraciones adicionales.
+- La auto-compactación normal mediante `context-pruner` permanece intacta.
+- `bun run tests` usa `scripts/test-all.js`; ejecuta todos los checks, acumula los fallos y muestra al final cada error con su código de salida.
+
+## Transporte Codex OAuth resiliente
+
+- La integración ChatGPT Plus/Pro (Codex Subscription) usa OAuth Codex y el endpoint Responses directo; no debe depender del transporte de un provider personalizado.
+- El transporte SSE Codex tiene timeouts acotados para cabeceras, primer evento e inactividad, propaga errores del stream y nunca debe dejar el CLI esperando indefinidamente.
+- La sesión activa se envía como `session-id` y `prompt_cache_key` para conservar afinidad/cache del backend.
+- `/compact` y la auto-compactación permanecen independientes de estos cambios.

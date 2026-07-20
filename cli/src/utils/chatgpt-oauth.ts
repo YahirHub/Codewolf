@@ -31,6 +31,7 @@ import type { ChatGptOAuthCredentials } from '@codebuff/sdk'
 const CALLBACK_SERVER_TIMEOUT_MS = 5 * 60 * 1000
 const DEVICE_CODE_TIMEOUT_MS = 15 * 60 * 1000
 const DEFAULT_DEVICE_POLL_INTERVAL_MS = 5_000
+const CHATGPT_OAUTH_USER_AGENT = `codewolf/${process.env.CODEWOLF_CLI_VERSION ?? '1.0.0'}`
 
 export interface ChatGptDeviceCodeInfo {
   verificationUrl: string
@@ -419,7 +420,10 @@ async function requestDeviceAuthorization(
 ): Promise<DeviceAuthorizationResponse> {
   const response = await fetchForLogin(CHATGPT_DEVICE_USER_CODE_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': CHATGPT_OAUTH_USER_AGENT,
+    },
     body: JSON.stringify({ client_id: CHATGPT_OAUTH_CLIENT_ID }),
     signal,
   })
@@ -506,7 +510,10 @@ export async function connectChatGptDeviceCode(params: {
     await delay(intervalMs, params.signal)
     const response = await fetchForLogin(CHATGPT_DEVICE_TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': CHATGPT_OAUTH_USER_AGENT,
+      },
       body: JSON.stringify({
         device_auth_id: device.deviceAuthId,
         user_code: device.userCode,

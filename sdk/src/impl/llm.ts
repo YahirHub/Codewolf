@@ -394,6 +394,7 @@ export async function* promptAiSdkStream(
     model: params.model,
     skipChatGptOAuth: params.skipChatGptOAuth,
     costMode: params.costMode,
+    clientSessionId: params.clientSessionId,
     customProvider,
   }
   const {
