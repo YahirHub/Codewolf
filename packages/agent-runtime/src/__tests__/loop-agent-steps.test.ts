@@ -361,8 +361,12 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       handleSteps: undefined,
     }
 
+    let compactLlmCalls = 0
     loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+      compactLlmCalls++
       yield { type: 'text' as const, text: `${summary}\n\n` }
+      // /compact exposes no tools. Even if a provider/model emits a stale tool
+      // call, manual compaction must remain a single-shot internal operation.
       yield createToolCallChunk('end_turn', {})
       return promptSuccess('compact-message-id')
     }
@@ -376,6 +380,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
 
     expect(result.output.type).toBe('lastMessage')
+    expect(compactLlmCalls).toBe(1)
     expect(JSON.stringify(result.output)).toContain(summary)
     expect(result.agentState.messageHistory).toHaveLength(1)
     expect(result.agentState.messageHistory[0]?.role).toBe('user')
@@ -389,6 +394,53 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(result.agentState.contextTokenCount).toBeLessThan(10_000)
   })
 
+  it('should isolate manual compaction from normal handleSteps, tools, and subagents', async () => {
+    const summary = 'Compact continuation summary.'
+    let programmaticRuns = 0
+    let request: Record<string, any> | undefined
+    const compactTemplate = {
+      ...mockTemplate,
+      outputMode: 'last_message' as const,
+      spawnableAgents: ['context-pruner' as const],
+      handleSteps: function* () {
+        programmaticRuns++
+        yield {
+          toolName: 'read_files',
+          input: { paths: ['should-not-run.txt'] },
+        }
+        yield 'STEP'
+      } as () => StepGenerator,
+    }
+
+    loopAgentStepsBaseParams.promptAiSdkStream = mock(async function* (params) {
+      request = params as unknown as Record<string, any>
+      yield { type: 'text' as const, text: summary }
+      return promptSuccess('isolated-compact-message-id')
+    })
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      prompt: '/compact',
+      agentType: 'test-agent',
+      agentTemplate: compactTemplate,
+      localAgentTemplates: { 'test-agent': compactTemplate },
+    })
+
+    expect(programmaticRuns).toBe(0)
+    expect(result.output.type).toBe('lastMessage')
+    expect(JSON.stringify(result.output)).toContain(summary)
+    expect(request).toBeDefined()
+    expect(Object.keys(request?.tools ?? {})).toHaveLength(0)
+    expect(request?.spawnableAgents ?? []).toEqual([])
+    expect(JSON.stringify(request?.messages ?? [])).not.toContain('/compact')
+    expect(JSON.stringify(request?.messages ?? [])).not.toContain(
+      'Test agent step prompt',
+    )
+    expect(JSON.stringify(request?.messages ?? [])).not.toContain(
+      'Test user prompt',
+    )
+  })
+
   it('should preserve the original history when manual compaction returns no summary', async () => {
     const compactTemplate = {
       ...mockTemplate,
@@ -398,7 +450,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const originalHistory = structuredClone(mockAgentState.messageHistory)
     const responseChunks: string[] = []
 
+    let compactLlmCalls = 0
     loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+      compactLlmCalls++
       yield createToolCallChunk('end_turn', {})
       return promptSuccess('empty-compact-message-id')
     }
@@ -415,6 +469,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
 
     expect(result.output.type).toBe('lastMessage')
+    expect(compactLlmCalls).toBe(1)
     expect(JSON.stringify(result.output)).toContain(
       'El historial original se conservó sin cambios.',
     )
@@ -1193,7 +1248,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       // Keep this unit test independent from the machine/CI network. The
       // timeout belongs to the provider path while public Internet is healthy.
       const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
-        (async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
+        (async () =>
+          new Response(null, { status: 204 })) as unknown as typeof fetch,
       )
 
       // Bun aborts a fetch after 5 minutes without receiving bytes, throwing a
@@ -1234,7 +1290,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       // provider socket with public Internet available is a provider/path
       // failure, not a general offline state.
       const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
-        (async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
+        (async () =>
+          new Response(null, { status: 204 })) as unknown as typeof fetch,
       )
 
       // Bun's fetch throws a plain Error with this message (and code

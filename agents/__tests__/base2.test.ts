@@ -60,6 +60,16 @@ describe('base2 context pruning', () => {
     return step.input.params
   }
 
+  test('keeps automatic compaction as an internal context-pruner step', () => {
+    const base2 = createBase2('default')
+    const generator = base2.handleSteps!({ params: undefined } as any)
+    const step = generator.next().value as any
+
+    expect(step.toolName).toBe('spawn_agent_inline')
+    expect(step.input.agent_type).toBe('context-pruner')
+    expect(step.includeToolCall).toBe(false)
+  })
+
   test('LITE defaults context pruning to 90% of 400k tokens', () => {
     expect(getContextPrunerParams('lite')).toEqual({
       maxContextLength: 360_000,
