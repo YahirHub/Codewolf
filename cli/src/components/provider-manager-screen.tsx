@@ -1,6 +1,12 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { Button } from './button'
 import { ProviderLoginScreen } from './provider-login-screen'
@@ -16,12 +22,16 @@ import {
   removeCustomProvider,
   setActiveCustomProvider,
 } from '../utils/custom-providers'
+import {
+  getProviderManagerRowBounds,
+  getProviderManagerScrollTop,
+} from '../utils/provider-manager-scroll'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { isOpenCodeFreeProviderId } from '../providers/opencode-catalog'
 import { isOpenAICodexProviderId } from '../providers/openai-codex-catalog'
 
 import type { CustomProviderDefinition } from '../utils/custom-providers'
-import type { KeyEvent } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
 type ProviderManagerView = 'list' | 'actions' | 'editor' | 'delete'
 type ProviderAction = 'edit' | 'activate' | 'models' | 'delete' | 'back'
@@ -74,6 +84,7 @@ export const ProviderManagerScreen: React.FC<
   const theme = useTheme()
   const { terminalHeight } = useTerminalDimensions()
   const config = useCustomProviderStore((state) => state.config)
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [view, setView] = useState<ProviderManagerView>('list')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
@@ -127,6 +138,23 @@ export const ProviderManagerScreen: React.FC<
           : 1
     setSelectedIndex((current) => Math.max(0, Math.min(current, maxIndex)))
   }, [providerActions.length, rows.length, view])
+
+  useEffect(() => {
+    if (view !== 'list') return
+
+    const scrollbox = scrollRef.current
+    const bounds = getProviderManagerRowBounds(rows, selectedIndex)
+    if (!scrollbox || !bounds) return
+
+    const nextScrollTop = getProviderManagerScrollTop(
+      scrollbox.scrollTop,
+      scrollbox.viewport.height,
+      bounds,
+    )
+    if (nextScrollTop !== scrollbox.scrollTop) {
+      scrollbox.scrollTop = nextScrollTop
+    }
+  }, [rows, selectedIndex, view])
 
   const goList = useCallback((status?: string) => {
     refreshCustomProviderStore()
@@ -305,6 +333,7 @@ export const ProviderManagerScreen: React.FC<
             </text>
           </box>
           <scrollbox
+            ref={scrollRef}
             scrollX={false}
             scrollbarOptions={{ visible: false }}
             verticalScrollbarOptions={{ visible: true, trackOptions: { width: 1 } }}
